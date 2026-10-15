@@ -2,15 +2,25 @@
 
 Ask your local AI to search and crawl the web, then add or update what it finds in a knowledge base.
 
-**Stack:** Python 3.12 · FastAPI · Jinja2 + HTMX + Tabler · PostgreSQL · Redis + RQ · SearXNG · Ollama (on the iMac)
+**Stack:** Python 3.12 · FastAPI · Jinja2 + HTMX · PostgreSQL · Redis + RQ · SearXNG · Ollama (on the iMac)
 
 ```
-Browser ──► web (FastAPI) ──► Redis queue ──► worker
-                                              ├─► SearXNG (search)
-                                              ├─► fetch + Trafilatura (clean text)
-                                              ├─► Ollama on the iMac (extract JSON)
-                                              └─► Postgres (upsert by source URL)
+Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
+                                                    ├─► SearXNG (search)
+                                                    ├─► fetch + Trafilatura (clean text)
+                                                    ├─► Ollama on the iMac (fills the group's fields as JSON)
+                                                    └─► Postgres (add or update by group + source URL)
 ```
+
+## How it is organised
+
+- **Groups** (Manufacturers, Materials, …) are the directory tabs. Admins create them in Settings.
+- Each group has **keywords** (click one to make the AI search and update that group) and
+  **fields** (City, Products, Employees, …) that the AI fills and that can be used to filter, sort and show on cards.
+- **Users** log in. Each user has permissions (view, request, keyword updates, edit, delete, manage groups,
+  manage users) and can be limited to selected groups. Admins can do everything.
+- The first time NetGate starts with no users, it shows a page to create the first admin.
+- Database changes are applied automatically at start-up and keep existing data.
 
 ## Server commands (WSL)
 

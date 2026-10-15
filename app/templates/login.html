@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Log in · NetGate{% endblock %}
+{% block body %}
+<main class="auth">
+  <form class="panel" method="post" action="/login">
+    <h1>NetGate</h1>
+    <p class="hint" style="margin:0">Log in to open the directory.</p>
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+    <label class="field">Username
+      <input type="text" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+</main>
+{% endblock %}

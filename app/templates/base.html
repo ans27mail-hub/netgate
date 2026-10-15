@@ -3,28 +3,55 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetGate</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0/dist/css/tabler.min.css">
+  <title>{% block title %}NetGate{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 </head>
 <body>
-<div class="page">
-  <header class="navbar navbar-expand-md d-print-none">
-    <div class="container-xl">
-      <a href="/" class="navbar-brand fw-bold">NetGate</a>
-      <div class="navbar-nav flex-row">
-        <a class="nav-link" href="/">Requests</a>
-        <a class="nav-link" href="/records">Knowledge</a>
-      </div>
-    </div>
-  </header>
-  <div class="page-wrapper">
-    <div class="page-body">
-      <div class="container-xl">
-        {% block content %}{% endblock %}
-      </div>
-    </div>
+{% block body %}
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/">NetGate</a>
+    <form class="topsearch" action="/" method="get" role="search">
+      {% if sel_group %}<input type="hidden" name="group" value="{{ sel_group.id }}">{% endif %}
+      <label for="topq" class="sr">Search the directory</label>
+      <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="Search {{ sel_group.name if sel_group else 'the directory' }}…">
+    </form>
+    {% if req_groups %}
+    <button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">Ask NetGate to find…</button>
+    {% endif %}
+    <nav class="toplinks" aria-label="Account">
+      <a href="/requests">Requests</a>
+      {% if can(user, 'manage_groups') or can(user, 'manage_users') %}<a href="/settings">Settings</a>{% endif %}
+      <span class="who"><span class="avatar" aria-hidden="true">{{ user.username[:1] }}</span>{{ user.username }}</span>
+      <form method="post" action="/logout" style="margin:0"><button type="submit">Log out</button></form>
+    </nav>
   </div>
-</div>
+</header>
+
+{% block content %}{% endblock %}
+
+{% if req_groups %}
+<dialog id="ask" aria-labelledby="ask-title">
+  <form method="post" action="/jobs">
+    <h2 id="ask-title">Ask NetGate to find…</h2>
+    <label class="field">What should the AI look for?
+      <textarea name="query" rows="3" required placeholder="e.g. leather glove manufacturers in Sialkot that export to Europe"></textarea>
+    </label>
+    <label class="field">Save results in group
+      <select name="group_id" required>
+        {% for g in req_groups %}<option value="{{ g.id }}" {% if sel_group and g.id == sel_group.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Start</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
 </body>
 </html>

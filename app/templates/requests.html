@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Requests · NetGate{% endblock %}
+{% block content %}
+<div class="wrap page">
+  {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+  <div class="shead"><h1 style="margin:0;font-size:26px">Requests</h1></div>
+  <section class="panel" style="padding:0">
+    <div class="overflow">
+      <table class="t">
+        <thead><tr><th>#</th><th>Request</th><th>Group</th><th>Status</th><th>Details</th><th>Started</th></tr></thead>
+        <tbody>
+        {% for j in jobs %}
+          <tr>
+            <td class="mono">{{ j.id }}</td>
+            <td>{% if j.kind == 'keyword' %}<span class="badge blue">Keyword</span> {% endif %}{{ j.query }}</td>
+            <td>{{ group_names.get(j.group_id, '—') }}</td>
+            <td><span class="badge {% if j.status == 'done' %}green{% elif j.status != 'failed' %}blue{% endif %}">{{ j.status }}</span></td>
+            <td class="sub" style="max-width:420px;overflow-wrap:anywhere">{{ j.message or '' }}</td>
+            <td class="sub mono" style="white-space:nowrap">{{ j.created_at.strftime('%d %b %H:%M') if j.created_at else '' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="sub" style="padding:24px">No requests yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

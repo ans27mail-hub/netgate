@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Settings · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+
+    {% if not group %}
+    <div class="empty">No groups yet. Type a name under “Groups” on the left and press + to create the first one.</div>
+    {% else %}
+    <div class="shead">
+      <h1>{{ group.name }}</h1>
+      <span class="badge">{{ count }} listing{{ '' if count == 1 else 's' }}</span>
+      <a href="/?group={{ group.id }}" class="ml-auto">Open in directory</a>
+    </div>
+
+    <section class="panel">
+      <form method="post" action="/settings/groups/{{ group.id }}" style="display:flex;flex-direction:column;gap:14px">
+        <h2>Details</h2>
+        <div class="row">
+          <label class="field">Group name
+            <input type="text" name="name" value="{{ group.name }}" required>
+          </label>
+          <label class="field" style="flex:0 1 120px">Tab order
+            <input type="number" name="position" value="{{ group.position }}">
+          </label>
+        </div>
+        <label class="field">Instructions for the AI
+          <input type="text" name="instructions" value="{{ group.instructions }}" placeholder="What belongs in this group, e.g. Factories making motorcycle apparel">
+        </label>
+        <label class="field">Words added to every keyword search
+          <input type="text" name="search_terms" value="{{ group.search_terms }}" placeholder="e.g. manufacturer Pakistan">
+          <span class="hint">Keyword “leather gloves” + “{{ group.search_terms or 'manufacturer' }}” → the AI searches “leather gloves {{ group.search_terms or 'manufacturer' }}”.</span>
+        </label>
+        <div><button type="submit" class="btn btn-primary">Save details</button></div>
+      </form>
+    </section>
+
+    <section class="panel" id="keywords" style="display:flex;flex-direction:column;gap:14px">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2>Keywords</h2>
+        <span class="hint">Clicking a keyword in the directory sends the AI to search it for this group</span>
+      </div>
+      <div class="kwbar">
+        {% for k in group.keywords %}
+        <span class="chip chip-static">{{ k.text }}
+          <form method="post" action="/settings/groups/{{ group.id }}/keywords/{{ k.id }}/delete" style="display:inline">
+            <button type="submit" class="chip-x" aria-label="Remove keyword {{ k.text }}">×</button>
+          </form>
+        </span>
+        {% else %}
+        <span class="hint">No keywords yet.</span>
+        {% endfor %}
+      </div>
+      <form method="post" action="/settings/groups/{{ group.id }}/keywords" class="row">
+        <label class="field">Add keywords (separate several with commas)
+          <input type="text" name="text" placeholder="e.g. kids motorcycle gear, rain suits" required>
+        </label>
+        <button type="submit" class="btn btn-outline">Add</button>
+      </form>
+    </section>
+
+    {% for f in group.fields %}
+    <form id="ff{{ f.id }}" method="post" action="/settings/groups/{{ group.id }}/fields/{{ f.id }}" hidden></form>
+    <form id="fd{{ f.id }}" method="post" action="/settings/groups/{{ group.id }}/fields/{{ f.id }}/delete" onsubmit="return confirm('Remove the field {{ f.name }}?')" hidden></form>
+    {% endfor %}
+    <section class="panel" id="fields" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2>Fields, filters &amp; sorting</h2>
+        <span class="hint">The AI fills these fields for every listing in this group</span>
+      </div>
+      <div class="overflow">
+        <table class="t" style="min-width:760px">
+          <thead><tr><th>Field</th><th>Type</th><th>Choices (comma separated)</th><th class="c">Filter</th><th class="c">Sort</th><th class="c">On card</th><th></th></tr></thead>
+          <tbody>
+          {% for f in group.fields %}
+            <tr>
+              <td><input form="ff{{ f.id }}" type="text" name="name" value="{{ f.name }}" aria-label="Field name" style="width:150px"></td>
+              <td>
+                <select form="ff{{ f.id }}" name="type" aria-label="Field type">
+                  {% for k, label in FIELD_TYPES.items() %}<option value="{{ k }}" {% if f.type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+              </td>
+              <td><input form="ff{{ f.id }}" type="text" name="choices" value="{{ f.choices }}" aria-label="Choices" placeholder="{{ 'Filled by AI' if f.type != 'choice' else '' }}" style="width:100%;min-width:180px"></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="filter" aria-label="Use {{ f.name }} as filter" {% if f.filter %}checked{% endif %}></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="sort" aria-label="Allow sorting by {{ f.name }}" {% if f.sort %}checked{% endif %}></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="card" aria-label="Show {{ f.name }} on card" {% if f.card %}checked{% endif %}></td>
+              <td style="white-space:nowrap">
+                <button form="ff{{ f.id }}" type="submit" class="btn btn-outline btn-small">Save</button>
+                <button form="fd{{ f.id }}" type="submit" class="btn btn-danger btn-small" aria-label="Remove field {{ f.name }}">Remove</button>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <form method="post" action="/settings/groups/{{ group.id }}/fields" class="row" style="padding-top:6px;border-top:1px solid var(--line-2)">
+        <label class="field">New field name<input type="text" name="name" placeholder="e.g. Certifications" required></label>
+        <label class="field" style="flex:0 1 160px">Type
+          <select name="type">{% for k, label in FIELD_TYPES.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+        </label>
+        <label class="field">Choices (only for Choice type)<input type="text" name="choices" placeholder="e.g. Small, Medium, Large"></label>
+        <button type="submit" class="btn btn-outline">+ Add field</button>
+      </form>
+    </section>
+
+    <section class="panel" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+      <div><h2>Delete group</h2><span class="hint">Deletes the group, its keywords, fields and all {{ count }} listing(s).</span></div>
+      <form method="post" action="/settings/groups/{{ group.id }}/delete" onsubmit="return confirm('Delete {{ group.name }} and all its listings? This cannot be undone.')">
+        <button type="submit" class="btn btn-danger">Delete {{ group.name }}</button>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

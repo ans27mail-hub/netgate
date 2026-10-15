@@ -1,0 +1,18 @@
+<nav class="snav" aria-label="Settings">
+  {% if can(user, 'manage_groups') %}
+  <span class="caps">Groups</span>
+  {% for g in all %}
+  <a href="/settings/groups/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}">{{ g.name }}</a>
+  {% endfor %}
+  <form method="post" action="/settings/groups" style="display:flex;gap:6px;padding:8px 0 0">
+    <label for="newgroup" class="sr">New group name</label>
+    <input id="newgroup" type="text" name="name" placeholder="New group name" required style="flex:1;min-width:0">
+    <button type="submit" class="btn btn-outline" aria-label="Create group">+</button>
+  </form>
+  {% endif %}
+  {% if can(user, 'manage_users') %}
+  <span class="caps">Admin</span>
+  <a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}">Users &amp; permissions</a>
+  {% endif %}
+  <a href="/" style="margin-top:12px">← Back to directory</a>
+</nav>

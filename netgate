@@ -13,6 +13,8 @@ cd "$APP_DIR"
 ensure_secret() {
   # SearXNG needs a secret key; create one in .env the first time
   grep -q '^SEARXNG_SECRET=' .env 2>/dev/null || echo "SEARXNG_SECRET=$(openssl rand -hex 32)" >> .env
+  # NetGate login sessions are signed with this key
+  grep -q '^APP_SECRET_KEY=' .env 2>/dev/null || echo "APP_SECRET_KEY=$(openssl rand -hex 32)" >> .env
 }
 
 deploy() {

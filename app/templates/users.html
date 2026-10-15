@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Users · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+
+    <div class="layout">
+      <section class="panel userlist" style="flex:1 1 260px;max-width:320px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)">
+          <h2>Users</h2>
+          <a href="/settings/users" class="btn btn-primary btn-small">+ Add user</a>
+        </div>
+        {% for u in users %}
+        <a href="/settings/users/{{ u.id }}" class="{% if edit and edit.id == u.id %}on{% endif %}">
+          <span class="avatar" aria-hidden="true" style="background:#e3e8f1;color:#3b414c">{{ u.username[:1] }}</span>
+          <span style="display:flex;flex-direction:column;min-width:0;flex:1">
+            <b style="font-size:15px">{{ u.username }}</b>
+            <span class="sub">{% if u.all_groups or u.is_admin %}All groups{% elif u.group_ids %}{% for gid in u.group_ids %}{{ group_names.get(gid, '') }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}No groups{% endif %}{% if not u.active %} · disabled{% endif %}</span>
+          </span>
+          <span class="badge {% if u.is_admin %}green{% elif u.role == 'Editor' %}blue{% endif %}">{{ u.role }}</span>
+        </a>
+        {% endfor %}
+      </section>
+
+      <form class="main" style="flex:999 1 460px;display:flex;flex-direction:column;gap:16px" method="post" action="{{ '/settings/users/%d' % edit.id if edit else '/settings/users/new' }}">
+        <div class="shead">
+          <h1>{{ edit.username if edit else 'New user' }}</h1>
+          {% if edit %}<span class="badge {% if edit.active %}green{% endif %}">{{ 'Active' if edit.active else 'Disabled' }}</span>{% endif %}
+          <button type="submit" class="btn btn-primary ml-auto">Save</button>
+        </div>
+
+        <section class="panel row">
+          <label class="field">Username
+            <input type="text" name="username" value="{{ edit.username if edit else '' }}" required autocomplete="off">
+          </label>
+          <label class="field">{{ 'New password (leave empty to keep)' if edit else 'Password (at least 8 characters)' }}
+            <input type="password" name="password" autocomplete="new-password" {% if not edit %}required minlength="8"{% endif %}>
+          </label>
+          <label class="field">Role (starting point)
+            <select name="role" id="role">
+              {% for r in ['Admin', 'Editor', 'Viewer', 'Custom'] %}<option {% if (edit and edit.role == r) or (not edit and r == 'Viewer') %}selected{% endif %}>{{ r }}</option>{% endfor %}
+            </select>
+          </label>
+          {% if edit %}
+          <label style="display:flex;gap:8px;align-items:center;font-size:15px;min-height:40px"><input type="checkbox" name="active" {% if edit.active %}checked{% endif %}> Active</label>
+          {% else %}<input type="hidden" name="active" value="on">{% endif %}
+        </section>
+
+        <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+          <h2>Group access</h2>
+          {% set limited = edit and not edit.all_groups and not edit.is_admin %}
+          <div style="display:flex;flex-wrap:wrap;gap:10px 22px">
+            <label style="display:flex;gap:8px;align-items:center"><input type="radio" name="access" value="all" {% if not limited %}checked{% endif %}> All groups</label>
+            <label style="display:flex;gap:8px;align-items:center"><input type="radio" name="access" value="some" {% if limited %}checked{% endif %}> Only selected groups</label>
+          </div>
+          <div class="gchecks">
+            {% for g in all %}
+            <label><input type="checkbox" name="groups" value="{{ g.id }}" {% if edit and g.id in edit.group_ids %}checked{% endif %}> {{ g.name }}</label>
+            {% endfor %}
+          </div>
+          <span class="hint">With “Only selected groups”, this user only sees and works in the ticked groups. Admins always see everything.</span>
+        </section>
+
+        <section class="panel">
+          <h2 style="margin-bottom:6px">Permissions</h2>
+          {% for key, label, desc in PERMS %}
+          <label class="check">
+            <input type="checkbox" name="perms" value="{{ key }}" data-perm="{{ key }}" {% if (edit and key in edit.perm_set) or (not edit and key == 'view') %}checked{% endif %}>
+            <span><b>{{ label }}</b><span class="hint">{{ desc }}</span></span>
+          </label>
+          {% endfor %}
+        </section>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  // Picking a role ticks its permissions; ticking boxes by hand makes it "Custom".
+  (function () {
+    var roles = {{ ROLES|tojson }};
+    var role = document.getElementById('role');
+    var boxes = document.querySelectorAll('[data-perm]');
+    role.addEventListener('change', function () {
+      var set = roles[role.value];
+      if (!set) return;
+      boxes.forEach(function (b) { b.checked = set.indexOf(b.dataset.perm) !== -1; });
+    });
+    boxes.forEach(function (b) { b.addEventListener('change', function () { if (role.value !== 'Admin') role.value = 'Custom'; }); });
+  })();
+</script>
+{% endblock %}

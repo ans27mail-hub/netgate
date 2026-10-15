@@ -1,0 +1,10 @@
+<h2>AI activity</h2>
+{% for j in jobs %}
+<div class="job">
+  <span>{% if j.kind == 'keyword' %}Keyword: {% endif %}{{ j.query }}</span>
+  <span class="st st-{{ j.status }}">{{ j.status }}{% if j.status in ('done', 'failed') and j.message %} · {{ j.message }}{% elif j.status in ('crawling', 'extracting') and j.message %} · {{ j.message.split(':')[0] }}{% elif j.saved or j.updated %} · {{ j.saved }} saved, {{ j.updated }} updated{% endif %}</span>
+</div>
+{% else %}
+<p class="sub" style="color:#aab0bc;margin:0">Nothing running right now.</p>
+{% endfor %}
+<a href="/requests">All requests</a>

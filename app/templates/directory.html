@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ sel_group.name ~ ' · ' if sel_group else '' }}NetGate{% endblock %}
+{% block content %}
+<nav class="tabs" aria-label="Groups">
+  <div class="wrap">
+    <a href="/" class="tab {% if not sel_group %}on{% endif %}">All</a>
+    {% for g in groups %}
+    <a href="/?group={{ g.id }}" class="tab {% if sel_group and g.id == sel_group.id %}on{% endif %}">{{ g.name }}</a>
+    {% endfor %}
+  </div>
+</nav>
+
+<div class="wrap page">
+  {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+
+  {% if sel_group and sel_group.keywords and can(user, 'keywords', sel_group.id) %}
+  <section class="panel kwbar" aria-label="Keywords">
+    <span class="caps">Keywords</span>
+    {% for k in sel_group.keywords %}
+    <form method="post" action="/groups/{{ sel_group.id }}/keywords/{{ k.id }}/run">
+      <button type="submit" class="chip" title="Ask the AI to search for &quot;{{ k.text }}&quot; and update this group">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>{{ k.text }}</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="/groups/{{ sel_group.id }}/keywords/run-all" class="ml-auto">
+      <button type="submit" class="btn btn-dark pill">Update all keywords</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <form class="filters" method="get" action="/">
+    {% if sel_group %}<input type="hidden" name="group" value="{{ sel_group.id }}">{% endif %}
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    {% for f in fields if f.filter %}
+    <label>{{ f.name }}
+      <select name="f_{{ f.key }}" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for v in options.get(f.key, []) %}<option value="{{ v }}" {% if active.get(f.key) == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <label class="ml-auto">Sort by
+      <select name="sort" onchange="this.form.submit()">
+        <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Recently updated</option>
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option>
+        {% for f in fields if f.sort %}<option value="f_{{ f.key }}" {% if sort == 'f_' ~ f.key %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn btn-outline">Apply</button></noscript>
+  </form>
+
+  {% if q or active %}
+  <p class="hint" style="margin:0">{{ records|length }} result{{ '' if records|length == 1 else 's' }}{% if q %} for “{{ q }}”{% endif %} · <a href="/{% if sel_group %}?group={{ sel_group.id }}{% endif %}">Clear</a></p>
+  {% endif %}
+
+  <div class="layout">
+    <main class="main">
+      {% if records %}
+      <div class="grid">
+        {% for r in records %}
+        {% set gfields = sel_group.fields if sel_group else [] %}
+        <article class="card">
+          <div class="card-head">
+            <div class="pic" aria-hidden="true">{{ (r.title or '?')[:1] }}</div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+              <h3>{{ r.title }}</h3>
+              <span class="sub">
+                {%- set city = (r.data or {}).get('city') -%}
+                {%- set country = (r.data or {}).get('country') -%}
+                {{ [city, country]|select|join(', ') if (city or country) else (group_names.get(r.group_id, '') if not sel_group else '') }}
+              </span>
+            </div>
+          </div>
+          {% if r.summary %}<p>{{ r.summary }}</p>{% endif %}
+          {% set shown = gfields|selectattr('card')|rejectattr('key', 'in', ['city', 'country'])|list %}
+          {% if shown %}
+          <dl class="kv">
+            {% for f in shown %}<dt>{{ f.name }}</dt><dd>{{ fmt(r, f) }}</dd>{% endfor %}
+          </dl>
+          {% endif %}
+          <div class="card-foot">
+            {% if not sel_group and r.group_id in group_names %}<span class="badge blue">{{ group_names[r.group_id] }}</span>{% endif %}
+            {% if fresh(r) %}<span class="badge green">Updated</span>{% endif %}
+            {% if can(user, 'delete', r.group_id) %}
+            <form method="post" action="/records/{{ r.id }}/delete" onsubmit="return confirm('Delete this listing?')">
+              <button type="submit" class="linkbtn">Delete</button>
+            </form>
+            {% endif %}
+            <a class="src" href="{{ r.source_url }}" target="_blank" rel="noopener">{{ domain(r.source_url) }}</a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        {% if q or active %}No listings match. Try another search or clear the filters.
+        {% elif sel_group and sel_group.keywords and can(user, 'keywords', sel_group.id) %}No listings in {{ sel_group.name }} yet. Click a keyword above to let the AI find some.
+        {% else %}No listings yet. Use “Ask NetGate to find…” to start.{% endif %}
+      </div>
+      {% endif %}
+    </main>
+
+    <aside class="side">
+      <section class="activity" hx-get="/activity" hx-trigger="every 4s" hx-swap="innerHTML">
+        {% include "_activity.html" %}
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}

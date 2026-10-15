@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Set up · NetGate{% endblock %}
+{% block body %}
+<main class="auth">
+  <form class="panel" method="post" action="/setup">
+    <h1>Welcome to NetGate</h1>
+    <p class="hint" style="margin:0">Create the first admin account. You can add other users afterwards in Settings.</p>
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+    <label class="field">Admin username
+      <input type="text" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">Password (at least 8 characters)
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <label class="field">Repeat password
+      <input type="password" name="password2" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Create admin and open NetGate</button>
+  </form>
+</main>
+{% endblock %}
