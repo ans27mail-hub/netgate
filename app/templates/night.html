@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Night jobs · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+    <form method="post" action="/settings/night" style="display:flex;flex-direction:column;gap:16px">
+      <div class="shead">
+        <h1>Night jobs</h1>
+        <label style="display:flex;gap:8px;align-items:center;font-size:15px"><input type="checkbox" name="enabled" {% if cfg.enabled %}checked{% endif %}> Enabled</label>
+        <button type="submit" class="btn btn-primary ml-auto">Save</button>
+      </div>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:14px">
+        <h2>When</h2>
+        <div class="row">
+          <label class="field">Start<input type="time" name="start" value="{{ cfg.start }}"></label>
+          <label class="field">Stop<input type="time" name="stop" value="{{ cfg.stop }}"></label>
+          <label class="field">Time zone<input type="text" name="timezone" value="{{ cfg.timezone }}"></label>
+        </div>
+        <div class="gchecks" role="group" aria-label="Nights">
+          {% for name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+          <label><input type="checkbox" name="days" value="{{ loop.index0 }}" {% if loop.index0 in cfg.days %}checked{% endif %}> {{ name }}</label>
+          {% endfor %}
+        </div>
+        <span class="hint">A night counts from its start day: with 11:00 pm – 7:00 am and Saturday off, nothing starts on Saturday evening. Jobs stop by themselves when the window ends. Keep the iMac and this PC awake overnight.</span>
+      </section>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:14px">
+        <h2>Limits</h2>
+        <div class="row">
+          <label class="field">Max companies enriched per night<input type="number" name="max_companies" min="0" value="{{ cfg.max_companies }}"></label>
+          <label class="field">Pause between pages (seconds)<input type="number" name="pause" min="0" max="120" value="{{ cfg.pause }}"></label>
+        </div>
+        <span class="hint">A short pause keeps search engines and websites from blocking you.</span>
+      </section>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <h2>What to do in each group</h2>
+        <div class="overflow">
+          <table class="t" style="min-width:600px">
+            <thead><tr><th>Group</th><th class="c">Discover<br><span class="sub">night keywords</span></th><th class="c">Enrich<br><span class="sub">incomplete, least complete first</span></th><th>Refresh complete listings older than</th></tr></thead>
+            <tbody>
+            {% for g in all %}
+              <tr>
+                <td><b>{{ g.name }}</b><br><span class="sub">{{ g.keywords|selectattr('night')|list|length }} of {{ g.keywords|length }} keywords on</span></td>
+                <td class="c"><input type="checkbox" name="d_{{ g.id }}" aria-label="Discover in {{ g.name }}" {% if g.night_discover %}checked{% endif %}></td>
+                <td class="c"><input type="checkbox" name="e_{{ g.id }}" aria-label="Enrich in {{ g.name }}" {% if g.night_enrich %}checked{% endif %}></td>
+                <td>
+                  <select name="r_{{ g.id }}" aria-label="Refresh in {{ g.name }}">
+                    {% for days, label in [(0, 'Never'), (30, '30 days'), (60, '60 days'), (90, '90 days'), (180, '6 months'), (365, '1 year')] %}
+                    <option value="{{ days }}" {% if g.refresh_days == days %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <span class="hint">Choose which keywords run at night on each group's settings page.</span>
+      </section>
+    </form>
+
+    <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+      <h2>Recent nights</h2>
+      {% for run in runs %}
+      <div class="nightrow">
+        <b>{{ run.night_date.strftime('%a %d %b') }}</b>
+        <span class="badge {% if run.status == 'done' %}green{% elif run.status == 'failed' %}red{% elif run.status == 'running' %}blue{% endif %}">{{ run.status }}</span>
+        <span class="sub">{{ (run.stats or {}).get('saved', 0) }} new · {{ (run.stats or {}).get('companies', 0) }} enriched · {{ (run.stats or {}).get('fields', 0) }} fields filled · {{ (run.stats or {}).get('read', 0) }} pages read · {{ (run.stats or {}).get('failed', 0) }} failed</span>
+        {% if run.note %}<span class="sub ml-auto">{{ run.note }}</span>{% endif %}
+      </div>
+      {% else %}
+      <span class="hint">No night runs yet.</span>
+      {% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -12,6 +12,16 @@ Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
                                                     └─► Postgres (add or update by group + source URL)
 ```
 
+## How it works
+
+1. **Discover** — a keyword (or "+ Find companies") searches the web in a few variations, reads list pages and
+   company pages, and adds every matching company with name, city, country and website.
+2. **Enrich** — the update icon on a company searches for that company by name and city, reads its own website
+   (home, About, Contact), uses each field's search words, finds Facebook / Instagram / LinkedIn links, and fills
+   only the missing fields. Each run uses what is already known, so the next run is more precise.
+3. **Night jobs** — inside a time window (e.g. 11 pm – 7 am) NetGate discovers with the night keywords, then
+   enriches incomplete companies (least complete first) and refreshes old ones. It stops by itself when the window ends.
+
 ## How it is organised
 
 - **Groups** (Manufacturers, Materials, …) are the directory tabs. Admins create them in Settings.
@@ -20,6 +30,9 @@ Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
 - **Users** log in. Each user has permissions (view, request, keyword updates, edit, delete, manage groups,
   manage users) and can be limited to selected groups. Admins can do everything.
 - The first time NetGate starts with no users, it shows a page to create the first admin.
+- Each group has its own AI instructions (what belongs, how to fill fields, what to ignore) and a page tester.
+- AI servers (Ollama on the iMac, a GPU PC later, optional OpenRouter with spending limits) and the model per job
+  are chosen in Settings → AI servers.
 - Database changes are applied automatically at start-up and keep existing data.
 
 ## Server commands (WSL)

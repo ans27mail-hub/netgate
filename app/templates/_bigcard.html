@@ -1,0 +1,55 @@
+{% set filled, total = completeness(r, g) %}
+<article class="bigcard" aria-label="{{ r.title }}">
+  <div class="big-head">
+    <div class="pic pic-lg" aria-hidden="true">{{ (r.title or '?')[:1] }}</div>
+    <div class="big-title">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px">
+        <h2>{{ r.title }}</h2>
+        <span class="badge {% if filled >= total %}green{% else %}amber{% endif %}">{{ filled }} of {{ total }} fields</span>
+      </div>
+      <span class="sub" style="font-size:14px">
+        {{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or 'Location unknown' }}
+        {% if (r.data or {}).get('website') %} · <a href="{{ r.data.website }}" target="_blank" rel="noopener">{{ domain(r.data.website) }}</a>{% endif %}
+      </span>
+      {% if r.social %}
+      <div class="social">
+        {% for kind, label in [('facebook', 'Facebook'), ('instagram', 'Instagram'), ('linkedin', 'LinkedIn')] if r.social.get(kind) %}
+        <a href="{{ r.social[kind] }}" target="_blank" rel="noopener">{{ label }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="big-actions">
+      {% if can(user, 'request', r.group_id) %}
+      <form method="post" action="/records/{{ r.id }}/enrich">
+        <button type="submit" class="btn btn-primary"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Enrich now</button>
+      </form>
+      {% endif %}
+      {% if can(user, 'delete', r.group_id) %}
+      <form method="post" action="/records/{{ r.id }}/delete" onsubmit="return confirm('Delete {{ r.title|e }}?')">
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+      {% endif %}
+      <button type="button" class="btn btn-outline" aria-label="Close" onclick="this.closest('.bigcard').remove()">×</button>
+    </div>
+  </div>
+  {% if r.summary %}<p class="big-desc">{{ r.summary }}</p>{% endif %}
+  <div class="fieldgrid">
+    {% for f in (g.fields if g else []) %}
+    {% set v = (r.data or {}).get(f.key) %}
+    {% if empty(v) %}
+    <div class="fbox missing"><span>{{ f.name }}</span><b>Missing</b><small>Enrich will look for it</small></div>
+    {% else %}
+    <div class="fbox"><span>{{ f.name }}</span>
+      <b>{% if f.type == 'url' %}<a href="{{ v }}" target="_blank" rel="noopener">{{ domain(v) }}</a>{% elif f.type == 'email' %}<a href="mailto:{{ v }}">{{ v }}</a>{% else %}{{ fmt(r, f) }}{% endif %}</b>
+      {% set src = (r.sources or {}).get(f.key) %}
+      <small>{% if src and src.startswith('http') %}<a href="{{ src }}" target="_blank" rel="noopener">{{ domain(src) }}</a>{% else %}{{ src or '' }}{% endif %}</small>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div class="big-foot">
+    <span>First found: {{ r.created_at.strftime('%d %b %Y') if r.created_at else '—' }}{% if r.topic %} by “{{ r.topic|truncate(50) }}”{% endif %} on <a href="{{ r.source_url }}" target="_blank" rel="noopener">{{ domain(r.source_url) }}</a></span>
+    <span>Last enriched: {{ ago(r.last_enriched_at) }}{% if r.enrich_runs %} · {{ r.enrich_runs }} run{{ '' if r.enrich_runs == 1 else 's' }}{% endif %}{% if r.enrich_note %} · {{ r.enrich_note }}{% endif %}</span>
+  </div>
+</article>

@@ -6,10 +6,10 @@
   <title>{% block title %}NetGate{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{ VERSION }}">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 </head>
-<body>
+<body style="{{ page_style or '' }}">
 {% block body %}
 <header class="topbar">
   <div class="wrap">
@@ -17,14 +17,14 @@
     <form class="topsearch" action="/" method="get" role="search">
       {% if sel_group %}<input type="hidden" name="group" value="{{ sel_group.id }}">{% endif %}
       <label for="topq" class="sr">Search the directory</label>
-      <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="Search {{ sel_group.name if sel_group else 'the directory' }}…">
+      <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="Search {{ sel_group.name if sel_group else 'the directory' }} by name, city, product…">
     </form>
     {% if req_groups %}
-    <button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">Ask NetGate to find…</button>
+    <button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Find companies</button>
     {% endif %}
     <nav class="toplinks" aria-label="Account">
       <a href="/requests">Requests</a>
-      {% if can(user, 'manage_groups') or can(user, 'manage_users') %}<a href="/settings">Settings</a>{% endif %}
+      {% if can(user, 'manage_groups') or can(user, 'manage_users') %}<a href="/settings">Settings</a>{% else %}<a href="/settings/display">Display</a>{% endif %}
       <span class="who"><span class="avatar" aria-hidden="true">{{ user.username[:1] }}</span>{{ user.username }}</span>
       <form method="post" action="/logout" style="margin:0"><button type="submit">Log out</button></form>
     </nav>
@@ -36,9 +36,10 @@
 {% if req_groups %}
 <dialog id="ask" aria-labelledby="ask-title">
   <form method="post" action="/jobs">
-    <h2 id="ask-title">Ask NetGate to find…</h2>
+    <h2 id="ask-title">Find companies</h2>
+    <p class="hint" style="margin:0">The AI searches the web, reads list and company pages, and adds every matching company with its name, city, country and website. Use the update icon on a company later to fill in the rest.</p>
     <label class="field">What should the AI look for?
-      <textarea name="query" rows="3" required placeholder="e.g. leather glove manufacturers in Sialkot that export to Europe"></textarea>
+      <textarea name="query" rows="3" required placeholder="e.g. leather glove manufacturers in Sialkot"></textarea>
     </label>
     <label class="field">Save results in group
       <select name="group_id" required>

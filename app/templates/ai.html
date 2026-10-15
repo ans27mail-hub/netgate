@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}AI servers · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+    <div class="shead"><h1>AI servers &amp; models</h1></div>
+
+    <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <h2>Servers</h2>
+      {% for sv in servers %}
+      <form method="post" action="/settings/ai/servers/{{ sv.id }}" class="server">
+        <span class="dot {% if not sv.enabled %}off{% elif sv.kind == 'ollama' and not models.get(sv.id) %}bad{% endif %}" aria-hidden="true"></span>
+        <label class="field" style="flex:1 1 160px">Name<input type="text" name="name" value="{{ sv.name }}"></label>
+        {% if sv.kind == 'ollama' %}
+        <label class="field" style="flex:2 1 240px">Ollama address<input type="text" name="url" value="{{ sv.url }}" class="mono-sm"></label>
+        {% else %}
+        <label class="field" style="flex:2 1 240px">OpenRouter API key {% if sv.api_key %}(saved — leave empty to keep){% endif %}<input type="password" name="api_key" placeholder="{{ 'sk-or-…' if not sv.api_key else '••••••••' }}" autocomplete="off"></label>
+        {% endif %}
+        <span class="sub" style="min-width:110px">
+          {% if not sv.enabled %}Off{% elif models.get(sv.id) %}Online · {{ models[sv.id]|length }} models{% elif sv.kind == 'ollama' %}<span style="color:#a12828">Not reachable</span>{% else %}Online list unavailable{% endif %}
+        </span>
+        <label style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" name="enabled" {% if sv.enabled %}checked{% endif %}> On</label>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-outline btn-small">Save</button>
+          <button type="submit" formaction="/settings/ai/servers/{{ sv.id }}/test" class="btn btn-outline btn-small">Test</button>
+          <button type="submit" formaction="/settings/ai/servers/{{ sv.id }}/delete" class="btn btn-danger btn-small" onclick="return confirm('Remove {{ sv.name|e }}?')">Remove</button>
+        </span>
+      </form>
+      {% else %}
+      <div class="empty">No AI servers yet. Add your iMac's Ollama below.</div>
+      {% endfor %}
+      <details class="addbox">
+        <summary class="btn btn-outline btn-small">+ Add Ollama server</summary>
+        <form method="post" action="/settings/ai/servers" class="row" style="margin-top:12px">
+          <input type="hidden" name="kind" value="ollama">
+          <label class="field">Name<input type="text" name="name" placeholder="e.g. GPU PC" required></label>
+          <label class="field">Address<input type="text" name="url" placeholder="http://192.168.1.60:11434" required></label>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+      </details>
+      <details class="addbox">
+        <summary class="btn btn-outline btn-small">+ Add OpenRouter</summary>
+        <form method="post" action="/settings/ai/servers" class="row" style="margin-top:12px">
+          <input type="hidden" name="kind" value="openrouter">
+          <input type="hidden" name="name" value="OpenRouter">
+          <label class="field">API key<input type="password" name="api_key" placeholder="sk-or-…" required autocomplete="off"></label>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+        <p class="hint">Paid per use. Set spending limits below — when a limit is reached, jobs switch to the fallback server instead of stopping.</p>
+      </details>
+    </section>
+
+    <form method="post" action="/settings/ai/jobs" class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <h2>Model for each job</h2>
+      <div class="overflow">
+        <table class="t" style="min-width:640px">
+          <thead><tr><th>Job</th><th>Server</th><th>Model</th></tr></thead>
+          <tbody>
+          {% for key, label in (JOB_TYPES.items()|list) + [('fallback', 'Fallback')] %}
+            {% set conf = jobs.get(key) or {} %}
+            <tr>
+              <td><b>{{ label }}</b><br><span class="sub">{{ {'discover': 'Find names, city, country, website', 'enrich': 'Fill missing fields for one company', 'night': 'Bulk discover and enrich at night', 'fallback': 'Used when OpenRouter is off or over its limit'}[key] }}</span></td>
+              <td>
+                <select name="{{ key }}_server" aria-label="{{ label }} server">
+                  {% for sv in servers if sv.enabled and (key != 'fallback' or sv.kind == 'ollama') %}<option value="{{ sv.id }}" {% if conf.get('server') == sv.id %}selected{% endif %}>{{ sv.name }}</option>{% endfor %}
+                </select>
+              </td>
+              <td>
+                <input type="text" name="{{ key }}_model" value="{{ conf.get('model', '') }}" list="models-all" aria-label="{{ label }} model" placeholder="e.g. qwen3:8b" style="min-width:240px">
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <datalist id="models-all">
+        {% for sv in servers %}{% for m in models.get(sv.id, []) %}<option value="{{ m.id }}">{{ sv.name }}{% if m.price is not none %} · ${{ m.price }} per M tokens{% endif %}</option>{% endfor %}{% endfor %}
+      </datalist>
+      <span class="hint">Type or pick a model. The list shows the models each server has; for OpenRouter it shows the price per million input tokens.</span>
+
+      <div class="subpanel row">
+        <b style="flex:1 1 100%">OpenRouter spending limits (0 = no limit)</b>
+        <label class="field">Max per 24 hours (USD)<input type="number" step="0.5" min="0" name="limit_night" value="{{ limits.get('night', 0) }}"></label>
+        <label class="field">Max per month (USD)<input type="number" step="1" min="0" name="limit_month" value="{{ limits.get('month', 0) }}"></label>
+        <span class="hint" style="flex:2 1 260px">Spent: ${{ '%.2f'|format(spend.day) }} in the last 24 h · ${{ '%.2f'|format(spend.month) }} this month.</span>
+      </div>
+      <div><button type="submit" class="btn btn-primary">Save AI settings</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

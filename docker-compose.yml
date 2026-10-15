@@ -23,6 +23,26 @@ services:
       redis: { condition: service_started }
     restart: unless-stopped
 
+  night-worker:            # runs the night batch, so daytime jobs never wait behind it
+    build: .
+    command: rq worker netgate-night --url redis://redis:6379/0
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: unless-stopped
+
+  scheduler:               # starts the night batch when the night window opens
+    build: .
+    command: python -m app.scheduler
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     environment:

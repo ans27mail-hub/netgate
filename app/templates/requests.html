@@ -12,7 +12,7 @@
         {% for j in jobs %}
           <tr>
             <td class="mono">{{ j.id }}</td>
-            <td>{% if j.kind == 'keyword' %}<span class="badge blue">Keyword</span> {% endif %}{{ j.query }}</td>
+            <td><span class="badge {{ 'blue' if j.kind in ('keyword', 'request') else ('amber' if j.kind == 'enrich' else '') }}">{{ {'keyword': 'Discover', 'request': 'Discover', 'enrich': 'Enrich', 'night': 'Night'}.get(j.kind, j.kind) }}</span> {{ j.query }}</td>
             <td>{{ group_names.get(j.group_id, '—') }}</td>
             <td><span class="badge {% if j.status == 'done' %}green{% elif j.status != 'failed' %}blue{% endif %}">{{ j.status }}</span></td>
             <td class="sub" style="max-width:420px;overflow-wrap:anywhere">{{ j.message or '' }}</td>

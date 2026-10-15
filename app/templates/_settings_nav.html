@@ -2,7 +2,7 @@
   {% if can(user, 'manage_groups') %}
   <span class="caps">Groups</span>
   {% for g in all %}
-  <a href="/settings/groups/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}">{{ g.name }}</a>
+  <a href="/settings/groups/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}"><span>{{ g.name }}</span>{% if counts is defined and counts %}<small>{{ counts.get(g.id, 0) }}</small>{% endif %}</a>
   {% endfor %}
   <form method="post" action="/settings/groups" style="display:flex;gap:6px;padding:8px 0 0">
     <label for="newgroup" class="sr">New group name</label>
@@ -10,9 +10,15 @@
     <button type="submit" class="btn btn-outline" aria-label="Create group">+</button>
   </form>
   {% endif %}
+  <span class="caps">System</span>
+  {% if can(user, 'manage_groups') %}
+  <a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI servers &amp; models</a>
+  <a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night jobs</a>
+  {% endif %}
+  <a href="/settings/display" class="{% if active_nav == 'display' %}on{% endif %}">Display</a>
   {% if can(user, 'manage_users') %}
-  <span class="caps">Admin</span>
   <a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}">Users &amp; permissions</a>
   {% endif %}
   <a href="/" style="margin-top:12px">← Back to directory</a>
+  <span class="sub" style="padding:12px 12px 0">NetGate {{ VERSION }}</span>
 </nav>

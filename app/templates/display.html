@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Display · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+    <form method="post" action="/settings/display" style="display:flex;flex-direction:column;gap:16px">
+      <div class="shead"><h1>Display</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:14px">
+        <h2>Page width</h2>
+        <div class="widths">
+          {% for key, label, desc, prev in [('fixed', 'Fixed', 'Content stays a set width, centred', '55%'), ('pct', 'Percentage', 'A share of the screen, e.g. 90%', '90%'), ('full', 'Full width', 'Edge to edge on any screen', '100%')] %}
+          <label class="wopt {% if current.mode == key %}on{% endif %}">
+            <span style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="radio" name="mode" value="{{ key }}" {% if current.mode == key %}checked{% endif %}> {{ label }}</span>
+            <span class="wprev" aria-hidden="true"><span style="width:{{ prev }}"></span></span>
+            <span class="sub">{{ desc }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="row">
+          <label class="field" style="flex:0 1 200px">Fixed width (px)<input type="number" name="px" min="800" max="3000" step="10" value="{{ current.px }}"></label>
+          <div class="field" style="flex:2 1 320px">
+            <label for="pct">Percentage of screen (50–100%)</label>
+            <div style="display:flex;gap:12px;align-items:center">
+              <input type="range" min="50" max="100" step="1" value="{{ current.pct }}" aria-label="Percentage slider" style="flex:1" oninput="document.getElementById('pct').value=this.value">
+              <input id="pct" type="number" name="pct" min="50" max="100" value="{{ current.pct }}" style="width:80px" oninput="this.previousElementSibling.value=this.value"><span>%</span>
+            </div>
+            <span style="display:flex;gap:6px;flex-wrap:wrap">
+              {% for p in [75, 80, 90, 95] %}<button type="button" class="chip chip-sm" onclick="document.getElementById('pct').value={{ p }};document.getElementById('pct').previousElementSibling.value={{ p }};document.querySelector('input[name=mode][value=pct]').checked=true">{{ p }}%</button>{% endfor %}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel row">
+        <label class="field">Default view
+          <select name="view"><option value="grid" {% if current.view == 'grid' %}selected{% endif %}>Grid (cards)</option><option value="list" {% if current.view == 'list' %}selected{% endif %}>List</option></select>
+        </label>
+        <label class="field">Cards per row
+          <select name="per_row">
+            <option value="0" {% if not current.per_row %}selected{% endif %}>Automatic</option>
+            {% for n in [2, 3, 4, 5, 6] %}<option value="{{ n }}" {% if current.per_row == n %}selected{% endif %}>{{ n }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="field">Applies to
+          <select name="scope">
+            {% if can(user, 'manage_groups') %}<option value="everyone" {% if not mine %}selected{% endif %}>Everyone (default)</option>{% endif %}
+            <option value="me" {% if mine or not can(user, 'manage_groups') %}selected{% endif %}>Only me</option>
+          </select>
+        </label>
+      </section>
+    </form>
+  </div>
+</div>
+{% endblock %}
