@@ -18,9 +18,21 @@ ensure_secret() {
   grep -q '^APP_SECRET_KEY=' .env 2>/dev/null || echo "APP_SECRET_KEY=$(openssl rand -hex 32)" >> .env
 }
 
+releases() {
+  # version list from the latest releases.txt on GitHub (works even after a rollback)
+  git show "origin/$BRANCH:releases.txt" 2>/dev/null | grep -E '^v[0-9]' || true
+}
+
+commit_of() {
+  releases | awk -v v="$1" '$1 == v { print $2 }'
+}
+
 current_version() {
-  # e.g. v0.2, or v0.2+3 when there are newer unreleased changes after v0.2
-  git describe --tags --match 'v*' 2>/dev/null | sed -E 's/-([0-9]+)-g[0-9a-f]+$/+\1/' || git rev-parse --short HEAD
+  # newest release that the running code contains
+  while read -r ver commit _; do
+    if git merge-base --is-ancestor "$commit" HEAD 2>/dev/null; then echo "$ver"; return; fi
+  done < <(releases)
+  git rev-parse --short HEAD
 }
 
 deploy() {
@@ -32,30 +44,31 @@ deploy() {
 
 case "$1" in
   update)
-    git fetch -q --tags --force origin
+    git fetch -q origin
     git checkout -q "$BRANCH"
     git reset -q --hard "origin/$BRANCH"
     deploy ;;
   rollback)
-    git fetch -q --tags --force origin
+    git fetch -q origin
     if [ -n "$2" ]; then
       target="$2"
     else
       # the release before the one running now
-      now=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null)
-      target=$(git tag -l 'v*' --sort=-v:refname | grep -A1 -x "$now" | sed -n 2p)
+      now=$(current_version)
+      target=$(releases | awk '{ print $1 }' | grep -A1 -x "$now" | sed -n 2p)
       [ -z "$target" ] && { echo "No earlier version to go back to."; exit 1; }
     fi
-    git rev-parse -q --verify "$target^{commit}" >/dev/null || { echo "Unknown version: $target  (see: netgate versions)"; exit 1; }
-    git checkout -q --detach "$target"
+    commit=$(commit_of "$target")
+    [ -z "$commit" ] && { echo "Unknown version: $target  (see: netgate versions)"; exit 1; }
+    git checkout -q --detach "$commit"
     echo "Rolled back to $target. Run 'netgate update' to return to the latest version."
     deploy ;;
   versions)
-    git fetch -q --tags --force origin
+    git fetch -q origin
     echo "Running now: $(current_version)"
     echo ""
-    git for-each-ref --sort=-v:refname --format='%(refname:short)  %(taggerdate:short)  %(contents:subject)' 'refs/tags/v*' ;;
-  version) echo "$(current_version)" ;;
+    releases | awk '{ v=$1; d=$3; $1=$2=$3=""; sub(/^ +/, ""); printf "%-6s  %s  %s\n", v, d, $0 }' ;;
+  version) current_version ;;
   status)  docker compose ps ;;
   logs)    docker compose logs -f --tail=100 web worker ;;
   restart) docker compose restart ;;
