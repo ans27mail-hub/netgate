@@ -2,8 +2,9 @@
 # NetGate server command.  Usage: netgate <command>
 #   update             get the latest version from GitHub and restart
 #   rollback           go back to the previous version
-#   rollback <ver>     go to a specific version (see: netgate versions)
-#   versions           list recent versions
+#   rollback <ver>     go to a specific version, e.g. netgate rollback v0.1
+#   versions           list all versions
+#   version            show the version running now
 #   status | logs | restart | stop | start
 set -e
 APP_DIR="${NETGATE_DIR:-$HOME/apps/netgate}"
@@ -17,29 +18,44 @@ ensure_secret() {
   grep -q '^APP_SECRET_KEY=' .env 2>/dev/null || echo "APP_SECRET_KEY=$(openssl rand -hex 32)" >> .env
 }
 
+current_version() {
+  # e.g. v0.2, or v0.2+3 when there are newer unreleased changes after v0.2
+  git describe --tags --match 'v*' 2>/dev/null | sed -E 's/-([0-9]+)-g[0-9a-f]+$/+\1/' || git rev-parse --short HEAD
+}
+
 deploy() {
   ensure_secret
   docker compose up -d --build --remove-orphans
   docker image prune -f >/dev/null
-  echo "NetGate now on version $(git rev-parse --short HEAD) - http://localhost:8090"
+  echo "NetGate now on version $(current_version) - http://localhost:8090"
 }
 
 case "$1" in
   update)
-    git fetch --tags origin
+    git fetch -q --tags --force origin
     git checkout -q "$BRANCH"
     git reset -q --hard "origin/$BRANCH"
     deploy ;;
   rollback)
-    git fetch --tags origin
-    if [ -n "$2" ]; then target="$2"; else target="HEAD~1"; fi
+    git fetch -q --tags --force origin
+    if [ -n "$2" ]; then
+      target="$2"
+    else
+      # the release before the one running now
+      now=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null)
+      target=$(git tag -l 'v*' --sort=-v:refname | grep -A1 -x "$now" | sed -n 2p)
+      [ -z "$target" ] && { echo "No earlier version to go back to."; exit 1; }
+    fi
+    git rev-parse -q --verify "$target^{commit}" >/dev/null || { echo "Unknown version: $target  (see: netgate versions)"; exit 1; }
     git checkout -q --detach "$target"
-    echo "Rolled back. Run 'netgate update' to return to the latest version."
+    echo "Rolled back to $target. Run 'netgate update' to return to the latest version."
     deploy ;;
   versions)
-    git fetch -q --tags origin
-    echo "Current: $(git rev-parse --short HEAD)"
-    git log --oneline -15 "origin/$BRANCH" ;;
+    git fetch -q --tags --force origin
+    echo "Running now: $(current_version)"
+    echo ""
+    git for-each-ref --sort=-v:refname --format='%(refname:short)  %(taggerdate:short)  %(contents:subject)' 'refs/tags/v*' ;;
+  version) echo "$(current_version)" ;;
   status)  docker compose ps ;;
   logs)    docker compose logs -f --tail=100 web worker ;;
   restart) docker compose restart ;;

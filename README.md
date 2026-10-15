@@ -28,8 +28,9 @@ Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
 |---|---|
 | `netgate update` | Get the latest version from GitHub and restart |
 | `netgate rollback` | Go back to the previous version |
-| `netgate rollback <ver>` | Go to a specific version |
-| `netgate versions` | List recent versions |
+| `netgate rollback v0.1` | Go to a specific version |
+| `netgate versions` | List all versions (v0.1, v0.2, …) |
+| `netgate version` | Show the version running now |
 | `netgate status` / `logs` / `restart` / `stop` / `start` | Day-to-day control |
 
 App folder: `~/apps/netgate` · UI: http://localhost:8090 · Settings: `~/apps/netgate/.env`
