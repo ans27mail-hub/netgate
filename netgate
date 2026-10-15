@@ -1,0 +1,47 @@
+#!/bin/bash
+# NetGate server command.  Usage: netgate <command>
+#   update             get the latest version from GitHub and restart
+#   rollback           go back to the previous version
+#   rollback <ver>     go to a specific version (see: netgate versions)
+#   versions           list recent versions
+#   status | logs | restart | stop | start
+set -e
+APP_DIR="${NETGATE_DIR:-$HOME/apps/netgate}"
+BRANCH=main
+cd "$APP_DIR"
+
+ensure_secret() {
+  # SearXNG needs a secret key; create one in .env the first time
+  grep -q '^SEARXNG_SECRET=' .env 2>/dev/null || echo "SEARXNG_SECRET=$(openssl rand -hex 32)" >> .env
+}
+
+deploy() {
+  ensure_secret
+  docker compose up -d --build --remove-orphans
+  docker image prune -f >/dev/null
+  echo "NetGate now on version $(git rev-parse --short HEAD) - http://localhost:8090"
+}
+
+case "$1" in
+  update)
+    git fetch --tags origin
+    git checkout -q "$BRANCH"
+    git reset -q --hard "origin/$BRANCH"
+    deploy ;;
+  rollback)
+    git fetch --tags origin
+    if [ -n "$2" ]; then target="$2"; else target="HEAD~1"; fi
+    git checkout -q --detach "$target"
+    echo "Rolled back. Run 'netgate update' to return to the latest version."
+    deploy ;;
+  versions)
+    git fetch -q --tags origin
+    echo "Current: $(git rev-parse --short HEAD)"
+    git log --oneline -15 "origin/$BRANCH" ;;
+  status)  docker compose ps ;;
+  logs)    docker compose logs -f --tail=100 web worker ;;
+  restart) docker compose restart ;;
+  stop)    docker compose down ;;
+  start)   docker compose up -d ;;
+  *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

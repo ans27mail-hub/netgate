@@ -1,0 +1,12 @@
+use_default_settings: true
+
+server:
+  secret_key: "set-by-SEARXNG_SECRET-in-.env"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json   # NetGate's worker needs the JSON API

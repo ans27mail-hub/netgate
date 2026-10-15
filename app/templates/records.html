@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="mb-3 d-flex gap-2" method="get">
+  <input name="q" value="{{ q }}" class="form-control" placeholder="Search the knowledge base">
+  <button class="btn">Filter</button>
+</form>
+
+{% for r in records %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between">
+      <h3 class="card-title mb-1">{{ r.title }}</h3>
+      <span class="text-secondary small">{{ r.updated_at.strftime("%d %b %Y %H:%M") if r.updated_at else "" }}</span>
+    </div>
+    <div class="text-secondary small mb-2">Topic: {{ r.topic }}</div>
+    <p>{{ r.summary }}</p>
+    {% if r.facts %}
+    <ul class="mb-2">{% for f in r.facts.split("\n") if f %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% endif %}
+    <a href="{{ r.source_url }}" target="_blank" rel="noopener" class="small">{{ r.source_url }}</a>
+  </div>
+</div>
+{% else %}
+<p class="text-secondary">No records yet. Submit a request on the Requests page.</p>
+{% endfor %}
+{% endblock %}

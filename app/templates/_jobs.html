@@ -1,0 +1,20 @@
+{% set colors = {"queued": "secondary", "searching": "blue", "crawling": "azure",
+                 "extracting": "purple", "done": "green", "failed": "red"} %}
+<div class="table-responsive">
+  <table class="table table-vcenter card-table">
+    <thead><tr><th>#</th><th>Request</th><th>Status</th><th>Details</th><th>Updated</th></tr></thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td>{{ j.id }}</td>
+        <td>{{ j.query }}</td>
+        <td><span class="badge bg-{{ colors.get(j.status, 'secondary') }}-lt">{{ j.status }}</span></td>
+        <td class="text-secondary small">{{ j.message or "" }}</td>
+        <td class="text-secondary small">{{ j.updated_at.strftime("%d %b %H:%M") if j.updated_at else "" }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-secondary">No requests yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
