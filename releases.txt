@@ -1,6 +1,6 @@
-v0.6  059632b  2026-10-16  Dashboard, Directories page, move contacts, People (users, roles, login history)
 # NetGate releases, newest first:  version  commit  date  description
 # 'netgate versions', 'netgate version' and 'netgate rollback' read this file.
+v0.6  059632b  2026-10-16  Dashboard, Directories page, move contacts, People (users, roles, login history)
 v0.5  4adf233  2026-10-16  Discovery Inbox, directories, eBay search, add contacts, request controls, roles, help center
 v0.4  1d69613  2026-10-16  Crawler upgrade: browser for JS pages, next pages, directory profiles, code-first contacts, sitemap, cache, polite limits, Connections settings
 v0.3  40b90f2  2026-10-15  Discover + Enrich, night jobs, AI servers, compact cards, list view, display width
