@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Crawler · NetGate{% endblock %}
+{% block content %}
+<div class="wrap settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+    <form method="post" action="/settings/crawler" style="display:flex;flex-direction:column;gap:16px">
+      <div class="shead"><h1>Crawler</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h2>Browser for JavaScript pages</h2>
+          <span class="badge {% if renderer_ok %}green{% else %}red{% endif %}">Page renderer: {{ 'running' if renderer_ok else 'not reachable' }}</span>
+        </div>
+        <div class="gchecks" role="radiogroup" aria-label="When to use the browser">
+          {% for key, label in [('auto', 'Automatic — only when a page comes back empty'), ('always', 'Always (slow)'), ('never', 'Never')] %}
+          <label><input type="radio" name="render" value="{{ key }}" {% if cfg.render == key %}checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <label class="field">Sites that always need the browser (one per line)
+          <textarea name="render_domains" rows="3" placeholder="e.g. some-directory.com">{{ cfg.render_domains }}</textarea>
+        </label>
+        <span class="hint">The browser runs in its own container (“renderer”). It skips images and fonts so pages load fast.</span>
+      </section>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <h2>List and directory pages</h2>
+        <div class="row">
+          <label class="field">“Next page” links to follow per list page<input type="number" name="next_pages" min="0" max="20" value="{{ cfg.next_pages }}"></label>
+          <label class="field">Company profiles to open per list page<input type="number" name="profiles_per_page" min="0" max="60" value="{{ cfg.profiles_per_page }}"></label>
+          <label class="field">Long pages: split into at most<input type="number" name="max_chunks" min="1" max="8" value="{{ cfg.max_chunks }}"></label>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="directory_mode" {% if cfg.directory_mode %}checked{% endif %}> Directory mode — open each company's profile on list pages to find its website, email and phone</label>
+      </section>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <h2>Company websites (Enrich)</h2>
+        <div class="row">
+          <label class="field">Pages to read on a company's own site<input type="number" name="site_pages" min="0" max="30" value="{{ cfg.site_pages }}"></label>
+        </div>
+        <span class="hint">Enrich reads the home page, then the most useful pages it finds in links and the sitemap: contact, about, imprint/impressum, products. Emails, phones, WhatsApp and social links are found by code; the AI only fills what's left.</span>
+      </section>
+
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <h2>Being polite</h2>
+        <div class="row">
+          <label class="field">Seconds between requests to the same site<input type="number" step="0.5" name="delay" min="0" max="30" value="{{ cfg.delay }}"></label>
+          <label class="field">Keep downloaded pages for (days, 0 = off)<input type="number" name="cache_days" min="0" max="30" value="{{ cfg.cache_days }}"></label>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="robots" {% if cfg.robots %}checked{% endif %}> Follow robots.txt (sites' rules for crawlers)</label>
+        <label class="field">Never read these sites (one per line)
+          <textarea name="skip_domains" rows="3" placeholder="e.g. some-spam-directory.com">{{ cfg.skip_domains }}</textarea>
+        </label>
+        <div class="row" style="align-items:center">
+          <span class="hint">{{ cache_rows }} pages in the cache.</span>
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="clear_cache"> Clear the cache when saving</label>
+        </div>
+      </section>
+    </form>
+  </div>
+</div>
+{% endblock %}

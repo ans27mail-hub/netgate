@@ -41,11 +41,21 @@ def main():
             break
         except Exception:
             time.sleep(5)
+    last_purge = 0.0
     while True:
         try:
             tick()
         except Exception as e:
             print(f"scheduler: {type(e).__name__}: {e}", flush=True)
+        if time.time() - last_purge > 3600:   # once an hour: drop old cached pages
+            try:
+                from .crawl import purge_cache
+                n = purge_cache()
+                if n:
+                    print(f"scheduler: removed {n} old cached pages", flush=True)
+            except Exception as e:
+                print(f"scheduler: cache cleanup failed: {type(e).__name__}: {e}", flush=True)
+            last_purge = time.time()
         time.sleep(60)
 
 

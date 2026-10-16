@@ -7,7 +7,9 @@ Ask your local AI to search and crawl the web, then add or update what it finds 
 ```
 Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
                                                     ├─► SearXNG (search)
-                                                    ├─► fetch + Trafilatura (clean text)
+                                                    ├─► fetch (polite: robots.txt, per-site delay, cache)
+                                                    ├─► renderer (headless Chromium for JavaScript pages)
+                                                    ├─► code-first extraction (email, phone, WhatsApp, social, schema.org)
                                                     ├─► Ollama on the iMac (fills the group's fields as JSON)
                                                     └─► Postgres (add or update by group + source URL)
 ```
@@ -21,6 +23,23 @@ Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
    only the missing fields. Each run uses what is already known, so the next run is more precise.
 3. **Night jobs** — inside a time window (e.g. 11 pm – 7 am) NetGate discovers with the night keywords, then
    enriches incomplete companies (least complete first) and refreshes old ones. It stops by itself when the window ends.
+
+## Crawler (v0.4)
+
+- **Real browser** — pages that need JavaScript are opened in a headless Chromium (the `renderer` container).
+  Mode: auto / always / never, plus a list of sites that always use it.
+- **Next pages** — list pages are followed to page 2, 3, … (limit in Settings → Crawler).
+- **Directory mode** — on directory sites NetGate opens each company's profile page to get its real website,
+  email and phone.
+- **Code first** — emails (incl. hidden Cloudflare ones), phones, WhatsApp, social links and schema.org company data
+  are read by code; the AI is only asked for what code could not find.
+- **Wider site reading** — Contact, About, Impressum pages from links and the sitemap.
+- **Long pages** are split into chunks so nothing is cut off.
+- **Cache** — pages are kept for a few days, so repeat runs are fast.
+- **Polite** — respects robots.txt, waits between requests to the same site, retries once.
+
+Settings → **Connections** stores API keys for eBay (UK, DE, IT, FR, US, CA …) and Etsy, ready for the marketplace
+search methods coming in a later version.
 
 ## How it is organised
 

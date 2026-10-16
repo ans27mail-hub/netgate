@@ -3,8 +3,8 @@ import os
 import re
 from datetime import datetime
 
-from sqlalchemy import (Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, func,
-                        select, text)
+from sqlalchemy import (Boolean, Date, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text,
+                        create_engine, func, select, text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -186,6 +186,18 @@ class NightRun(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class PageCache(Base):
+    """Downloaded pages kept for a few days, so re-runs don't download everything again."""
+    __tablename__ = "page_cache"
+    url: Mapped[str] = mapped_column(Text, primary_key=True)
+    final_url: Mapped[str] = mapped_column(Text, default="")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    status: Mapped[int] = mapped_column(Integer, default=0)       # 0 = could not read
+    rendered: Mapped[bool] = mapped_column(Boolean, default=False)
+    html_gz: Mapped[bytes | None] = mapped_column(LargeBinary)
+    text: Mapped[str | None] = mapped_column(Text)
 
 
 # Upgrades for databases created by earlier versions. Every statement is safe to run again.

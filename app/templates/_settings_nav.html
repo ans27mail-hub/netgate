@@ -14,6 +14,8 @@
   {% if can(user, 'manage_groups') %}
   <a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI servers &amp; models</a>
   <a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night jobs</a>
+  <a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>
+  <a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API keys)</a>
   {% endif %}
   <a href="/settings/display" class="{% if active_nav == 'display' %}on{% endif %}">Display</a>
   {% if can(user, 'manage_users') %}

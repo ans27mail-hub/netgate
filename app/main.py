@@ -16,11 +16,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai, crawl
 from .auth import PERM_KEYS, PERMS, ROLES, can, hash_password, sees_all_groups, verify_password
-from .db import (FIELD_TYPES, AIServer, Field, Group, Job, Keyword, NightRun, Record, SessionLocal, User,
-                 UserGroup, default_fields, get_setting, init_db, set_setting, slugify)
-from .jobs import (DISCOVER_PROMPT, NIGHT_DEFAULTS, completeness, empty, field_line, night_settings, run_job)
+from .db import (FIELD_TYPES, AIServer, Field, Group, Job, Keyword, NightRun, PageCache, Record, SessionLocal,
+                 User, UserGroup, default_fields, get_setting, init_db, set_setting, slugify)
+from .jobs import (NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, completeness, empty, night_settings,
+                   run_job)
 
-VERSION = "v0.3"
+VERSION = "v0.4"
 BASE = os.path.dirname(__file__)
 SECRET = os.environ.get("APP_SECRET_KEY") or hashlib.sha256(os.environ["DATABASE_URL"].encode()).hexdigest()
 
@@ -744,21 +745,36 @@ def group_test(request: Request, gid: int, url: str = Form(...), query: str = Fo
         url = url.strip()
         if not url.startswith("http"):
             url = "https://" + url
-        _, text = crawl.fetch(url)
-        result, error = None, None
-        if not text:
-            error = "Could not read that page (blocked, empty or not HTML)."
-        else:
-            fields = [f for f in group.fields if f.stage == "discover" and f.key not in ("city", "country", "website")]
-            prompt = DISCOVER_PROMPT.format(
-                group=group.name, instructions=group.instructions or "-",
-                ignore=group.ignore_instructions or "-", query=query or group.name, url=url, text=text,
-                fields="\n".join(field_line(f) for f in fields) or "    (none)")
-            try:
-                result = (ai.ask_json("discover", prompt) or {}).get("entries") or []
-            except Exception as e:
-                error = f"AI error: {type(e).__name__}: {e}"
-        return _group_page(request, s, user, group, test={"url": url, "entries": result, "error": error})
+        _ = group.fields
+    # same steps as a real Discover: read the page (browser if needed), AI, then code-first details
+    page = crawl.get_page(url, use_cache=False)
+    result, error, info = None, None, ""
+    if not page.ok:
+        error = f"Could not read that page ({page.note or 'blocked, empty or not HTML'})."
+    else:
+        ctx = Ctx(None, "discover")
+        try:
+            result = _ask_entries(ctx, group, query or group.name, page)
+            if result:
+                _enhance_entries(ctx, page, result)
+            nxt = crawl.next_page_url(page.html, page.final_url or url) if result and len(result) >= 3 else None
+            info = ("Read with the browser. " if page.rendered else "") \
+                + (f"{ctx.stats['profiles']} profile pages opened. " if ctx.stats["profiles"] else "") \
+                + (f"Next page found: {nxt}" if nxt else "")
+            for e in result:
+                found = e.pop("_found", None) or {}
+                e.pop("_found_url", None)
+                e.pop("_own_site", None)
+                e["code"] = ", ".join(x for x in [
+                    (found.get("emails") or [None])[0], (found.get("phones") or [None])[0],
+                    ", ".join(sorted((found.get("social") or {}).keys())) or None] if x)
+        except Exception as e:
+            error = f"AI error: {type(e).__name__}: {e}"
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        group = s.get(Group, gid)
+        return _group_page(request, s, user, group,
+                           test={"url": url, "entries": result, "error": error, "info": info})
 
 
 # ---------- settings: AI servers ----------
@@ -967,6 +983,110 @@ async def display_save(request: Request):
         s.commit()
         flash(request, msg)
     return go("/settings/display")
+
+
+# ---------- settings: crawler ----------
+
+@app.get("/settings/crawler", response_class=HTMLResponse)
+def crawler_page(request: Request):
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_groups")
+        cfg = {**crawl.CRAWLER_DEFAULTS, **(get_setting(s, "crawler", {}) or {})}
+        cache_rows = s.scalar(select(func.count(PageCache.url)))
+        renderer_ok = crawl.renderer_status()
+        return render(request, s, user, "crawler.html", all=all_groups(s), active_nav="crawler", cfg=cfg,
+                      cache_rows=cache_rows, renderer_ok=renderer_ok)
+
+
+@app.post("/settings/crawler")
+async def crawler_save(request: Request):
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_groups")
+
+        def num(key, default, lo, hi, cast=int):
+            try:
+                return min(hi, max(lo, cast(float(form.get(key)))))
+            except (TypeError, ValueError):
+                return default
+        d = crawl.CRAWLER_DEFAULTS
+        cfg = {
+            "render": form.get("render") if form.get("render") in ("auto", "never", "always") else "auto",
+            "render_domains": str(form.get("render_domains") or "").strip(),
+            "skip_domains": str(form.get("skip_domains") or "").strip(),
+            "next_pages": num("next_pages", d["next_pages"], 0, 20),
+            "directory_mode": form.get("directory_mode") == "on",
+            "profiles_per_page": num("profiles_per_page", d["profiles_per_page"], 0, 60),
+            "site_pages": num("site_pages", d["site_pages"], 0, 30),
+            "cache_days": num("cache_days", d["cache_days"], 0, 30),
+            "delay": num("delay", d["delay"], 0, 30, float),
+            "robots": form.get("robots") == "on",
+            "max_chunks": num("max_chunks", d["max_chunks"], 1, 8),
+        }
+        set_setting(s, "crawler", cfg)
+        s.commit()
+        if form.get("clear_cache"):
+            n = crawl.purge_cache(0)
+            flash(request, f"Crawler settings saved. {n} cached pages cleared.")
+        else:
+            flash(request, "Crawler settings saved.")
+    return go("/settings/crawler")
+
+
+# ---------- settings: connections (API keys used by search methods) ----------
+
+EBAY_SITES = [("EBAY_GB", "ebay.co.uk", "UK"), ("EBAY_DE", "ebay.de", "Germany"), ("EBAY_IT", "ebay.it", "Italy"),
+              ("EBAY_FR", "ebay.fr", "France"), ("EBAY_US", "ebay.com", "USA"), ("EBAY_CA", "ebay.ca", "Canada"),
+              ("EBAY_ES", "ebay.es", "Spain"), ("EBAY_AU", "ebay.com.au", "Australia"),
+              ("EBAY_NL", "ebay.nl", "Netherlands"), ("EBAY_AT", "ebay.at", "Austria")]
+CONNECTION_DEFAULTS = {
+    "ebay": {"client_id": "", "client_secret": "", "sites": ["EBAY_GB", "EBAY_DE", "EBAY_IT", "EBAY_FR",
+                                                              "EBAY_US", "EBAY_CA"], "business_only": True},
+    "etsy": {"api_key": "", "shared_secret": ""},
+}
+
+
+def connections(s) -> dict:
+    saved = get_setting(s, "connections", {}) or {}
+    return {k: {**v, **(saved.get(k) or {})} for k, v in CONNECTION_DEFAULTS.items()}
+
+
+@app.get("/settings/connections", response_class=HTMLResponse)
+def connections_page(request: Request):
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_groups")
+        return render(request, s, user, "connections.html", all=all_groups(s), active_nav="connections",
+                      conn=connections(s), ebay_sites=EBAY_SITES)
+
+
+@app.post("/settings/connections")
+async def connections_save(request: Request):
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_groups")
+        conn = connections(s)
+
+        def keep(new: str, old: str) -> str:   # empty password box = keep the saved value
+            new = str(new or "").strip()
+            return old if not new else ("" if new == "-" else new)
+        conn["ebay"].update({
+            "client_id": keep(form.get("ebay_client_id"), conn["ebay"]["client_id"]),
+            "client_secret": keep(form.get("ebay_client_secret"), conn["ebay"]["client_secret"]),
+            "sites": [x for x in form.getlist("ebay_sites") if x in {c for c, _, _ in EBAY_SITES}],
+            "business_only": form.get("ebay_business_only") == "on",
+        })
+        conn["etsy"].update({
+            "api_key": keep(form.get("etsy_api_key"), conn["etsy"]["api_key"]),
+            "shared_secret": keep(form.get("etsy_shared_secret"), conn["etsy"]["shared_secret"]),
+        })
+        set_setting(s, "connections", conn)
+        s.commit()
+        flash(request, "Connections saved. They will be used by the eBay and Etsy search methods.")
+    return go("/settings/connections")
 
 
 # ---------- settings: users ----------
