@@ -1,4 +1,5 @@
-FROM python:3.12-slim-bookworm   # Debian 12: supported by Playwright 1.48 (trixie is not yet)
+# Debian 12 (bookworm): supported by Playwright 1.48 — Debian 13 "trixie" is not yet
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN pip install --no-cache-dir "playwright==1.48.0" \
