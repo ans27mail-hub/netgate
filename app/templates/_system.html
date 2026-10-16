@@ -1,0 +1,3 @@
+{% for name, (state, tone) in rows %}
+<div class="sysrow"><span>{{ name }}</span><span class="sysstate"><span class="dot-{{ tone }}" aria-hidden="true"></span>{{ state }}</span></div>
+{% endfor %}

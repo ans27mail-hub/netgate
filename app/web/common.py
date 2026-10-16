@@ -14,7 +14,7 @@ from ..contacts import METHOD_LABELS, REJECT_REASONS, completeness_of, empty
 from ..db import FIELD_TYPES, Group, InboxItem, Job, Membership, NightRun, Record, User, get_setting
 from ..methods import ENRICH_STEPS, FIELD_SOURCES, METHODS, SOURCE_LABELS
 
-VERSION = "v0.5"
+VERSION = "v0.6"
 BASE = os.path.dirname(os.path.dirname(__file__))
 SECRET = os.environ.get("APP_SECRET_KEY") or hashlib.sha256(os.environ["DATABASE_URL"].encode()).hexdigest()
 templates = Jinja2Templates(directory=os.path.join(BASE, "templates"))
@@ -28,6 +28,10 @@ class LoginRequired(Exception):
 
 
 class Forbidden(Exception):
+    pass
+
+
+class MustChangePassword(Exception):
     pass
 
 
@@ -86,12 +90,29 @@ templates.env.globals.update(
 
 # ---------- login & permissions ----------
 
-def current_user(s, request: Request) -> User:
+def _pw_tag(user) -> str:
+    return hashlib.sha256((user.password_hash or "").encode()).hexdigest()[:16]
+
+
+def remember_password(request: Request, user):
+    """Ties the login to the current password: a new password logs the person out everywhere else."""
+    request.session["pw"] = _pw_tag(user)
+
+
+def current_user(s, request: Request, allow_must_change: bool = False) -> User:
     uid = request.session.get("uid")
     user = s.get(User, uid) if uid else None
     if not user or not user.active:
         request.session.clear()
         raise LoginRequired
+    tag = request.session.get("pw")
+    if tag is None:   # logged in before v0.6
+        remember_password(request, user)
+    elif tag != _pw_tag(user):
+        request.session.clear()
+        raise LoginRequired
+    if user.must_change and not allow_must_change:
+        raise MustChangePassword
     return user
 
 
@@ -173,14 +194,12 @@ def page_style(d: dict) -> str:
 
 def nav_data(s, user) -> dict:
     groups = view_groups(s, user)
-    counts = dict(s.execute(select(Membership.group_id, func.count(Membership.record_id))
-                            .group_by(Membership.group_id)).all())
     inbox_n = s.scalar(select(func.count(InboxItem.id)).where(InboxItem.status == "new",
                                                             inbox_clause(user, groups))) if can(user, "review") or can(user, "view") else 0
     contacts_n = s.scalar(select(func.count(Record.id)).where(visible_records_clause(user, groups)))
     running = s.scalar(select(func.count(Job.id)).where(
         Job.deleted_at.is_(None), Job.status.in_(list(control.RUNNING | control.WAITING)), jobs_clause(user)))
-    return {"nav_groups": groups, "nav_counts": counts, "inbox_n": inbox_n or 0, "contacts_n": contacts_n or 0,
+    return {"nav_groups": groups, "inbox_n": inbox_n or 0, "contacts_n": contacts_n or 0,
             "running_n": running or 0, "views": (user.prefs or {}).get("views") or [],
             "dir_labels": {g.id: g.name for g in groups}}
 

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Dashboard</h1>
+  <span class="sub">What's happening in NetGate</span>
+</div>
+
+<section class="tiles" aria-label="At a glance">
+  {% for t in tiles %}
+  <a href="{{ t.href }}" class="tile">
+    <span class="tile-label">{{ t.label }}</span>
+    <span class="tile-value">{{ t.value }}</span>
+    <span class="tile-sub">{{ t.sub }}</span>
+  </a>
+  {% endfor %}
+</section>
+
+<div class="dash-row">
+  <section class="panel dash-attn" aria-labelledby="attn-h">
+    <h2 id="attn-h">Needs attention</h2>
+    {% for a in attention %}
+    <div class="attn">
+      <span class="dot-{{ a.tone }}" aria-hidden="true"></span>
+      <span class="attn-text">{{ a.text }}</span>
+      {% if a.post %}
+      <form method="post" action="{{ a.post }}"><button type="submit" class="btn btn-outline btn-small">{{ a.label }}</button></form>
+      {% elif a.href %}<a href="{{ a.href }}" class="btn btn-outline btn-small">{{ a.label }}</a>{% endif %}
+    </div>
+    {% else %}
+    <p class="sub" style="margin:0">All good — nothing needs attention right now.</p>
+    {% endfor %}
+  </section>
+
+  <div class="dash-side">
+    <section class="panel stack" aria-labelledby="qa-h">
+      <h2 id="qa-h">Quick actions</h2>
+      {% if can(user, 'review') %}<a href="/inbox" class="btn btn-dark">Review the Inbox ({{ inbox_new }} waiting)</a>{% endif %}
+      {% if req_groups %}<button type="button" class="btn btn-primary" onclick="document.getElementById('ask').showModal()">Run discovery</button>{% endif %}
+      {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add" class="btn btn-outline">Add contact</a>{% endif %}
+      <a href="/directories" class="btn btn-outline">All directories</a>
+    </section>
+    <section class="panel stack" aria-labelledby="sys-h">
+      <h2 id="sys-h">System</h2>
+      <div id="system" hx-get="/dashboard/system" hx-trigger="load" hx-swap="innerHTML"><p class="sub" style="margin:0">Checking…</p></div>
+    </section>
+  </div>
+</div>
+
+<section class="panel" aria-labelledby="dirs-h" style="padding:0">
+  <div class="panel-head"><h2 id="dirs-h">Directories</h2><a href="/directories" class="ml-auto">All directories →</a></div>
+  {% if groups %}
+  <div class="overflow">
+    <table class="t dash-dirs">
+      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th><th>Methods</th><th>Last search</th></tr></thead>
+      <tbody>
+        {% for g in groups %}{% set st = stats[g.id] %}
+        <tr>
+          <td><a href="/d/{{ g.id }}"><b>{{ g.name }}</b></a></td>
+          <td>{{ st.contacts }}</td>
+          <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>
+          <td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>
+          <td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>
+          <td class="sub">{{ ago(st.last) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub" style="padding:0 18px 18px;margin:0">No directories yet.{% if can(user, 'manage_dirs') %} <a href="/settings/directories/new">Make the first one</a>.{% endif %}</p>
+  {% endif %}
+</section>
+
+<section class="panel" aria-labelledby="act-h">
+  <h2 id="act-h">Recent activity</h2>
+  <div class="actlist">
+    {% for e in activity %}
+    <div class="act">
+      <span class="act-when">{{ ago(e.at) }}</span>
+      <span class="badge {{ e.tone }}">{{ e.kind }}</span>
+      <span class="act-text">{{ e.text }}</span>
+    </div>
+    {% else %}
+    <p class="sub" style="margin:0">Nothing yet. Accepting, rejecting, moving and searches show up here.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

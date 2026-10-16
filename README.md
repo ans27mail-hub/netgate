@@ -33,8 +33,10 @@ For developers and AI assistants: start with **[AGENTS.md](AGENTS.md)**, then `d
 
 - **Directories** (Manufacturers, Online retailers …): search methods, fields (with “Filled from”), keywords and
   AI instructions per directory. One contact can be in several directories.
-- **Inbox**, **All contacts** (filters + saved views), **Requests** (pause, stop, delete, reject, run again).
-- **Roles** (Admin, Manager, Researcher, Viewer, Developer) with a permission grid; directory access per person.
+- **Dashboard** (start page), **Directories** page (cards), **Inbox**, **All contacts** (filters + saved views),
+  **Requests** (pause, stop, delete, reject, run again). Contacts can be moved between directories.
+- **People**: users (reset password, switch off, delete, login history) and **roles** (Admin, Manager, Researcher,
+  Viewer, Developer + your own) with a permission grid; directory access per person.
 - **Settings**: AI servers & models, night jobs, crawler, connections (eBay / Etsy keys), reject list, display.
 - Database changes are applied automatically at start-up and keep existing data.
 

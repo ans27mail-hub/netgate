@@ -79,11 +79,13 @@
   {% if view == 'list' %}
   <span class="selbar" data-selbar="sel"><strong data-selcount="sel">0</strong> selected</span>
   {% if can(user, 'enrich') %}<button type="submit" form="sel" class="btn btn-dark btn-small">Enrich selected</button>{% endif %}
-  {% if can(user, 'edit') %}
+  {% set targets = groups|rejectattr('id', 'equalto', sel_group.id if sel_group else 0)|selectattr('id', 'in', edit_gids)|list %}
+  {% if targets %}
   <span class="inline-form">
-    <label for="addto" class="sr">Add selected to directory</label>
-    <select id="addto" name="group_id" form="addsel">{% for g in groups if can(user, 'edit', g.id) %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select>
-    <button type="submit" form="addsel" class="btn btn-outline btn-small">Add to directory</button>
+    <label for="addto" class="caps-sm">Directory</label>
+    <select id="addto" name="group_id" form="addsel">{% for g in targets %}<option value="{{ g.id }}" data-fields="{{ g.fields|map(attribute='key')|join(',') }}" data-names="{{ g.fields|map(attribute='name')|join('|') }}">{{ g.name }}</option>{% endfor %}</select>
+    {% if not sel_group or sel_group.id in edit_gids %}<button type="button" class="btn btn-outline btn-small" onclick="openMove()">Move there</button>{% endif %}
+    <button type="submit" form="addsel" class="btn btn-outline btn-small">Also add there</button>
   </span>
   {% endif %}
   {% endif %}
@@ -104,7 +106,61 @@
   </details>
   {% endif %}
 </div>
-<form id="addsel" method="post" action="/records/add-to-directory" onsubmit="document.querySelectorAll('input[name=ids][form=sel]:checked').forEach(function(c){var i=document.createElement('input');i.type='hidden';i.name='ids';i.value=c.value;this.appendChild(i)}.bind(this))"></form>
+<form id="addsel" method="post" action="/records/add-to-directory" onsubmit="copyIds(this)"></form>
+{% if view == 'list' and targets %}
+<dialog id="movedlg" aria-labelledby="move-title">
+  <form id="movesel" method="post" action="/records/move" onsubmit="copyIds(this)" class="stack">
+    <h2 id="move-title">Move <span data-selcount="sel">0</span> contact(s) to <span id="move-to"></span>?</h2>
+    <input type="hidden" name="group_id" id="move-gid">
+    {% if sel_group %}
+    <input type="hidden" name="from_id" value="{{ sel_group.id }}">
+    <p style="margin:0">They leave {{ sel_group.name }}. All their details and history are kept.</p>
+    <p class="hint" id="move-extra" style="margin:0" hidden></p>
+    {% else %}
+    <label class="field">From
+      <select name="from_id">
+        <option value="">All their current directories</option>
+        {% for g in groups if g.id in edit_gids %}<option value="{{ g.id }}">{{ g.name }} only</option>{% endfor %}
+      </select>
+    </label>
+    <p class="hint" style="margin:0">All their details and history are kept. Contacts in several directories leave the ones you choose here.</p>
+    {% endif %}
+    <div class="btnrow" style="justify-content:flex-end">
+      <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Move</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+<script>
+  function copyIds(form) {
+    form.querySelectorAll('input[name=ids]').forEach(function (i) { i.remove(); });
+    document.querySelectorAll('input[name=ids][form=sel]:checked').forEach(function (c) {
+      var i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids'; i.value = c.value; form.appendChild(i);
+    });
+  }
+  function openMove() {
+    var n = document.querySelectorAll('input[name=ids][form=sel]:checked').length;
+    if (!n) { alertBar(); return; }
+    var opt = document.querySelector('#addto option:checked');
+    document.getElementById('move-gid').value = opt.value;
+    document.getElementById('move-to').textContent = opt.textContent;
+    var extra = document.getElementById('move-extra');
+    if (extra) {
+      var have = {{ (sel_group.fields|map(attribute='key')|list if sel_group else [])|tojson }};
+      var keys = opt.dataset.fields.split(','), names = opt.dataset.names.split('|'), miss = [];
+      keys.forEach(function (k, i) { if (k && have.indexOf(k) === -1) miss.push(names[i]); });
+      extra.hidden = !miss.length;
+      extra.textContent = opt.textContent + ' has ' + miss.length + ' field' + (miss.length === 1 ? '' : 's') +
+        ' they don\'t have yet (' + miss.join(', ') + ') — they show as Missing until Enrich fills them.';
+    }
+    document.getElementById('movedlg').showModal();
+  }
+  function alertBar() {
+    var bar = document.querySelector('.list-tools .sub');
+    if (bar) { bar.textContent = 'Tick one or more contacts first.'; bar.classList.add('warn'); }
+  }
+</script>
 
 {% if not records %}
 <div class="empty">
@@ -119,7 +175,7 @@
   {% for r in records %}
   {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
   {% set pct = (filled * 100 / total)|int if total else 100 %}
-  <article class="card" id="card-{{ r.id }}" hx-get="/records/{{ r.id }}/open" hx-target="#card-{{ r.id }}" hx-swap="afterend"
+  <article class="card" id="card-{{ r.id }}" hx-get="/records/{{ r.id }}/open{% if sel_group %}?from={{ sel_group.id }}{% endif %}" hx-target="#card-{{ r.id }}" hx-swap="afterend"
            hx-trigger="click[!event.target.closest('button,a,form')]">
     <div class="card-head">
       <div class="pic" tabindex="0" aria-label="About {{ r.title }}">{{ (r.title or '?')[:1] }}{% if r.summary %}<span class="tip" role="tooltip">{{ r.summary|truncate(320) }}</span>{% endif %}</div>

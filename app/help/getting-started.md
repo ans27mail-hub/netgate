@@ -8,7 +8,7 @@ summary: A first walk through for a new person
 Use the username and password your admin gave you. What you can see and do depends on your **role** (for example *Researcher* or *Viewer*).
 
 ## 2. Look at a directory
-Click a directory on the left, e.g. **Manufacturers**. Each card is one company. Click a card to open it: you see all its details, where each one came from, and its history.
+NetGate opens on the [Dashboard](/help/dashboard). Open **Directories** on the left and click a directory, e.g. **Manufacturers**. Each card is one company. Click a card to open it: you see all its details, where each one came from, and its history.
 
 ## 3. Find new companies
 Open the **Inbox** and click one of the keyword chips at the top, or press **+ Run discovery** and type what you are looking for. The search runs in the background; the **AI jobs running** button at the top shows its progress.

@@ -24,10 +24,16 @@
         {% endfor %}
         {% for it in items if it.status == 'new' %}<span class="badge amber">In Inbox{% if it.group_id %} for {{ by_id[it.group_id].name if it.group_id in by_id else '' }}{% endif %}</span>{% endfor %}
         {% if add_targets %}
-        <form method="post" action="/records/{{ r.id }}/directories" class="inline-form">
-          <label for="addto-{{ r.id }}" class="sr">Add to directory</label>
+        <form method="post" action="/records/{{ r.id }}/directories" class="inline-form moveform">
+          <label for="addto-{{ r.id }}" class="sr">Directory</label>
           <select id="addto-{{ r.id }}" name="group_id">{% for g in add_targets %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select>
-          <button type="submit" class="btn btn-outline btn-small">+ Add to directory</button>
+          {% set movable = members|selectattr('id', 'in', edit_ids)|list %}
+          {% if movable|length > 1 %}
+          <label class="sub">from
+            <select name="from_id" aria-label="Move from">{% for g in movable %}<option value="{{ g.id }}" {% if g.id == ctx_gid %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+          {% elif movable %}<input type="hidden" name="from_id" value="{{ movable[0].id }}">{% endif %}
+          {% if movable %}<button type="submit" name="action" value="move" class="btn btn-outline btn-small" title="Leave {{ movable|map(attribute='name')|join(' / ') if movable|length == 1 else 'the chosen directory' }} and go to the chosen directory. All details and history are kept.">Move here</button>{% endif %}
+          <button type="submit" name="action" value="add" class="btn btn-outline btn-small">{{ 'Also add here' if members else '+ Add to directory' }}</button>
         </form>
         {% endif %}
       </div>
@@ -39,7 +45,7 @@
       </form>
       {% endif %}
       {% if can(user, 'edit') and not edit %}
-      <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open?edit=1" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Edit</button>
+      <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open?edit=1{% if ctx_gid %}&from={{ ctx_gid }}{% endif %}" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Edit</button>
       {% endif %}
       {% if can(user, 'delete') %}
       <form method="post" action="/records/{{ r.id }}/delete" onsubmit="return confirm('Delete {{ r.title|e }} for good? It is removed from every directory.')">
@@ -51,7 +57,7 @@
   </div>
 
   {% if edit %}
-  <form class="editform" hx-post="/records/{{ r.id }}/edit" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">
+  <form class="editform" hx-post="/records/{{ r.id }}/edit{% if ctx_gid %}?from={{ ctx_gid }}{% endif %}" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">
     <div class="row">
       <label class="field">Name<input type="text" name="title" value="{{ r.title }}" required></label>
     </div>
@@ -70,7 +76,7 @@
     </div>
     <label class="field">Notes (also given to the AI when enriching)<textarea name="notes" rows="2">{{ r.notes or '' }}</textarea></label>
     <div class="btnrow"><button type="submit" class="btn btn-primary">Save</button>
-      <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Cancel</button></div>
+      <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open{% if ctx_gid %}?from={{ ctx_gid }}{% endif %}" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Cancel</button></div>
   </form>
   {% else %}
   {% if r.summary %}<p class="big-desc">{{ r.summary }}</p>{% endif %}

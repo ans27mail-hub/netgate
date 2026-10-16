@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ edit.username if edit else 'New user' }} · NetGate{% endblock %}
+{% block content %}
+{% include "_people_tabs.html" %}
+<p style="margin:0"><a href="/settings/users">← All users</a></p>
+
+<div class="layout">
+  <form class="main" style="flex:999 1 520px;display:flex;flex-direction:column;gap:16px" method="post" action="{{ '/settings/users/%d' % edit.id if edit else '/settings/users/new' }}">
+    <div class="shead">
+      <h2 style="font-size:22px;margin:0">{{ edit.username if edit else 'New user' }}</h2>
+      {% if edit %}<span class="badge {% if edit.active %}green{% else %}red{% endif %}">{{ 'Active' if edit.active else 'Disabled' }}</span>{% if edit.custom %}<span class="badge amber">custom permissions</span>{% endif %}{% if edit.must_change %}<span class="badge amber">new password due</span>{% endif %}{% endif %}
+      <button type="submit" class="btn btn-primary ml-auto">Save</button>
+    </div>
+
+    <section class="panel row">
+      <label class="field">Username<input type="text" name="username" value="{{ edit.username if edit else '' }}" required autocomplete="off"></label>
+      {% if not edit %}
+      <label class="field">Password (at least 8 characters)
+        <input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+      {% endif %}
+      <label class="field">Role
+        <select name="role_id" id="role">
+          {% for r in roles %}<option value="{{ r.id }}" {% if (edit and edit.role_id == r.id) or (not edit and r.name == 'Researcher') %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+        </select>
+      </label>
+      {% if edit %}
+      <label class="check-inline" style="min-height:40px"><input type="checkbox" name="active" {% if edit.active %}checked{% endif %} {% if edit.id == user.id %}disabled{% endif %}> Active</label>
+      {% if edit.id == user.id %}<input type="hidden" name="active" value="on">{% endif %}
+      {% else %}
+      <input type="hidden" name="active" value="on">
+      <label class="check-inline fullrow"><input type="checkbox" name="must_change" checked> Ask them to choose their own password when they first log in</label>
+      {% endif %}
+      <span class="hint fullrow">Unticking <b>Active</b> switches the account off without deleting it. Roles are set up in <a href="/settings/roles">Roles &amp; permissions</a>.</span>
+    </section>
+
+    <section class="panel stack">
+      <h2>Directory access</h2>
+      {% set limited = edit and not edit.all_groups and not edit.is_admin %}
+      <div class="gchecks">
+        <label><input type="radio" name="access" value="all" {% if not limited %}checked{% endif %}> All directories</label>
+        <label><input type="radio" name="access" value="some" {% if limited %}checked{% endif %}> Only selected directories</label>
+      </div>
+      <div class="gchecks" id="dirchecks">
+        {% for g in all %}<label><input type="checkbox" name="groups" value="{{ g.id }}" {% if edit and g.id in edit.group_ids %}checked{% endif %}> {{ g.name }}</label>{% endfor %}
+      </div>
+      <span class="hint">With “Only selected directories”, this person only sees and works in the ticked ones (and their Inbox items). New users start with their role's default. Admins always see everything.</span>
+    </section>
+
+    <section class="panel stack">
+      <label class="check-inline"><input type="checkbox" name="customise" id="customise" {% if edit and edit.custom %}checked{% endif %}> <b>Give this person their own permissions</b> (on top of, or less than, the role)</label>
+      <div id="permgrid" class="permgroups" {% if not (edit and edit.custom) %}data-off{% endif %}>
+        {% for glabel, items in PERM_GROUPS %}
+        <fieldset><legend>{{ glabel }}</legend>
+          {% for key, label, desc in items %}
+          <label class="check"><input type="checkbox" name="perms" value="{{ key }}" data-perm="{{ key }}" {% if (edit and key in edit.perm_set) %}checked{% endif %}>
+            <span><b>{{ label }}</b><span class="hint">{{ desc }}</span></span></label>
+          {% endfor %}
+        </fieldset>
+        {% endfor %}
+      </div>
+      <span class="hint">Leave this off to use exactly the role's permissions. Ticks that differ from the role are this person's own exceptions and show a “custom” badge.</span>
+    </section>
+  </form>
+
+  {% if edit %}
+  <aside class="side stack" style="flex:1 1 280px;max-width:380px">
+    <form class="panel stack" method="post" action="/settings/users/{{ edit.id }}/password">
+      <h2>Reset password</h2>
+      <label class="field">New password (at least 8 characters)<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+      {% if edit.id != user.id %}<label class="check-inline"><input type="checkbox" name="must_change" checked> They must choose their own at next login</label>{% endif %}
+      <button type="submit" class="btn btn-outline">Set new password</button>
+      <span class="hint">{% if edit.id == user.id %}For your own password you can also use <a href="/account/password">My password</a>.{% else %}Tell them the new password yourself. They are logged out on every computer.{% endif %}</span>
+    </form>
+
+    <section class="panel stack">
+      <div style="display:flex;align-items:baseline;gap:8px"><h2>Recent logins</h2><a href="/settings/logins?user_id={{ edit.id }}" class="ml-auto">All →</a></div>
+      {% for l in logins %}
+      <div class="loginrow"><span class="dot-{{ 'green' if l.ok else 'red' }}" aria-hidden="true"></span><span>{{ ago(l.at) }}</span><span class="sub">{{ l.agent or '—' }}{% if l.ip %} · {{ l.ip }}{% endif %}{% if not l.ok %} · {{ l.note or 'failed' }}{% endif %}</span></div>
+      {% else %}
+      <p class="sub" style="margin:0">No logins recorded yet.</p>
+      {% endfor %}
+    </section>
+
+    {% if edit.id != user.id %}
+    <form class="panel stack dangerzone" method="post" action="/settings/users/{{ edit.id }}/delete">
+      <h2>Delete user</h2>
+      <p class="hint" style="margin:0">The account is removed. Everything {{ edit.username }} found, added, accepted or rejected stays in NetGate, marked “(deleted user)”.{% if jobs_n %} Their {{ jobs_n }} request{{ '' if jobs_n == 1 else 's' }} stay too.{% endif %} To only stop them logging in, untick <b>Active</b> instead.</p>
+      <label class="field"><span>Type <b>{{ edit.username }}</b> to confirm</span><input type="text" name="confirm" autocomplete="off" required></label>
+      <button type="submit" class="btn btn-danger">Delete {{ edit.username }}</button>
+    </form>
+    {% endif %}
+  </aside>
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var perms = {{ role_perms|tojson }};
+    var dirs = {{ role_dirs|tojson }};
+    var role = document.getElementById('role');
+    var custom = document.getElementById('customise');
+    var grid = document.getElementById('permgrid');
+    function fromRole(setDirs) {
+      var set = perms[role.value] || [];
+      if (!custom.checked) document.querySelectorAll('[data-perm]').forEach(function (b) { b.checked = set.indexOf(b.dataset.perm) !== -1; });
+      if (setDirs && dirs[role.value]) {
+        var d = dirs[role.value];
+        document.querySelector('input[name=access][value=' + (d.all ? 'all' : 'some') + ']').checked = true;
+        document.querySelectorAll('#dirchecks input').forEach(function (c) { c.checked = d.ids.indexOf(parseInt(c.value)) !== -1; });
+      }
+    }
+    role.addEventListener('change', function () { fromRole({{ 'false' if edit else 'true' }}); });
+    custom.addEventListener('change', function () { grid.toggleAttribute('data-off', !custom.checked); fromRole(false); });
+    fromRole({{ 'false' if edit else 'true' }});
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+<div class="pagehead">
+  <h1>People</h1>
+  <span class="sub">Who can use NetGate and what each role may do</span>
+</div>
+<nav class="utabs" aria-label="People">
+  {% if can(user, 'manage_users') %}<a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}" {% if active_nav == 'users' %}aria-current="page"{% endif %}>Users</a>{% endif %}
+  {% if can(user, 'manage_roles') %}<a href="/settings/roles" class="{% if active_nav == 'roles' %}on{% endif %}" {% if active_nav == 'roles' %}aria-current="page"{% endif %}>Roles &amp; permissions</a>{% endif %}
+  {% if can(user, 'manage_users') %}<a href="/settings/logins" class="{% if active_nav == 'logins' %}on{% endif %}" {% if active_nav == 'logins' %}aria-current="page"{% endif %}>Login history</a>{% endif %}
+</nav>

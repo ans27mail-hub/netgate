@@ -14,7 +14,7 @@
   {% if can(user, 'reject_list') %}<a href="/settings/reject-list" class="{% if active_nav == 'reject' %}on{% endif %}">Reject list</a>{% endif %}
   <span class="caps">You</span>
   <a href="/settings/display" class="{% if active_nav == 'display' %}on{% endif %}">Display</a>
-  {% if can_any(user, ['manage_users', 'manage_roles']) %}<span class="caps">People</span>{% endif %}
-  {% if can(user, 'manage_users') %}<a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}">Users</a>{% endif %}
-  {% if can(user, 'manage_roles') %}<a href="/settings/roles" class="{% if active_nav == 'roles' %}on{% endif %}">Roles &amp; permissions</a>{% endif %}
+  <a href="/account/password" class="{% if active_nav == 'account' %}on{% endif %}">My password</a>
+  {% if can_any(user, ['manage_users', 'manage_roles']) %}<span class="caps">People</span>
+  <a href="/people">Users, roles &amp; logins →</a>{% endif %}
 </nav>

@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Roles · NetGate{% endblock %}
 {% block content %}
-<div class="settings">
-  {% include "_settings_nav.html" %}
-  <div class="scontent">
+{% include "_people_tabs.html" %}
+<div class="stack">
     <form method="post" action="/settings/roles" class="stack">
-      <div class="shead"><h1>Roles &amp; permissions</h1><button type="submit" class="btn btn-primary ml-auto">Save roles</button></div>
+      <div class="shead"><h2 style="font-size:20px;margin:0">Roles &amp; permissions</h2><button type="submit" class="btn btn-primary ml-auto">Save roles</button></div>
       <p class="hint" style="margin:0">Tick what each role may do. Changing a role changes everyone who has it. Admin always has everything.</p>
       <section class="panel" style="padding:0">
         <div class="overflow">
@@ -42,17 +41,41 @@
         </div>
       </section>
     </form>
-    <section class="panel row">
-      <form method="post" action="/settings/roles/new" class="row" style="flex:1">
-        <label class="field">New role name<input type="text" name="name" required placeholder="e.g. Sales"></label>
-        <label class="field">Start from<select name="copy"><option value="0">Nothing (view only)</option>{% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select></label>
-        <button type="submit" class="btn btn-outline">+ Add role</button>
+    <div class="layout">
+      <form method="post" action="/settings/roles/new" class="panel stack" style="flex:1 1 320px">
+        <h2>New role</h2>
+        <div class="row">
+          <label class="field">Name<input type="text" name="name" required placeholder="e.g. Sales"></label>
+          <label class="field">Start from<select name="copy"><option value="0">Nothing (view only)</option>{% for r in roles %}<option value="{{ r.id }}">A copy of {{ r.name }}</option>{% endfor %}</select></label>
+        </div>
+        <div><button type="submit" class="btn btn-outline">+ Add role</button></div>
+        <span class="hint">Copying a role takes its ticks and directory access; then change what you need. Rename a role by typing in its name at the top of the table.</span>
       </form>
-      <div class="stack" style="flex:1 1 260px">
-        <span class="hint">Delete a role (only when nobody has it):</span>
-        <div class="btnrow">{% for r in roles if not r.locked %}<form method="post" action="/settings/roles/{{ r.id }}/delete" class="inline" onsubmit="return confirm('Delete the role {{ r.name|e }}?')"><button type="submit" class="btn btn-danger btn-xs" {% if used.get(r.id) %}disabled title="{{ used.get(r.id) }} user(s) have this role"{% endif %}>{{ r.name }}</button></form>{% endfor %}</div>
-      </div>
-    </section>
-  </div>
+      {% set deletable = roles|rejectattr('locked')|list %}
+      {% if deletable %}
+      <form method="post" action="/settings/roles/0/delete" class="panel stack" style="flex:1 1 320px" id="roledel"
+            onsubmit="this.action='/settings/roles/'+this.role.value+'/delete';return confirm('Delete the role '+this.role.options[this.role.selectedIndex].dataset.name+'?')">
+        <h2>Delete a role</h2>
+        <div class="row">
+          <label class="field">Role
+            <select name="role" onchange="roleUsers()">{% for r in deletable %}<option value="{{ r.id }}" data-name="{{ r.name }}" data-users="{{ used.get(r.id, 0) }}">{{ r.name }} ({{ used.get(r.id, 0) }} user{{ '' if used.get(r.id, 0) == 1 else 's' }})</option>{% endfor %}</select></label>
+          <label class="field" id="moveto">Give its users this role
+            <select name="move_to">{% for r in roles %}<option value="{{ r.id }}" {% if r.name == 'Viewer' %}selected{% endif %}>{{ r.name }}</option>{% endfor %}</select></label>
+        </div>
+        <div><button type="submit" class="btn btn-danger">Delete role</button></div>
+        <span class="hint">People who have the role are moved to the role you choose, so nobody is left without access. The Admin role can't be deleted.</span>
+      </form>
+      {% endif %}
+    </div>
 </div>
+<script>
+  function roleUsers() {
+    var f = document.getElementById('roledel'); if (!f) return;
+    var opt = f.role.options[f.role.selectedIndex];
+    document.getElementById('moveto').hidden = opt.dataset.users === '0';
+    Array.prototype.forEach.call(f.move_to.options, function (o) { o.disabled = o.value === opt.value; });
+    if (f.move_to.value === opt.value) { var first = Array.prototype.find.call(f.move_to.options, function (o) { return !o.disabled; }); if (first) f.move_to.value = first.value; }
+  }
+  roleUsers();
+</script>
 {% endblock %}

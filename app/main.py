@@ -9,14 +9,14 @@ from sqlalchemy import func, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from .db import SessionLocal, User, init_db, log
-from .web import (add_routes, auth_routes, contacts_routes, help_routes, inbox_routes, people_routes,
-                  requests_routes, settings_routes)
-from .web.common import BASE, SECRET, VERSION, Forbidden, LoginRequired
+from .web import (add_routes, auth_routes, contacts_routes, dashboard_routes, help_routes, inbox_routes,
+                  people_routes, requests_routes, settings_routes)
+from .web.common import BASE, SECRET, VERSION, Forbidden, LoginRequired, MustChangePassword
 
 app = FastAPI(title="NetGate")
 app.add_middleware(SessionMiddleware, secret_key=SECRET, same_site="lax", max_age=14 * 24 * 3600)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
-for module in (auth_routes, inbox_routes, add_routes, contacts_routes, requests_routes, settings_routes,
+for module in (auth_routes, dashboard_routes, inbox_routes, add_routes, contacts_routes, requests_routes, settings_routes,
                people_routes, help_routes):
     app.include_router(module.router)
 
@@ -26,6 +26,13 @@ async def _login_required(request: Request, exc):
     with SessionLocal() as s:
         has_users = s.scalar(select(func.count(User.id)))
     return RedirectResponse("/login" if has_users else "/setup", status_code=303)
+
+
+@app.exception_handler(MustChangePassword)
+async def _must_change(request: Request, exc):
+    if request.headers.get("hx-request"):
+        return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/account/password"})
+    return RedirectResponse("/account/password", status_code=303)
 
 
 @app.exception_handler(Forbidden)

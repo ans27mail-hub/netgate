@@ -201,8 +201,10 @@ def _log(s, user, rec, group_id, decision, reason="", method="", keyword=""):
 
 
 def user_name(s, user_id) -> str:
-    u = s.get(User, user_id) if user_id else None
-    return u.username if u else "NetGate"
+    if not user_id:
+        return "NetGate"
+    u = s.get(User, user_id)
+    return u.username if u else "(deleted user)"
 
 
 def accept(s, item: InboxItem, user, group_id: int | None = None):
@@ -253,6 +255,28 @@ def add_to_directory(s, rec, group_id: int, user):
     g = s.get(Group, group_id)
     add_history(rec, f"Added to {g.name if g else 'a directory'} by {user.username if user else 'NetGate'}")
     _log(s, user, rec, group_id, "accept", method="manual")
+    return True
+
+
+def move(s, rec, from_ids, to_id: int, user) -> bool:
+    """Move a contact out of some directories into another one. Details, history and notes are kept.
+    Returns False when there was nothing to do."""
+    from_ids = [g for g in dict.fromkeys(from_ids) if g != to_id and s.get(Membership, (rec.id, g))]
+    if not from_ids:
+        return False
+    names = {g.id: g.name for g in s.scalars(select(Group).where(Group.id.in_(from_ids + [to_id]))).all()}
+    if not s.get(Membership, (rec.id, to_id)):
+        s.add(Membership(record_id=rec.id, group_id=to_id, added_by=user.id if user else None))
+    for item in s.scalars(select(InboxItem).where(InboxItem.record_id == rec.id, InboxItem.group_id == to_id,
+                                                  InboxItem.status == "new")).all():
+        item.status, item.decided_at, item.decided_by = "accepted", datetime.utcnow(), user.id if user else None
+    for g in from_ids:
+        s.delete(s.get(Membership, (rec.id, g)))
+    rec.accepted_at = rec.accepted_at or datetime.utcnow()
+    src = ", ".join(names.get(g, "a directory") for g in from_ids)
+    add_history(rec, f"Moved from {src} to {names.get(to_id, 'a directory')} by {user.username if user else 'NetGate'}")
+    _log(s, user, rec, to_id, "move", reason=f"from {src}", method="manual")
+    s.flush()
     return True
 
 

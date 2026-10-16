@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Directories · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Directories</h1>
+  <span class="sub">{{ groups|length }} director{{ 'y' if groups|length == 1 else 'ies' }} · {{ total }} contact{{ '' if total == 1 else 's' }} in total</span>
+  <span class="ml-auto btnrow">
+    <form method="get" action="/directories" class="inline">
+      <label class="sortlbl">Sort
+        <select name="sort" onchange="this.form.submit()">
+          {% for key, label in sorts %}<option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <noscript><button type="submit" class="btn btn-outline btn-small">Sort</button></noscript>
+    </form>
+    <span class="seg" role="group" aria-label="View">
+      <a href="?sort={{ sort }}&view=grid" class="{% if view == 'grid' %}on{% endif %}" {% if view == 'grid' %}aria-current="page"{% endif %}>Grid</a>
+      <a href="?sort={{ sort }}&view=list" class="{% if view == 'list' %}on{% endif %}" {% if view == 'list' %}aria-current="page"{% endif %}>List</a>
+    </span>
+  </span>
+</div>
+
+{% if view == 'list' %}
+<section class="panel" style="padding:0">
+  <div class="overflow">
+    <table class="t dash-dirs">
+      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th><th>Methods</th><th>Keywords</th><th>Last search</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+        {% for g in groups %}{% set st = stats[g.id] %}
+        <tr>
+          <td><a href="/d/{{ g.id }}"><b>{{ g.name }}</b></a>{% if g.description %}<span class="sub dblock">{{ g.description|truncate(80) }}</span>{% endif %}</td>
+          <td>{{ st.contacts }}</td>
+          <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>
+          <td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>
+          <td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>
+          <td>{{ st.keywords }}</td>
+          <td class="sub">{{ ago(st.last) }}</td>
+          <td class="rowacts">{% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="btn btn-outline btn-small">Settings</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% if can(user, 'manage_dirs') %}<div><a href="/settings/directories/new" class="btn btn-primary">+ New directory</a></div>{% endif %}
+{% else %}
+<div class="dircards">
+  {% for g in groups %}{% set st = stats[g.id] %}{% set bg, fg = tiles[g.id] %}
+  <article class="dircard">
+    <div class="dircard-head">
+      <div class="dirtile" aria-hidden="true" style="background:{{ bg }};color:{{ fg }}">{{ g.name[:1] }}</div>
+      <div class="dircard-title">
+        <a href="/d/{{ g.id }}" class="dircard-name">{{ g.name }}</a>
+        <span class="sub">{{ g.description|truncate(90) if g.description else 'No description yet' }}</span>
+      </div>
+      {% if g.keywords and can(user, 'keywords', g.id) %}
+      <form method="post" action="/groups/{{ g.id }}/keywords/run-all">
+        <button type="submit" class="icon-btn" aria-label="Run all {{ g.keywords|length }} keywords of {{ g.name }}" title="Run all keywords"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="dircard-count">
+      <span class="big">{{ st.contacts }}</span><span class="sub">contact{{ '' if st.contacts == 1 else 's' }}</span>
+      {% if st.inbox %}<a href="/inbox?dir={{ g.id }}" class="badge blue ml-auto">{{ st.inbox }} waiting in Inbox</a>{% else %}<span class="badge ml-auto">0 waiting in Inbox</span>{% endif %}
+    </div>
+    <div class="completeness">
+      <span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>
+      <span>{{ st.pct }}% complete</span>
+    </div>
+    <div class="mbadges">
+      {% for m in st.methods %}<span class="mbadge m-{{ m.kind }}">{{ m.name }}</span>{% else %}<span class="sub">No search methods</span>{% endfor %}
+    </div>
+    <div class="dircard-foot">
+      <span>{{ st.keywords }} keyword{{ '' if st.keywords == 1 else 's' }} · last search {{ ago(st.last) }}</span>
+      {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="ml-auto">Settings</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+  {% if can(user, 'manage_dirs') %}
+  <a href="/settings/directories/new" class="dircard dircard-new">
+    <span class="plus" aria-hidden="true">+</span>
+    <span class="dircard-name">New directory</span>
+    <span class="sub">Name, search methods, fields, AI instructions and keywords</span>
+  </a>
+  {% elif not groups %}
+  <div class="empty">No directories you can see yet.</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

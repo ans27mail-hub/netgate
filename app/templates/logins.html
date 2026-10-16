@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Login history · NetGate{% endblock %}
+{% block content %}
+{% include "_people_tabs.html" %}
+<form method="get" action="/settings/logins" class="row" style="align-items:flex-end">
+  <label class="field" style="flex:0 1 220px">Person
+    <select name="user_id" onchange="this.form.submit()"><option value="0">Everyone</option>{% for u in users %}<option value="{{ u.id }}" {% if f_user == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select></label>
+  <label class="check-inline" style="min-height:40px"><input type="checkbox" name="failed" value="1" {% if f_failed %}checked{% endif %} onchange="this.form.submit()"> Failed attempts only</label>
+  <noscript><button type="submit" class="btn btn-outline">Show</button></noscript>
+</form>
+<section class="panel" style="padding:0">
+  <div class="overflow">
+    <table class="t">
+      <thead><tr><th>When</th><th>Username</th><th>Result</th><th>Computer</th><th>Address</th></tr></thead>
+      <tbody>
+        {% for l in rows %}
+        <tr>
+          <td><span title="{{ l.at.strftime('%Y-%m-%d %H:%M') }} UTC">{{ ago(l.at) }}</span></td>
+          <td>{% if l.user_id %}<a href="/settings/users/{{ l.user_id }}">{{ l.username }}</a>{% else %}{{ l.username }}{% endif %}</td>
+          <td>{% if l.ok %}<span class="badge green">Logged in</span>{% else %}<span class="badge red">{{ (l.note or 'failed')|capitalize }}</span>{% endif %}</td>
+          <td class="sub">{{ l.agent or '—' }}</td>
+          <td class="mono-sm">{{ l.ip or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="sub" style="padding:24px">No logins recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="hint" style="margin:0">The last {{ rows|length }} shown. Login history is kept for 180 days, also for deleted users. Many failed attempts for one name can mean someone is guessing a password.</p>
+{% endblock %}

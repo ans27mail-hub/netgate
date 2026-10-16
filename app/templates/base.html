@@ -30,6 +30,7 @@
       {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add{% if sel_group %}?group={{ sel_group.id }}{% endif %}" class="btn btn-outline pill">+ Add contact</a>{% endif %}
       {% if req_groups %}<button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Run discovery</button>{% endif %}
     </header>
+    {% if sel_group and path.startswith('/d/') %}{% include "_dirswitch.html" %}{% endif %}
     <main class="wrap page">
       {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
       {% block content %}{% endblock %}

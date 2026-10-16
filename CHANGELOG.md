@@ -1,5 +1,19 @@
 # What's new
 
+## v0.6 — 16 Oct 2026 · Dashboard, Directories page, moving contacts, People
+
+- **Dashboard** is the new start page (click **NetGate** or **Dashboard**): the numbers at a glance, what needs attention (with a button for each), quick actions, whether the AI server, browser, search engine and eBay are reachable, all directories, and recent activity.
+- **Directories page:** every directory as a card with its contacts, Inbox waiting, % complete, search methods, keywords and last search, plus a **New directory** card. Grid or list, and sorting. The directories are no longer listed in the left menu.
+- **Switch directories** with the tabs at the top of a directory's page, or **▾ Jump to…** when there are many.
+- **Move contacts** to another directory: **Move here** / **Also add here** on a contact's card, or tick several in the list and use **Move there** / **Also add there**. Details and history are kept.
+- **People** in the left menu, with Users, Roles & permissions and Login history:
+  - users list with search, status and last login
+  - new users choose their own password at first login
+  - **reset password** (logs them out everywhere), switch off, **delete** (what they did is kept)
+  - **login history**, including failed attempts
+  - roles: new, **copy**, rename, **delete** (its users get the role you choose)
+- **My password** under Settings, for everyone.
+
 ## v0.5 — 16 Oct 2026 · Discovery Inbox, directories, roles, help
 
 - **New layout** with a menu on the left: Inbox, All contacts, your directories, saved views, Requests, Settings, Help.

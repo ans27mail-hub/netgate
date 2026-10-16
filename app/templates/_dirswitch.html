@@ -1,0 +1,20 @@
+<nav class="dirswitch" aria-label="Directories">
+  <a href="/directories" class="ds-back">← All directories</a>
+  <div class="ds-tabs" id="ds-tabs">
+    {% for g in nav_groups %}
+    <a href="/d/{{ g.id }}" class="{% if g.id == sel_group.id %}on{% endif %}" {% if g.id == sel_group.id %}aria-current="page"{% endif %}>{{ g.name }} <span class="n">{{ switch_counts.get(g.id, 0) if switch_counts is defined else '' }}</span></a>
+    {% endfor %}
+  </div>
+  <details class="menu ds-jump">
+    <summary class="btn btn-outline btn-small">▾ Jump to…</summary>
+    <div class="menu-body">
+      <label for="ds-find" class="sr">Find a directory</label>
+      <input id="ds-find" type="search" placeholder="Find a directory…" oninput="var v=this.value.toLowerCase();this.parentNode.querySelectorAll('a[data-name]').forEach(function(a){a.hidden=a.dataset.name.indexOf(v)===-1})">
+      {% for g in nav_groups %}<a href="/d/{{ g.id }}" data-name="{{ g.name|lower }}" class="{% if g.id == sel_group.id %}on{% endif %}">{{ g.name }}</a>{% endfor %}
+    </div>
+  </details>
+</nav>
+<script>
+  (function () { var on = document.querySelector('#ds-tabs a.on'); if (on && on.scrollIntoView) on.scrollIntoView({block: 'nearest', inline: 'center'}); })();
+  document.querySelector('.ds-jump').addEventListener('toggle', function () { if (this.open) document.getElementById('ds-find').focus(); });
+</script>

@@ -496,7 +496,7 @@ with SessionLocal() as s:
 r = c.get("/settings/users")
 check("custom" in r.text, "custom badge on the user list")
 r = c.post(f"/settings/roles/{roles['Developer'].id}/delete", follow_redirects=True)
-check("still have the role" in r.text, "a role in use can't be deleted")
+check("Choose which role they get instead" in r.text, "a role in use needs a replacement role before deleting (v0.6)")
 c.post("/settings/roles/new", data={"name": "Sales", "copy": roles["Viewer"].id})
 with SessionLocal() as s:
     check(s.scalar(select(Role).where(Role.name == "Sales")).perm_set == {"view", "export"}, "new role copied from Viewer")

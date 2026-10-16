@@ -19,11 +19,13 @@ NetGate builds **business directories** for you: manufacturers, suppliers, onlin
 
 | On the left | What it is |
 |---|---|
+| **Dashboard** | The start page: numbers, what needs attention, system status |
 | **Inbox** | New companies waiting for a decision |
 | **All contacts** | Every accepted company, with filters and saved views |
-| **Directories** | One page per directory, e.g. Manufacturers |
+| **Directories** | All directories as cards; each opens its own page |
 | **Requests** | Every search and enrich: pause, stop, delete, reject |
-| **Settings** | Directories, AI, night jobs, crawler, users and roles |
+| **People** | Users, roles and login history (for admins) |
+| **Settings** | Directories, AI, night jobs, crawler, your display and password |
 | **Help** | These pages, and *Ask NetGate* |
 
 The **?** button at the top of each page opens the help for that page.

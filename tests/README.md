@@ -29,3 +29,13 @@ The test needs the queue to be a stub that only records calls (`rq.CALLS`); in t
 stubs for `redis`, `rq` and `trafilatura` are put first on `PYTHONPATH`. With real Redis, run workers instead.
 
 It ends with `ALL PASSED` or a list of failures.
+
+## Run (v0.6 test, upgrading from v0.5)
+Make a v0.5 database first: run `tests/test_v05.py` with the **v0.5 code** (a worktree of the v0.5 commit from
+`releases.txt`) on a fresh v0.4 database, as above. Then, with the current code:
+```
+DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up5 REDIS_URL=redis://x SEARXNG_URL=http://127.0.0.1:9 \
+OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 NO_PROXY=.test,127.0.0.1 \
+python3 tests/test_v06.py
+```
+`tests/test_v05.py` also still runs with the current code (v0.4 → v0.6 in one go).

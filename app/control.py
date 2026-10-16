@@ -213,8 +213,8 @@ def run_again(s, job, user):
 
 def purge_deleted(s, days: int = 30, trace_days: int = 14) -> int:
     """Deleted requests leave the bin after 30 days (contacts keep their data; their link is cleared).
-    Debug traces are kept 14 days."""
-    from .db import AppLog, JobTrace
+    Debug traces are kept 14 days, the app log 60 days, login history 180 days."""
+    from .db import AppLog, JobTrace, Login
     old = s.scalars(select(Job).where(Job.deleted_at.is_not(None),
                                       Job.deleted_at < datetime.utcnow() - timedelta(days=days))).all()
     for j in old:
@@ -222,4 +222,5 @@ def purge_deleted(s, days: int = 30, trace_days: int = 14) -> int:
     s.query(JobTrace).filter(JobTrace.at < datetime.utcnow() - timedelta(days=trace_days)).delete(
         synchronize_session=False)
     s.query(AppLog).filter(AppLog.at < datetime.utcnow() - timedelta(days=60)).delete(synchronize_session=False)
+    s.query(Login).filter(Login.at < datetime.utcnow() - timedelta(days=180)).delete(synchronize_session=False)
     return len(old)

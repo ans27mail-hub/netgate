@@ -1,18 +1,10 @@
 <nav class="sidenav" aria-label="Main">
   <a href="/" class="brand">NetGate</a>
   {% if can(user, 'view') %}
+  <a href="/" class="nav-item {% if active_nav == 'dashboard' %}on{% endif %}" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
   <a href="/inbox" class="nav-item {% if active_nav == 'inbox' %}on{% endif %}" {% if active_nav == 'inbox' %}aria-current="page"{% endif %}>Inbox {% if inbox_n %}<span class="count-badge">{{ inbox_n }}</span>{% endif %}</a>
   <a href="/contacts" class="nav-item {% if active_nav == 'contacts' %}on{% endif %}" {% if active_nav == 'contacts' %}aria-current="page"{% endif %}>All contacts <span class="n">{{ contacts_n }}</span></a>
-  <div class="nav-head">Directories {% if can(user, 'manage_dirs') %}<a href="/settings/directories/new" aria-label="New directory" title="New directory">+</a>{% endif %}</div>
-  {% if nav_groups|length > 6 %}
-  <label for="dirq" class="sr">Find a directory</label>
-  <input id="dirq" type="search" class="nav-find" placeholder="Find…" oninput="var v=this.value.toLowerCase();document.querySelectorAll('.nav-dir').forEach(function(a){a.hidden=a.dataset.name.indexOf(v)===-1})">
-  {% endif %}
-  {% for g in nav_groups %}
-  <a href="/d/{{ g.id }}" class="nav-item nav-dir {% if active_nav == 'd' ~ g.id %}on{% endif %}" data-name="{{ g.name|lower }}" {% if active_nav == 'd' ~ g.id %}aria-current="page"{% endif %}><span>{{ g.name }}</span><span class="n">{{ nav_counts.get(g.id, 0) }}</span></a>
-  {% else %}
-  <span class="nav-empty">No directories yet</span>
-  {% endfor %}
+  <a href="/directories" class="nav-item {% if active_nav == 'directories' or (active_nav or '').startswith('d') and active_nav[1:].isdigit() %}on{% endif %}" {% if active_nav == 'directories' %}aria-current="page"{% endif %}>Directories <span class="n">{{ nav_groups|length }}</span></a>
   {% if views %}
   <div class="nav-head">Saved views</div>
   {% for v in views %}
@@ -25,7 +17,8 @@
   {% endif %}
   <div class="nav-foot">
     <a href="/requests" class="nav-item {% if active_nav == 'requests' %}on{% endif %}">Requests {% if running_n %}<span class="n">{{ running_n }} running</span>{% endif %}</a>
-    <a href="/settings" class="nav-item {% if active_nav in ('dirs','ai','night','crawler','connections','display','users','roles','reject') %}on{% endif %}">Settings</a>
+    {% if can_any(user, ['manage_users', 'manage_roles']) %}<a href="/people" class="nav-item {% if active_nav in ('users', 'roles', 'logins') %}on{% endif %}">People</a>{% endif %}
+    <a href="/settings" class="nav-item {% if active_nav in ('dirs','ai','night','crawler','connections','display','reject','account') %}on{% endif %}">Settings</a>
     <a href="/help" class="nav-item {% if active_nav == 'help' %}on{% endif %}">Help</a>
     {% if can_any(user, ['debug', 'logs', 'tester', 'training_export', 'dev_help']) %}<a href="/dev" class="nav-item {% if active_nav == 'dev' %}on{% endif %}">Developer tools</a>{% endif %}
     <form method="post" action="/logout" class="nav-user"><span>{{ user.username }} · {{ user.role }}</span><button type="submit">Log out</button></form>

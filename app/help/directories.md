@@ -5,7 +5,14 @@ order: 30
 needs: view
 summary: Cards, completeness and finding more
 ---
-Each directory on the left has its own page with only the companies accepted into it.
+Open **Directories** in the menu on the left. Every directory is a card: number of contacts, how many are waiting in the Inbox, how complete they are, search methods, keywords and the last search. The round-arrow button runs all its keywords; **Settings** opens its settings. **Grid / List** and **Sort** change the view (your choice is remembered).
+
+Click a card to open the directory's page, with only the companies accepted into it.
+
+## Switching directories
+On a directory's page, the bar at the top has a tab for every directory, so one click takes you to the next one. **▾ Jump to…** opens a list with a search box, handy when there are many. **← All directories** goes back to the cards.
+
+## On a directory's page
 
 - The coloured badges next to the name show its **search methods** (e.g. eBay search, Web search).
 - **Find new** runs a discovery for this directory; **Run all keywords** runs every keyword. Results go to the Inbox.

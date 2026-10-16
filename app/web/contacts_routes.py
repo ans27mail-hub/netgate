@@ -2,9 +2,9 @@
 import csv
 import io
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .. import contacts as C
 from ..auth import can
@@ -17,17 +17,6 @@ from .filters import Filters, distinct_values
 
 router = APIRouter()
 LIMIT = 500
-
-
-@router.get("/")
-def home(request: Request, group: int | None = None):
-    if group:   # v0.4 addresses
-        return go(f"/d/{group}")
-    with SessionLocal() as s:
-        user = current_user(s, request)
-        if can(user, "review"):
-            return go("/inbox")
-    return go("/contacts")
 
 
 def _sort(records, sort, fmap, fields):
@@ -136,7 +125,8 @@ def _listing(request: Request, s, user, sel=None):
     return dict(sel_group=sel, records=records, fmap=fmap, flt=flt, sort=sort, view=view, stats=stats,
                 fields=fields, options=options, cols=_columns(user, col_key, fields), col_key=col_key,
                 dirs_of=memberships_map(s, records), q=flt.q, limited=len(records) >= LIMIT,
-                colfields={f.key: f for f in fields}, groups=groups, night=last_night(s), night_cfg=night_settings(s))
+                colfields={f.key: f for f in fields}, groups=groups, night=last_night(s), night_cfg=night_settings(s),
+                edit_gids=[g.id for g in groups if can(user, "edit", g.id)])
 
 
 @router.get("/contacts", response_class=HTMLResponse)
@@ -157,12 +147,15 @@ def directory_page(request: Request, gid: int):
             return go("/contacts")
         require(user, "view", gid)
         ctx = _listing(request, s, user, sel)
-        return render(request, s, user, "contacts.html", active_nav=f"d{gid}", help="directories", **ctx)
+        counts = dict(s.execute(select(Membership.group_id, func.count(Membership.record_id))
+                                .group_by(Membership.group_id)).all())
+        return render(request, s, user, "contacts.html", active_nav=f"d{gid}", help="directories",
+                      switch_counts=counts, **ctx)
 
 
 # ---------- the contact card ----------
 
-def _card(request, s, user, rec, edit=False):
+def _card(request, s, user, rec, edit=False, ctx_gid=None):
     groups = all_groups(s)
     by_id = {g.id: g for g in groups}
     mids = C.member_ids(s, rec.id)
@@ -172,11 +165,13 @@ def _card(request, s, user, rec, edit=False):
     return templates.TemplateResponse(request, "_bigcard.html", {
         "r": rec, "user": user, "fields": fields, "filled": filled, "total": total,
         "members": [by_id[g] for g in mids if g in by_id], "items": items, "by_id": by_id, "edit": edit,
+        "ctx_gid": ctx_gid if ctx_gid in mids else None,
+        "edit_ids": [g for g in mids if can(user, "edit", g)],
         "add_targets": [g for g in groups if g.id not in mids and can(user, "edit", g.id)]})
 
 
 @router.get("/records/{rid}/open", response_class=HTMLResponse)
-def open_card(request: Request, rid: int, edit: int = 0):
+def open_card(request: Request, rid: int, edit: int = 0, from_: int | None = Query(None, alias="from")):
     with SessionLocal() as s:
         user = current_user(s, request)
         rec = s.get(Record, rid)
@@ -184,11 +179,11 @@ def open_card(request: Request, rid: int, edit: int = 0):
             raise Forbidden
         if edit and not can(user, "edit"):
             raise Forbidden
-        return _card(request, s, user, rec, bool(edit))
+        return _card(request, s, user, rec, bool(edit), from_)
 
 
 @router.post("/records/{rid}/edit", response_class=HTMLResponse)
-async def edit_record(request: Request, rid: int):
+async def edit_record(request: Request, rid: int, from_: int | None = Query(None, alias="from")):
     form = await request.form()
     with SessionLocal() as s:
         user = current_user(s, request)
@@ -220,11 +215,12 @@ async def edit_record(request: Request, rid: int):
         rec.domain = url_domain(data.get("website")) or rec.domain
         C.add_history(rec, f"Edited by {user.username}")
         s.commit()
-        return _card(request, s, user, rec)
+        return _card(request, s, user, rec, ctx_gid=from_)
 
 
 @router.post("/records/{rid}/directories")
-def record_directory(request: Request, rid: int, group_id: int = Form(...), action: str = Form("add")):
+def record_directory(request: Request, rid: int, group_id: int = Form(...), action: str = Form("add"),
+                     from_id: int = Form(0)):
     with SessionLocal() as s:
         user = current_user(s, request)
         rec = s.get(Record, rid)
@@ -232,12 +228,78 @@ def record_directory(request: Request, rid: int, group_id: int = Form(...), acti
             raise Forbidden
         require(user, "edit", group_id)
         g = s.get(Group, group_id)
+        gname = g.name if g else "the directory"
         if action == "remove":
             C.remove_from_directory(s, rec, group_id, user)
-            flash(request, f"{rec.title} removed from {g.name if g else 'the directory'}. The contact itself is kept.")
+            flash(request, f"{rec.title} removed from {gname}. The contact itself is kept.")
+        elif action == "move":
+            require(user, "edit", from_id)
+            src = s.get(Group, from_id)
+            if C.move(s, rec, [from_id], group_id, user):
+                flash(request, f"{rec.title} moved from {src.name if src else 'its directory'} to {gname}. "
+                               "All its details and history are kept." + _extra_note(s, [from_id], g))
         elif C.add_to_directory(s, rec, group_id, user):
-            flash(request, f"{rec.title} added to {g.name if g else 'the directory'}.")
+            flash(request, f"{rec.title} added to {gname}.")
         s.commit()
+    return back(request, "/contacts")
+
+
+def _extra_note(s, from_ids, target) -> str:
+    """Fields the target directory has that the old ones didn't: they now show as Missing."""
+    if not target:
+        return ""
+    had = {f.key for gid in from_ids if (g := s.get(Group, gid)) for f in g.fields}
+    extra = [f.name for f in target.fields if f.key not in had]
+    if not extra:
+        return ""
+    names = ", ".join(extra[:4]) + ("…" if len(extra) > 4 else "")
+    return f" {target.name} has {len(extra)} field{'s' if len(extra) != 1 else ''} they didn't have before ({names}): " \
+           "empty ones show as Missing until Enrich fills them."
+
+
+@router.post("/records/move")
+async def move_selected(request: Request):
+    """Move the ticked contacts to another directory (out of one directory, or out of all their directories)."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()][:500]
+    gid = int(form.get("group_id") or 0)
+    from_raw = str(form.get("from_id") or "")
+    from_id = int(from_raw) if from_raw.isdigit() else 0
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "edit", gid)
+        if from_id:
+            require(user, "edit", from_id)
+        target = s.get(Group, gid)
+        if not target:
+            return back(request, "/contacts")
+        if not ids:
+            flash(request, "Tick one or more contacts first.", True)
+            return back(request, "/contacts")
+        n = skipped = 0
+        sources: set = set()
+        for rid in ids:
+            rec = s.get(Record, rid)
+            if not rec or not C.can_see_record(s, user, rec):
+                continue
+            mids = C.member_ids(s, rec.id)
+            src = [from_id] if from_id else [m for m in mids if m != gid and can(user, "edit", m)]
+            if not src or not any(m in mids for m in src):
+                if not mids and C.add_to_directory(s, rec, gid, user):   # in no directory at all: just add it
+                    n += 1
+                else:
+                    skipped += 1
+                continue
+            if C.move(s, rec, src, gid, user):
+                n += 1
+                sources.update(src)
+            else:
+                skipped += 1
+        s.commit()
+        msg = f"{n} contact{'s' if n != 1 else ''} moved to {target.name}. All details and history are kept."
+        if skipped:
+            msg += f" {skipped} skipped (already only in {target.name}, or not in the chosen directory)."
+        flash(request, msg + (_extra_note(s, list(sources), target) if n else ""), not n)
     return back(request, "/contacts")
 
 

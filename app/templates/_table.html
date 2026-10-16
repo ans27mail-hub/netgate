@@ -12,7 +12,7 @@
       <tbody>
         {% for r in records %}
         {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
-        <tr id="row-{{ r.id }}" class="clickable" hx-get="/records/{{ r.id }}/open" hx-target="#open-{{ r.id }}" hx-swap="innerHTML"
+        <tr id="row-{{ r.id }}" class="clickable" hx-get="/records/{{ r.id }}/open{% if sel_group %}?from={{ sel_group.id }}{% endif %}" hx-target="#open-{{ r.id }}" hx-swap="innerHTML"
             hx-trigger="click[!event.target.closest('button,a,input,label')]">
           <td><input type="checkbox" name="ids" value="{{ r.id }}" form="sel" aria-label="Select {{ r.title }}"></td>
           <td><span class="cell-name"><span class="pic pic-xs" aria-hidden="true">{{ (r.title or '?')[:1] }}</span><strong>{{ r.title }}</strong>{% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}</span></td>

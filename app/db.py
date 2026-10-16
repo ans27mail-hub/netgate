@@ -122,6 +122,8 @@ class User(Base):
     all_groups: Mapped[bool] = mapped_column(Boolean, default=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     prefs: Mapped[dict] = mapped_column(JSONB, default=dict)       # view, list columns, display, saved views
+    must_change: Mapped[bool] = mapped_column(Boolean, default=False)  # asked to pick a new password at next login
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     group_links: Mapped[list["UserGroup"]] = relationship(cascade="all, delete-orphan", lazy="selectin")
     role_obj: Mapped[Role | None] = relationship(lazy="joined")
@@ -267,7 +269,7 @@ class Decision(Base):
     user_id: Mapped[int | None] = mapped_column(Integer)
     record_id: Mapped[int | None] = mapped_column(ForeignKey("records.id", ondelete="SET NULL"), index=True)
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="SET NULL"))
-    decision: Mapped[str] = mapped_column(String(12))                # accept / reject / restore / remove
+    decision: Mapped[str] = mapped_column(String(20))                # accept / reject / restore / remove / move
     reason: Mapped[str] = mapped_column(Text, default="")
     method: Mapped[str] = mapped_column(String(20), default="")
     keyword: Mapped[str] = mapped_column(Text, default="")
@@ -283,6 +285,19 @@ class AppLog(Base):
     source: Mapped[str] = mapped_column(String(30), default="")
     message: Mapped[str] = mapped_column(Text)
     detail: Mapped[str] = mapped_column(Text, default="")
+
+
+class Login(Base):
+    """Login history: every attempt, kept 180 days. Not linked to users, so it stays after a user is deleted."""
+    __tablename__ = "logins"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    username: Mapped[str] = mapped_column(String(80), default="")
+    ok: Mapped[bool] = mapped_column(Boolean, default=True)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    agent: Mapped[str] = mapped_column(Text, default="")          # browser / computer, shortened
+    note: Mapped[str] = mapped_column(Text, default="")           # e.g. "wrong password", "disabled"
 
 
 class AIServer(Base):
@@ -402,6 +417,10 @@ MIGRATIONS = [
     "ALTER TABLE records ADD COLUMN IF NOT EXISTS added_by INTEGER",
     "CREATE INDEX IF NOT EXISTS ix_records_ext ON records USING gin (ext)",
     "CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status)",
+    # v0.6
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP",
+    "ALTER TABLE decisions ALTER COLUMN decision TYPE VARCHAR(20)",
 ]
 
 EMPLOYEE_RANGES = "1–10, 11–50, 51–200, 201–500, 500+"

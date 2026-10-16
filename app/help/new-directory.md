@@ -5,7 +5,7 @@ order: 10
 needs: manage_dirs
 summary: Five steps: basics, methods, fields, instructions, keywords
 ---
-Press **+** next to *Directories* on the left (or Settings → **+ New directory**).
+Open **Directories** and press the **+ New directory** card (or Settings → **+ New directory**).
 
 1. **Basics** — a name (e.g. *Online retailers*) and a short description.
 2. **Search methods** — tick one or more (see [Search methods](/help/search-methods)). For eBay choose the marketplaces (ebay.co.uk, ebay.de …), how many listings to read per keyword, a minimum feedback score and *Business sellers only*. For directory sites give their list pages or site names.
