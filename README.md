@@ -7,51 +7,35 @@ Ask your local AI to search and crawl the web, then add or update what it finds 
 ```
 Browser ──► web (FastAPI, login) ──► Redis queue ──► worker
                                                     ├─► SearXNG (search)
+                                                    ├─► eBay Browse API (eBay search method)
                                                     ├─► fetch (polite: robots.txt, per-site delay, cache)
                                                     ├─► renderer (headless Chromium for JavaScript pages)
                                                     ├─► code-first extraction (email, phone, WhatsApp, social, schema.org)
                                                     ├─► Ollama on the iMac (fills the group's fields as JSON)
-                                                    └─► Postgres (add or update by group + source URL)
+                                                    └─► Postgres → Inbox → accepted into directories
 ```
 
 ## How it works
 
-1. **Discover** — a keyword (or "+ Find companies") searches the web in a few variations, reads list pages and
-   company pages, and adds every matching company with name, city, country and website.
-2. **Enrich** — the update icon on a company searches for that company by name and city, reads its own website
-   (home, About, Contact), uses each field's search words, finds Facebook / Instagram / LinkedIn links, and fills
-   only the missing fields. Each run uses what is already known, so the next run is more precise.
-3. **Night jobs** — inside a time window (e.g. 11 pm – 7 am) NetGate discovers with the night keywords, then
-   enriches incomplete companies (least complete first) and refreshes old ones. It stops by itself when the window ends.
+1. **Search** — a keyword runs with the directory's search methods: Web search, Directory sites, or **eBay**.
+2. **Read** — pages are read politely (robots.txt, delay, cache); JavaScript pages in a headless browser;
+   next pages and directory profiles are followed.
+3. **Pick out details** — code first (emails, phones, WhatsApp, social links, schema.org), then the AI for the rest.
+4. **Inbox** — new companies wait until a person accepts them into one or more directories, or rejects them with
+   a reason. NetGate suggests a decision from earlier ones.
+5. **Enrich** — fills missing fields from the company's website, search results and eBay.
+6. **Night jobs** — keywords and enriching run by themselves in a night window.
 
-## Crawler (v0.4)
+Everything is explained inside the app: **Help** (and the **?** on every page).
+For developers and AI assistants: start with **[AGENTS.md](AGENTS.md)**, then `docs/`.
 
-- **Real browser** — pages that need JavaScript are opened in a headless Chromium (the `renderer` container).
-  Mode: auto / always / never, plus a list of sites that always use it.
-- **Next pages** — list pages are followed to page 2, 3, … (limit in Settings → Crawler).
-- **Directory mode** — on directory sites NetGate opens each company's profile page to get its real website,
-  email and phone.
-- **Code first** — emails (incl. hidden Cloudflare ones), phones, WhatsApp, social links and schema.org company data
-  are read by code; the AI is only asked for what code could not find.
-- **Wider site reading** — Contact, About, Impressum pages from links and the sitemap.
-- **Long pages** are split into chunks so nothing is cut off.
-- **Cache** — pages are kept for a few days, so repeat runs are fast.
-- **Polite** — respects robots.txt, waits between requests to the same site, retries once.
+## Organised as
 
-Settings → **Connections** stores API keys for eBay (UK, DE, IT, FR, US, CA …) and Etsy, ready for the marketplace
-search methods coming in a later version.
-
-## How it is organised
-
-- **Groups** (Manufacturers, Materials, …) are the directory tabs. Admins create them in Settings.
-- Each group has **keywords** (click one to make the AI search and update that group) and
-  **fields** (City, Products, Employees, …) that the AI fills and that can be used to filter, sort and show on cards.
-- **Users** log in. Each user has permissions (view, request, keyword updates, edit, delete, manage groups,
-  manage users) and can be limited to selected groups. Admins can do everything.
-- The first time NetGate starts with no users, it shows a page to create the first admin.
-- Each group has its own AI instructions (what belongs, how to fill fields, what to ignore) and a page tester.
-- AI servers (Ollama on the iMac, a GPU PC later, optional OpenRouter with spending limits) and the model per job
-  are chosen in Settings → AI servers.
+- **Directories** (Manufacturers, Online retailers …): search methods, fields (with “Filled from”), keywords and
+  AI instructions per directory. One contact can be in several directories.
+- **Inbox**, **All contacts** (filters + saved views), **Requests** (pause, stop, delete, reject, run again).
+- **Roles** (Admin, Manager, Researcher, Viewer, Developer) with a permission grid; directory access per person.
+- **Settings**: AI servers & models, night jobs, crawler, connections (eBay / Etsy keys), reject list, display.
 - Database changes are applied automatically at start-up and keep existing data.
 
 ## Server commands (WSL)

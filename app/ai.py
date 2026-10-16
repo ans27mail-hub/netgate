@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from .db import AIServer, AIUsage, SessionLocal, get_setting
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
-JOB_TYPES = {"discover": "Discover", "enrich": "Enrich", "night": "Night jobs"}
+JOB_TYPES = {"discover": "Discover", "enrich": "Enrich", "night": "Night jobs", "help": "Help answers"}
 
 
 class AIError(Exception):
@@ -53,7 +53,7 @@ def over_budget(s) -> bool:
 def pick(job_type: str):
     """Return (server, model) for a job type, falling back when OpenRouter is over budget or off."""
     with SessionLocal() as s:
-        conf = get_setting(s, f"ai.{job_type}") or get_setting(s, "ai.discover") or {}
+        conf = get_setting(s, f"ai.{job_type}") or get_setting(s, "ai.discover") or {}   # help uses Discover's
         server = s.get(AIServer, conf.get("server")) if conf.get("server") else None
         model = conf.get("model") or ""
         if server and server.kind == "openrouter" and (not server.enabled or not server.api_key or over_budget(s)):

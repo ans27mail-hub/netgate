@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Night jobs · NetGate{% endblock %}
 {% block content %}
-<div class="wrap settings">
+<div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
-    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
     <form method="post" action="/settings/night" style="display:flex;flex-direction:column;gap:16px">
       <div class="shead">
         <h1>Night jobs</h1>
@@ -33,14 +32,15 @@
           <label class="field">Max companies enriched per night<input type="number" name="max_companies" min="0" value="{{ cfg.max_companies }}"></label>
           <label class="field">Pause between pages (seconds)<input type="number" name="pause" min="0" max="120" value="{{ cfg.pause }}"></label>
         </div>
-        <span class="hint">A short pause keeps search engines and websites from blocking you.</span>
+        <label class="check-inline"><input type="checkbox" name="enrich_inbox" {% if cfg.enrich_inbox %}checked{% endif %}> Also enrich new Inbox companies (so they arrive in the Enriched tab with details filled)</label>
+        <span class="hint">A short pause keeps search engines and websites from blocking you. Contacts marked “enrich tonight” are always done first.</span>
       </section>
 
       <section class="panel" style="display:flex;flex-direction:column;gap:12px">
-        <h2>What to do in each group</h2>
+        <h2>What to do in each directory</h2>
         <div class="overflow">
           <table class="t" style="min-width:600px">
-            <thead><tr><th>Group</th><th class="c">Discover<br><span class="sub">night keywords</span></th><th class="c">Enrich<br><span class="sub">incomplete, least complete first</span></th><th>Refresh complete listings older than</th></tr></thead>
+            <thead><tr><th>Directory</th><th class="c">Discover<br><span class="sub">night keywords → Inbox</span></th><th class="c">Enrich<br><span class="sub">incomplete, least complete first</span></th><th>Refresh complete contacts older than</th></tr></thead>
             <tbody>
             {% for g in all %}
               <tr>
@@ -59,7 +59,7 @@
             </tbody>
           </table>
         </div>
-        <span class="hint">Choose which keywords run at night on each group's settings page.</span>
+        <span class="hint">Choose which keywords run at night in each directory's settings. Keywords on the reject list are skipped.</span>
       </section>
     </form>
 
@@ -68,8 +68,8 @@
       {% for run in runs %}
       <div class="nightrow">
         <b>{{ run.night_date.strftime('%a %d %b') }}</b>
-        <span class="badge {% if run.status == 'done' %}green{% elif run.status == 'failed' %}red{% elif run.status == 'running' %}blue{% endif %}">{{ run.status }}</span>
-        <span class="sub">{{ (run.stats or {}).get('saved', 0) }} new · {{ (run.stats or {}).get('companies', 0) }} enriched · {{ (run.stats or {}).get('fields', 0) }} fields filled · {{ (run.stats or {}).get('read', 0) }} pages read · {{ (run.stats or {}).get('failed', 0) }} failed</span>
+        <span class="badge {% if run.status == 'done' %}green{% elif run.status == 'failed' %}red{% elif run.status == 'running' %}blue{% elif run.status == 'paused' %}amber{% endif %}">{{ run.status }}</span>
+        <span class="sub">{{ (run.stats or {}).get('saved', 0) }} new in Inbox · {{ (run.stats or {}).get('companies', 0) }} enriched · {{ (run.stats or {}).get('fields', 0) }} fields filled · {{ (run.stats or {}).get('read', 0) }} pages read · {{ (run.stats or {}).get('failed', 0) }} failed</span>
         {% if run.note %}<span class="sub ml-auto">{{ run.note }}</span>{% endif %}
       </div>
       {% else %}

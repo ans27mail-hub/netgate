@@ -1,0 +1,36 @@
+{# Search method cards + their options. Needs: cur (enabled methods dict), opts, ebay_sites, conn #}
+<div class="mcards">
+  {% for key, m in METHODS.items() %}
+  <label class="mcard {% if key in cur %}on{% endif %} {% if not m.ready %}later{% endif %}">
+    <span class="mtitle"><input type="checkbox" name="m_{{ key }}" {% if key in cur %}checked{% endif %} {% if not m.ready %}disabled{% endif %} onchange="this.closest('.mcard').classList.toggle('on', this.checked); var o=document.getElementById('opt-{{ key }}'); if (o) o.hidden=!this.checked">{{ m.name }}</span>
+    <span class="hint">{{ m.desc }}</span>
+    <span class="tag t-{{ m.kind }}">{{ m.tag }}</span>
+  </label>
+  {% endfor %}
+</div>
+<div class="mopts ebayopts" id="opt-ebay" {% if 'ebay' not in cur %}hidden{% endif %}>
+  <strong>eBay search settings</strong>
+  <div class="gchecks">
+    <span class="hint">Marketplaces:</span>
+    {% set ebay_on = opts.ebay.sites or conn.ebay.sites %}
+    {% for code, host, label in ebay_sites %}<label><input type="checkbox" name="ebay_sites" value="{{ code }}" {% if code in ebay_on %}checked{% endif %}> {{ host }}</label>{% endfor %}
+  </div>
+  <div class="row">
+    <label class="field">eBay category number (optional)<input type="text" name="ebay_category_id" value="{{ opts.ebay.category_id }}" placeholder="e.g. 6750 for motorcycle clothing"></label>
+    <label class="field">Listings read per keyword<input type="number" name="ebay_per_keyword" min="10" max="2000" value="{{ opts.ebay.per_keyword }}"></label>
+    <label class="field">Most sellers saved per keyword<input type="number" name="ebay_max_sellers" min="1" max="500" value="{{ opts.ebay.max_sellers }}"></label>
+    <label class="field">Minimum seller feedback<input type="number" name="ebay_min_feedback" min="0" value="{{ opts.ebay.min_feedback }}"></label>
+    <label class="check-inline"><input type="checkbox" name="ebay_business_only" {% if opts.ebay.business_only %}checked{% endif %}> Business sellers only</label>
+  </div>
+  <span class="hint">Uses the official eBay API — {% if conn.ebay.client_id and conn.ebay.client_secret %}keys are saved in Settings → Connections.{% else %}<b>add your free eBay developer keys in Settings → Connections</b> first; until then eBay search is skipped.{% endif %}</span>
+</div>
+<div class="mopts" id="opt-directory" {% if 'directory' not in cur %}hidden{% endif %}>
+  <strong>Directory site settings</strong>
+  <div class="row">
+    <label class="field">List pages to read (one per line). Put <span class="mono-sm">{q}</span> where the keyword goes in a site's own search address.
+      <textarea name="dir_start_urls" rows="3" class="mono" placeholder="https://www.example-directory.com/search?q={q}&#10;https://www.example-directory.com/category/gloves">{{ opts.directory.start_urls }}</textarea></label>
+    <label class="field">Directory sites to search (one per line)
+      <textarea name="dir_sites" rows="3" class="mono" placeholder="example-directory.com&#10;another-b2b-portal.com">{{ opts.directory.sites }}</textarea></label>
+  </div>
+  <span class="hint">NetGate reads each list page, follows its next pages and opens each company's profile to get its own website, email and phone.</span>
+</div>

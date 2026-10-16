@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title ~ ' · ' if page else '' }}Help · NetGate{% endblock %}
+{% block content %}
+<div class="helpwrap">
+  <aside class="helpnav">
+    <a href="/help" class="{% if not page %}on{% endif %}">Help home</a>
+    <a href="/help/whats-new" class="{% if page and page.slug == 'whats-new' %}on{% endif %}">What's new</a>
+    {% if page and siblings %}
+    <span class="caps-sm">{{ page.section }}</span>
+    {% for p in siblings if p.section == page.section %}<a href="/help/{{ p.slug }}" class="{% if p.slug == page.slug %}on{% endif %}">{{ p.title }}</a>{% endfor %}
+    {% endif %}
+  </aside>
+  <div class="helpmain">
+    {% if page %}
+    <article class="panel helptext">
+      <span class="caps-sm">{{ page.section }}</span>
+      <h1>{{ page.title }}</h1>
+      {{ page.html|safe }}
+    </article>
+    {% else %}
+    <div class="pagehead"><h1>Help</h1><span class="sub">What NetGate does, how to use it, and what to do when something goes wrong.</span></div>
+    <section class="panel stack askbox">
+      <h2>Ask NetGate</h2>
+      <form hx-post="/help/ask" hx-target="#answer" hx-indicator="#asking" class="row">
+        <label class="field" style="flex:4 1 320px"><span class="sr">Your question</span><input type="text" name="question" required placeholder="e.g. How do I stop a search? Why are there no results?"></label>
+        <button type="submit" class="btn btn-primary">Ask</button>
+      </form>
+      <span id="asking" class="htmx-indicator hint">The AI is reading the help pages…</span>
+      <div id="answer"></div>
+      <span class="hint">Answers come from your own AI server and only use these help pages.</span>
+    </section>
+    <form method="get" action="/help" class="row">
+      <label class="field" style="flex:4 1 320px"><span class="sr">Search the help</span><input type="search" name="q" value="{{ q }}" placeholder="Search the help pages…"></label>
+      <button type="submit" class="btn btn-outline">Search</button>
+    </form>
+    {% if q %}
+    <section class="panel stack">
+      <h2>Pages about “{{ q }}”</h2>
+      {% for p in found %}<a href="/help/{{ p.slug }}" class="helplink"><b>{{ p.title }}</b><span class="sub">{{ p.section }}{% if p.summary %} · {{ p.summary }}{% endif %}</span></a>{% else %}<span class="hint">No page mentions that.</span>{% endfor %}
+    </section>
+    {% endif %}
+    <div class="helpgrid">
+      {% for name, items in sections %}
+      <section class="panel stack">
+        <h2>{{ name }}</h2>
+        {% for p in items %}<a href="/help/{{ p.slug }}" class="helplink"><b>{{ p.title }}</b>{% if p.summary %}<span class="sub">{{ p.summary }}</span>{% endif %}</a>{% endfor %}
+      </section>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

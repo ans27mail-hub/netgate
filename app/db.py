@@ -8,6 +8,8 @@ from sqlalchemy import (Boolean, Date, DateTime, Float, ForeignKey, Integer, Lar
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
+from .auth import ADMIN, DEFAULT_ROLES, OLD_PERMS, PERM_KEYS, best_role, join, split
+
 engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -24,10 +26,12 @@ class Setting(Base):
 
 
 class Group(Base):
-    """A directory section, e.g. Manufacturers."""
+    """A directory, e.g. Manufacturers or Online retailers. (Called "group" in the code and database.)"""
     __tablename__ = "groups"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    methods: Mapped[dict] = mapped_column(JSONB, default=dict)          # search method key -> its options
     instructions: Mapped[str] = mapped_column(Text, default="")          # what belongs here (Discover)
     enrich_instructions: Mapped[str] = mapped_column(Text, default="")   # how to fill fields (Enrich)
     ignore_instructions: Mapped[str] = mapped_column(Text, default="")   # what to skip
@@ -49,6 +53,7 @@ class Keyword(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"))
     text: Mapped[str] = mapped_column(Text)
+    method: Mapped[str] = mapped_column(String(20), default="all")    # which find method runs it ("all" = every one)
     night: Mapped[bool] = mapped_column(Boolean, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
     found_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -71,6 +76,7 @@ class Field(Base):
     choices: Mapped[str] = mapped_column(Text, default="")        # comma separated, for type=choice
     words: Mapped[str] = mapped_column(Text, default="")          # search words used by Enrich
     stage: Mapped[str] = mapped_column(String(20), default="enrich")  # discover / enrich
+    source: Mapped[str] = mapped_column(String(60), default="")       # "Filled from": '' = AI + code, or e.g. ebay:feedback_pct
     filter: Mapped[bool] = mapped_column(Boolean, default=False)
     sort: Mapped[bool] = mapped_column(Boolean, default=False)
     card: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -85,23 +91,52 @@ class Field(Base):
         return [w.strip() for w in (self.words or "").split(",") if w.strip()]
 
 
+class Role(Base):
+    """A named set of permissions. Changing a role changes every user who has it."""
+    __tablename__ = "roles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    perms: Mapped[str] = mapped_column(Text, default="view")         # comma separated permission keys
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)     # Admin: always everything
+    all_groups: Mapped[bool] = mapped_column(Boolean, default=True)  # default directory access for new users
+    group_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    @property
+    def perm_set(self) -> set[str]:
+        return set(PERM_KEYS) if self.locked else split(self.perms)
+
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(80), unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    role: Mapped[str] = mapped_column(String(20), default="Viewer")
-    perms: Mapped[str] = mapped_column(Text, default="view")       # comma separated permission keys
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)  # kept in step with the Admin role
+    role: Mapped[str] = mapped_column(String(60), default="Viewer")  # role name (shown in lists)
+    role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id", ondelete="SET NULL"))
+    perms: Mapped[str] = mapped_column(Text, default="view")       # v0.4 permissions, kept for rollback
+    extra_perms: Mapped[str] = mapped_column(Text, default="")     # this person only: added to the role
+    removed_perms: Mapped[str] = mapped_column(Text, default="")   # this person only: taken from the role
     all_groups: Mapped[bool] = mapped_column(Boolean, default=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    prefs: Mapped[dict] = mapped_column(JSONB, default=dict)       # view, list columns, display
+    prefs: Mapped[dict] = mapped_column(JSONB, default=dict)       # view, list columns, display, saved views
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     group_links: Mapped[list["UserGroup"]] = relationship(cascade="all, delete-orphan", lazy="selectin")
+    role_obj: Mapped[Role | None] = relationship(lazy="joined")
 
     @property
     def perm_set(self) -> set[str]:
-        return {p for p in (self.perms or "").split(",") if p}
+        if self.is_admin:
+            return set(PERM_KEYS)
+        base = self.role_obj.perm_set if self.role_obj else set()
+        return (base | split(self.extra_perms)) - split(self.removed_perms)
+
+    @property
+    def custom(self) -> bool:
+        """Has permissions of its own on top of (or taken from) the role."""
+        return bool(split(self.extra_perms) or split(self.removed_perms))
 
     @property
     def group_ids(self) -> set[int]:
@@ -128,16 +163,47 @@ class Job(Base):
     updated: Mapped[int] = mapped_column(Integer, default=0)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    params: Mapped[dict] = mapped_column(JSONB, default=dict)        # keyword_id, method, run_id, steps …
+    control: Mapped[str] = mapped_column(String(10), default="")    # '' / pause / stop: asked by the user
+    state: Mapped[dict] = mapped_column(JSONB, default=dict)         # where a paused job got to (for Resume)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime)    # in the Deleted bin (kept 30 days)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class JobTrace(Base):
+    """Debug view: what a job read, what code found, what the AI was asked and answered."""
+    __tablename__ = "job_traces"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    kind: Mapped[str] = mapped_column(String(20))      # search / page / code / ai / note / error
+    url: Mapped[str] = mapped_column(Text, default="")
+    data: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class RejectedKeyword(Base):
+    """Keywords that are never searched again (until restored)."""
+    __tablename__ = "rejected_keywords"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+    norm: Mapped[str] = mapped_column(Text, index=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"))   # None = everywhere
+    reason: Mapped[str] = mapped_column(Text, default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    job_id: Mapped[int | None] = mapped_column(Integer)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Record(Base):
-    """One directory listing (a company). Matched by website domain, or by name + city."""
+    """One contact (a company or store). It exists once and can be in several directories (Membership).
+    Matched by marketplace id, website domain, or name + city."""
     __tablename__ = "records"
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
-    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="SET NULL"), index=True)  # first directory (v0.4)
     topic: Mapped[str] = mapped_column(Text)
     title: Mapped[str] = mapped_column(Text)
     summary: Mapped[str] = mapped_column(Text)
@@ -151,8 +217,72 @@ class Record(Base):
     enrich_runs: Mapped[int] = mapped_column(Integer, default=0)
     last_enriched_at: Mapped[datetime | None] = mapped_column(DateTime)
     enrich_note: Mapped[str | None] = mapped_column(Text)
+    links: Mapped[dict] = mapped_column(JSONB, default=dict)         # marketplace / store pages: ebay, etsy, amazon …
+    ext: Mapped[dict] = mapped_column(JSONB, default=dict)           # ids on other sites, e.g. {"ebay": "seller_name"}
+    history: Mapped[list] = mapped_column(JSONB, default=list)       # plain-text notes: how and when it was found
+    notes: Mapped[str] = mapped_column(Text, default="")             # notes typed by a person
+    enrich_tonight: Mapped[bool] = mapped_column(Boolean, default=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime)   # first accepted into a directory
+    vec: Mapped[bytes | None] = mapped_column(LargeBinary)           # embedding used for AI suggestions
+    vec_model: Mapped[str | None] = mapped_column(Text)
+    added_by: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Membership(Base):
+    """A contact accepted into a directory."""
+    __tablename__ = "memberships"
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id", ondelete="CASCADE"), primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True, index=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    added_by: Mapped[int | None] = mapped_column(Integer)
+
+
+class InboxItem(Base):
+    """A contact waiting for a decision for one directory (or "not sure yet" when group_id is None)."""
+    __tablename__ = "inbox"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(12), default="new", index=True)   # new / accepted / rejected
+    method: Mapped[str] = mapped_column(String(20), default="web")   # how it was found: web / directory / ebay / manual …
+    keyword: Mapped[str] = mapped_column(Text, default="")
+    job_id: Mapped[int | None] = mapped_column(Integer)
+    found_url: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[float | None] = mapped_column(Float)               # AI suggestion confidence 0..1
+    suggest: Mapped[str | None] = mapped_column(String(10))          # accept / reject
+    why: Mapped[str] = mapped_column(Text, default="")
+    reason: Mapped[str] = mapped_column(Text, default="")            # reject reason
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decided_by: Mapped[int | None] = mapped_column(Integer)
+
+
+class Decision(Base):
+    """Every accept / reject, kept to improve suggestions and to export as training data."""
+    __tablename__ = "decisions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer)
+    record_id: Mapped[int | None] = mapped_column(ForeignKey("records.id", ondelete="SET NULL"), index=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id", ondelete="SET NULL"))
+    decision: Mapped[str] = mapped_column(String(12))                # accept / reject / restore / remove
+    reason: Mapped[str] = mapped_column(Text, default="")
+    method: Mapped[str] = mapped_column(String(20), default="")
+    keyword: Mapped[str] = mapped_column(Text, default="")
+    snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class AppLog(Base):
+    """NetGate's own log: errors and notable events from the web app, workers and scheduler."""
+    __tablename__ = "app_log"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    level: Mapped[str] = mapped_column(String(10), default="info")
+    source: Mapped[str] = mapped_column(String(30), default="")
+    message: Mapped[str] = mapped_column(Text)
+    detail: Mapped[str] = mapped_column(Text, default="")
 
 
 class AIServer(Base):
@@ -239,6 +369,39 @@ MIGRATIONS = [
     "ALTER TABLE fields ADD COLUMN IF NOT EXISTS stage VARCHAR(20) NOT NULL DEFAULT 'enrich'",
     "ALTER TABLE fields ADD COLUMN IF NOT EXISTS list BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS prefs JSONB NOT NULL DEFAULT '{}'::jsonb",
+    # v0.5: directories, inbox, roles, request controls
+    """DO $$ BEGIN
+         IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'records_group_id_fkey' AND confdeltype = 'c') THEN
+           ALTER TABLE records DROP CONSTRAINT records_group_id_fkey;
+           ALTER TABLE records ADD CONSTRAINT records_group_id_fkey FOREIGN KEY (group_id)
+             REFERENCES groups(id) ON DELETE SET NULL;
+         END IF;
+       END $$""",
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS methods JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE keywords ADD COLUMN IF NOT EXISTS method VARCHAR(20) NOT NULL DEFAULT 'all'",
+    "ALTER TABLE fields ADD COLUMN IF NOT EXISTS source VARCHAR(60) NOT NULL DEFAULT ''",
+    "ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(60)",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS extra_perms TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS removed_perms TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS control VARCHAR(10) NOT NULL DEFAULT ''",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS state JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS started_at TIMESTAMP",
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS finished_at TIMESTAMP",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS links JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS ext JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS history JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS enrich_tonight BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS vec BYTEA",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS vec_model TEXT",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS added_by INTEGER",
+    "CREATE INDEX IF NOT EXISTS ix_records_ext ON records USING gin (ext)",
+    "CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status)",
 ]
 
 EMPLOYEE_RANGES = "1–10, 11–50, 51–200, 201–500, 500+"
@@ -272,6 +435,19 @@ def url_domain(url: str | None) -> str | None:
     host = url.split("://", 1)[1].split("/")[0].split(":")[0]
     host = host.removeprefix("www.")
     return host if "." in host else None
+
+
+DEFAULT_METHODS = {"web": {}, "website": {}}   # Web search to find, Company website to enrich
+
+
+def log(level: str, source: str, message: str, detail: str = ""):
+    """Write to NetGate's own log (Developer tools → Logs). Never raises."""
+    try:
+        with SessionLocal() as s:
+            s.add(AppLog(level=level, source=source[:30], message=str(message)[:2000], detail=str(detail)[:20000]))
+            s.commit()
+    except Exception:
+        pass
 
 
 def default_fields() -> list[Field]:
@@ -319,7 +495,7 @@ def _seed(s):
     for i, (name, instr, terms, kws) in enumerate(starters):
         if s.scalar(select(Group).where(Group.name == name)):
             continue
-        g = Group(name=name, instructions=instr, search_terms=terms, position=i)
+        g = Group(name=name, instructions=instr, search_terms=terms, position=i, methods=dict(DEFAULT_METHODS))
         g.fields = default_fields()
         if name == "Manufacturers":
             g.fields += [
@@ -358,6 +534,64 @@ def _upgrade_v03(s):
     s.add(Setting(key="v03_upgraded", value="1"))
 
 
+def _seed_roles(s):
+    """Starting roles. Added once; afterwards admins edit them on the Roles page."""
+    have = {r.name for r in s.scalars(select(Role)).all()}
+    for i, (name, desc, perms) in enumerate(DEFAULT_ROLES):
+        if name not in have and not s.get(Setting, "roles_seeded"):
+            s.add(Role(name=name, description=desc, perms=join(perms), locked=(name == ADMIN), position=i))
+    admin = s.scalar(select(Role).where(Role.name == ADMIN))
+    if admin and not admin.locked:
+        admin.locked = True
+    if not s.get(Setting, "roles_seeded"):
+        s.add(Setting(key="roles_seeded", value="1"))
+
+
+def _upgrade_v05(s):
+    """One-time data changes for v0.5 on existing installs. Nothing is deleted."""
+    if s.get(Setting, "v05_upgraded"):
+        return
+    # groups become directories with the two methods v0.4 used
+    for g in s.scalars(select(Group)).all():
+        if not g.methods:
+            g.methods = dict(DEFAULT_METHODS)
+    # every existing listing is an accepted contact of its group
+    member = {(m.record_id, m.group_id) for m in s.scalars(select(Membership)).all()}
+    for r in s.scalars(select(Record)).all():
+        if r.group_id and (r.id, r.group_id) not in member:
+            s.add(Membership(record_id=r.id, group_id=r.group_id, added_at=r.created_at))
+        if r.group_id and not r.accepted_at:
+            r.accepted_at = r.created_at or datetime.utcnow()
+        if not r.history:
+            when = r.created_at.strftime("%d %b %Y") if r.created_at else ""
+            r.history = [{"at": r.created_at.isoformat() if r.created_at else "",
+                          "text": f"Found by “{(r.topic or '')[:80]}” · {when}"}]
+    # users get the role closest to their permissions; exceptions keep their exact access
+    roles = s.scalars(select(Role)).all()
+    by_name = {r.name: r for r in roles}
+    for u in s.scalars(select(User)).all():
+        if u.role_id:
+            continue
+        if u.is_admin:
+            u.role_id, u.role = by_name[ADMIN].id, ADMIN
+            continue
+        target = set()
+        for p in split(u.perms):
+            target |= set(OLD_PERMS.get(p, [p] if p in PERM_KEYS else []))
+        if {"request", "keywords"} & target:
+            target.add("requests_own")
+        named = {"Editor": "Researcher", "Viewer": "Viewer"}.get(u.role)
+        role = by_name.get(named) if named else None
+        if role:
+            rp = split(role.perms)
+            extra, removed = target - rp, rp - target
+        else:
+            role, extra, removed = best_role(target, roles)
+        u.role_id, u.role = (role.id, role.name) if role else (None, "Custom")
+        u.extra_perms, u.removed_perms = join(extra), join(removed)
+    s.add(Setting(key="v05_upgraded", value="1"))
+
+
 def _seed_ai(s):
     """First AI server comes from .env (the iMac); every job uses it until changed in Settings."""
     if s.scalar(select(func.count(AIServer.id))):
@@ -375,13 +609,19 @@ def _seed_ai(s):
 
 
 def init_db():
-    Base.metadata.create_all(engine)
+    # the web app and the scheduler both start this; the lock makes them take turns
     with engine.begin() as conn:
+        conn.execute(text("SELECT pg_advisory_xact_lock(424242)"))
+        Base.metadata.create_all(conn)
         for stmt in MIGRATIONS:
             conn.execute(text(stmt))
     with SessionLocal() as s:
+        s.execute(text("SELECT pg_advisory_xact_lock(424243)"))
         _seed(s)
         s.flush()
         _upgrade_v03(s)
+        _seed_roles(s)
+        s.flush()
+        _upgrade_v05(s)
         _seed_ai(s)
         s.commit()

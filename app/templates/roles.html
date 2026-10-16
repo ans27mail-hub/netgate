@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Roles · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <form method="post" action="/settings/roles" class="stack">
+      <div class="shead"><h1>Roles &amp; permissions</h1><button type="submit" class="btn btn-primary ml-auto">Save roles</button></div>
+      <p class="hint" style="margin:0">Tick what each role may do. Changing a role changes everyone who has it. Admin always has everything.</p>
+      <section class="panel" style="padding:0">
+        <div class="overflow">
+          <table class="t permtable">
+            <thead>
+              <tr><th>Permission</th>
+                {% for r in roles %}<th class="c rolecol">
+                  {% if r.locked %}<b>{{ r.name }}</b>{% else %}<input type="text" name="name_{{ r.id }}" value="{{ r.name }}" aria-label="Role name" class="rolename">{% endif %}
+                  <span class="sub dblock">{{ used.get(r.id, 0) }} user{{ '' if used.get(r.id, 0) == 1 else 's' }}</span>
+                </th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+            {% for glabel, items in PERM_GROUPS %}
+              <tr class="grouprow"><td colspan="{{ roles|length + 1 }}">{{ glabel }}</td></tr>
+              {% for key, label, desc in items %}
+              <tr><td><b>{{ label }}</b><span class="sub dblock">{{ desc }}</span></td>
+                {% for r in roles %}<td class="c"><input type="checkbox" name="p_{{ r.id }}_{{ key }}" aria-label="{{ r.name }}: {{ label }}" {% if key in r.perm_set %}checked{% endif %} {% if r.locked %}disabled{% endif %}></td>{% endfor %}
+              </tr>
+              {% endfor %}
+            {% endfor %}
+              <tr class="grouprow"><td colspan="{{ roles|length + 1 }}">Default directory access for new users</td></tr>
+              <tr><td><span class="sub">Each user can still be changed on their own page.</span></td>
+                {% for r in roles %}<td class="c">
+                  {% if r.locked %}<span class="sub">All</span>{% else %}
+                  <select name="dirs_{{ r.id }}" aria-label="{{ r.name }} directory access"><option value="all" {% if r.all_groups %}selected{% endif %}>All</option><option value="some" {% if not r.all_groups %}selected{% endif %}>Selected</option></select>
+                  <details class="menu"><summary class="sub" style="cursor:pointer">which?</summary><div class="menu-body">{% for g in all %}<label><input type="checkbox" name="g_{{ r.id }}" value="{{ g.id }}" {% if g.id in (r.group_ids or []) %}checked{% endif %}> {{ g.name }}</label>{% endfor %}</div></details>
+                  {% endif %}
+                </td>{% endfor %}
+              </tr>
+              <tr><td><b>Description</b></td>{% for r in roles %}<td>{% if r.locked %}<span class="sub">{{ r.description }}</span>{% else %}<textarea name="desc_{{ r.id }}" rows="3" aria-label="{{ r.name }} description" class="roledesc">{{ r.description }}</textarea>{% endif %}</td>{% endfor %}</tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </form>
+    <section class="panel row">
+      <form method="post" action="/settings/roles/new" class="row" style="flex:1">
+        <label class="field">New role name<input type="text" name="name" required placeholder="e.g. Sales"></label>
+        <label class="field">Start from<select name="copy"><option value="0">Nothing (view only)</option>{% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select></label>
+        <button type="submit" class="btn btn-outline">+ Add role</button>
+      </form>
+      <div class="stack" style="flex:1 1 260px">
+        <span class="hint">Delete a role (only when nobody has it):</span>
+        <div class="btnrow">{% for r in roles if not r.locked %}<form method="post" action="/settings/roles/{{ r.id }}/delete" class="inline" onsubmit="return confirm('Delete the role {{ r.name|e }}?')"><button type="submit" class="btn btn-danger btn-xs" {% if used.get(r.id) %}disabled title="{{ used.get(r.id) }} user(s) have this role"{% endif %}>{{ r.name }}</button></form>{% endfor %}</div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

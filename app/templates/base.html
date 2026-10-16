@@ -7,52 +7,104 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="/static/app.css?v={{ VERSION }}">
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="/static/htmx.min.js?v=2.0.3"></script>
 </head>
 <body style="{{ page_style or '' }}">
 {% block body %}
-<header class="topbar">
-  <div class="wrap">
-    <a class="brand" href="/">NetGate</a>
-    <form class="topsearch" action="/" method="get" role="search">
-      {% if sel_group %}<input type="hidden" name="group" value="{{ sel_group.id }}">{% endif %}
-      <label for="topq" class="sr">Search the directory</label>
-      <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="Search {{ sel_group.name if sel_group else 'the directory' }} by name, city, product…">
-    </form>
-    {% if req_groups %}
-    <button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Find companies</button>
-    {% endif %}
-    <nav class="toplinks" aria-label="Account">
-      <a href="/requests">Requests</a>
-      {% if can(user, 'manage_groups') or can(user, 'manage_users') %}<a href="/settings">Settings</a>{% else %}<a href="/settings/display">Display</a>{% endif %}
-      <span class="who"><span class="avatar" aria-hidden="true">{{ user.username[:1] }}</span>{{ user.username }}</span>
-      <form method="post" action="/logout" style="margin:0"><button type="submit">Log out</button></form>
-    </nav>
+<div class="shell">
+  {% include "_sidebar.html" %}
+  <div class="content">
+    <header class="top">
+      <button type="button" class="menu-btn" aria-label="Menu" onclick="document.body.classList.toggle('nav-open')">☰</button>
+      {% set search_action = path if (path.startswith('/d/') or path == '/inbox') else '/contacts' %}
+      <form class="topsearch" action="{{ search_action }}" method="get" role="search">
+        {% if path == '/inbox' and tab %}<input type="hidden" name="tab" value="{{ tab }}">{% endif %}
+        <label for="topq" class="sr">Search</label>
+        <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="{% if path == '/inbox' %}Search the Inbox by name, city, website…{% elif sel_group %}Search {{ sel_group.name }}…{% else %}Search all contacts by name, city, product…{% endif %}">
+      </form>
+      <details class="jobs-pop" {% if running_n %}data-running{% endif %}>
+        <summary hx-get="/activity" hx-target="#activity" hx-trigger="click once" class="pill-btn"><span class="dot {% if not running_n %}off{% endif %}" aria-hidden="true"></span>{% if running_n %}{{ running_n }} AI job{{ '' if running_n == 1 else 's' }} running{% else %}No AI jobs running{% endif %} ▾</summary>
+        <section class="activity" id="activity" hx-get="/activity" hx-trigger="every 5s [document.querySelector('.jobs-pop').open]" hx-swap="innerHTML"><p class="sub">Loading…</p></section>
+      </details>
+      {% if help %}<button type="button" class="pill-btn help-btn" aria-label="Help for this page" hx-get="/help/{{ help }}?partial=1" hx-target="#helpbody" onclick="document.getElementById('helpdlg').showModal()">?</button>{% endif %}
+      {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add{% if sel_group %}?group={{ sel_group.id }}{% endif %}" class="btn btn-outline pill">+ Add contact</a>{% endif %}
+      {% if req_groups %}<button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Run discovery</button>{% endif %}
+    </header>
+    <main class="wrap page">
+      {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
   </div>
-</header>
-
-{% block content %}{% endblock %}
+</div>
 
 {% if req_groups %}
 <dialog id="ask" aria-labelledby="ask-title">
   <form method="post" action="/jobs">
-    <h2 id="ask-title">Find companies</h2>
-    <p class="hint" style="margin:0">The AI searches the web, reads list and company pages, and adds every matching company with its name, city, country and website. Use the update icon on a company later to fill in the rest.</p>
+    <h2 id="ask-title">Run discovery</h2>
+    <p class="hint" style="margin:0">NetGate searches with the directory's methods. New companies go to the Inbox, where you accept or reject them.</p>
     <label class="field">What should the AI look for?
       <textarea name="query" rows="3" required placeholder="e.g. leather glove manufacturers in Sialkot"></textarea>
     </label>
-    <label class="field">Save results in group
-      <select name="group_id" required>
-        {% for g in req_groups %}<option value="{{ g.id }}" {% if sel_group and g.id == sel_group.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+    <label class="field">For directory
+      <select name="group_id" required id="ask-dir" onchange="askMethods()">
+        {% for g in req_groups %}<option value="{{ g.id }}" data-methods="{{ (g.methods or {}).keys()|list|join(',') }}" {% if sel_group and g.id == sel_group.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
       </select>
     </label>
+    <fieldset class="methods-pick" id="ask-methods">
+      <legend class="hint">Search with</legend>
+      {% for key, m in METHODS.items() if m.step == 'find' and m.ready %}
+      <label data-m="{{ key }}"><input type="checkbox" name="methods" value="{{ key }}" checked> {{ m.name }}</label>
+      {% endfor %}
+    </fieldset>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
       <button type="submit" class="btn btn-primary">Start</button>
     </div>
   </form>
 </dialog>
+<script>
+  function askMethods() {
+    var opt = document.querySelector('#ask-dir option:checked');
+    var on = (opt && opt.dataset.methods || '').split(',');
+    document.querySelectorAll('#ask-methods label').forEach(function (l) {
+      var show = on.indexOf(l.dataset.m) !== -1;
+      l.hidden = !show; l.querySelector('input').disabled = !show;
+    });
+  }
+  askMethods();
+</script>
 {% endif %}
+
+<dialog id="helpdlg" class="helpdlg" aria-label="Help">
+  <div id="helpbody"><p class="sub" style="padding:20px">Loading…</p></div>
+</dialog>
+<script>
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('.bigcard').forEach(function (b) { b.remove(); });
+  });
+  // Only one open card at a time
+  document.addEventListener('htmx:beforeRequest', function (e) {
+    var el = e.detail.elt;
+    if (el.classList && (el.classList.contains('card') || el.classList.contains('clickable'))) {
+      document.querySelectorAll('.bigcard').forEach(function (b) { b.remove(); });
+    }
+  });
+  // tick-all boxes and the selection bar
+  function selCount(form) {
+    var n = document.querySelectorAll('input[name=ids][form=' + form + ']:checked').length;
+    document.querySelectorAll('[data-selcount=' + form + ']').forEach(function (el) { el.textContent = n; });
+    document.querySelectorAll('[data-selbar=' + form + ']').forEach(function (el) { el.classList.toggle('on', n > 0); });
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.all) {
+      document.querySelectorAll('input[name=ids][form=' + t.dataset.all + ']').forEach(function (c) { c.checked = t.checked; });
+      selCount(t.dataset.all);
+    } else if (t.name === 'ids' && t.getAttribute('form')) {
+      selCount(t.getAttribute('form'));
+    }
+  });
+</script>
 {% endblock %}
 </body>
 </html>

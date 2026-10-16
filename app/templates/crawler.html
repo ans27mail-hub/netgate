@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Crawler · NetGate{% endblock %}
 {% block content %}
-<div class="wrap settings">
+<div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
-    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
     <form method="post" action="/settings/crawler" style="display:flex;flex-direction:column;gap:16px">
       <div class="shead"><h1>Crawler</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
 

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Debug #{{ job.id }} · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Debug: {{ job.query }}</h1>
+  <span class="badge st-{{ job_tab(job) }}">{{ job.status }}</span>
+  <a href="/requests" class="ml-auto">← Requests</a>
+</div>
+<p class="hint" style="margin:0">#{{ job.id }} · {{ KIND_LABELS.get(job.kind, job.kind) }} · {{ group_names.get(job.group_id, '—') }} · {{ job.message or '' }}</p>
+
+<nav class="utabs" aria-label="Show">
+  <a href="?" class="{% if not f_kind %}on{% endif %}">Everything <span>{{ kinds.values()|sum }}</span></a>
+  {% for k, label in [('search', 'Searches'), ('page', 'Pages read'), ('code', 'Found by code'), ('ai', 'AI questions'), ('error', 'Errors'), ('note', 'Notes')] if kinds.get(k) %}
+  <a href="?kind={{ k }}" class="{% if f_kind == k %}on{% endif %}">{{ label }} <span>{{ kinds[k] }}</span></a>
+  {% endfor %}
+</nav>
+
+{% if not rows %}
+<div class="empty">Nothing recorded for this request. Debug traces are recorded while “Debug traces” is on (Developer tools), for requests started after that.</div>
+{% endif %}
+<div class="trace">
+{% for t in rows %}
+  <details class="tr tr-{{ t.kind }}" {% if t.kind == 'error' %}open{% endif %}>
+    <summary><span class="tk">{{ t.kind }}</span><span class="mono-sm">{{ t.at.strftime('%H:%M:%S') if t.at else '' }}</span>
+      <span class="tu">{{ t.url|truncate(110) }}</span>
+      {% if t.kind == 'page' %}<span class="sub">{{ 'read' if t.data.get('ok') else 'failed' }}{% if t.data.get('rendered') %} · browser{% endif %}{% if t.data.get('cached') %} · cache{% endif %} · {{ t.data.get('chars', 0) }} chars{% if t.data.get('note') %} · {{ t.data.note }}{% endif %}</span>{% endif %}
+      {% if t.kind == 'ai' %}<span class="sub">{{ ((t.data.get('answer') or {}).get('entries') or [])|length }} entries{% if (t.data.get('answer') or {}).get('fields') %} · {{ (t.data.answer.fields or {}).keys()|list|join(', ') }}{% endif %}</span>{% endif %}
+      {% if t.kind == 'search' %}<span class="sub">{{ (t.data.get('results') or [])|length }} results</span>{% endif %}
+    </summary>
+    <div class="trbody">
+      {% if t.kind == 'page' %}<pre>{{ t.data.get('text', '') }}</pre>
+      {% elif t.kind == 'ai' %}<b>Asked</b><pre>{{ t.data.get('prompt', '') }}</pre><b>Answered</b><pre>{{ t.data.get('answer')|tojson(indent=2) }}</pre>
+      {% else %}<pre>{{ t.data|tojson(indent=2) }}</pre>{% endif %}
+    </div>
+  </details>
+{% endfor %}
+</div>
+
+{% if new_items %}
+<section class="panel stack">
+  <h2>Put in the Inbox by this request ({{ new_items|length }})</h2>
+  <ul class="tight">{% for it in new_items %}<li>{{ recs[it.record_id].title if it.record_id in recs else it.record_id }} · {{ it.status }}{% if it.reason %} ({{ it.reason }}){% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endblock %}

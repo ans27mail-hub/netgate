@@ -1,26 +1,20 @@
 <nav class="snav" aria-label="Settings">
-  {% if can(user, 'manage_groups') %}
-  <span class="caps">Groups</span>
+  {% if can(user, 'manage_dirs') %}
+  <span class="caps">Directories</span>
   {% for g in all %}
-  <a href="/settings/groups/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}"><span>{{ g.name }}</span>{% if counts is defined and counts %}<small>{{ counts.get(g.id, 0) }}</small>{% endif %}</a>
+  <a href="/settings/directories/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}"><span>{{ g.name }}</span>{% if counts is defined and counts %}<small>{{ counts.get(g.id, 0) }}</small>{% endif %}</a>
   {% endfor %}
-  <form method="post" action="/settings/groups" style="display:flex;gap:6px;padding:8px 0 0">
-    <label for="newgroup" class="sr">New group name</label>
-    <input id="newgroup" type="text" name="name" placeholder="New group name" required style="flex:1;min-width:0">
-    <button type="submit" class="btn btn-outline" aria-label="Create group">+</button>
-  </form>
+  <a href="/settings/directories/new" class="{% if active_nav == 'dirs' and not group %}on{% endif %} newlink">+ New directory</a>
   {% endif %}
-  <span class="caps">System</span>
-  {% if can(user, 'manage_groups') %}
-  <a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI servers &amp; models</a>
-  <a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night jobs</a>
-  <a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>
-  <a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API keys)</a>
-  {% endif %}
+  {% if can_any(user, ['ai', 'night', 'crawler', 'connections', 'reject_list']) %}<span class="caps">System</span>{% endif %}
+  {% if can(user, 'ai') %}<a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI servers &amp; models</a>{% endif %}
+  {% if can(user, 'night') %}<a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night jobs</a>{% endif %}
+  {% if can(user, 'crawler') %}<a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>{% endif %}
+  {% if can(user, 'connections') %}<a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API keys)</a>{% endif %}
+  {% if can(user, 'reject_list') %}<a href="/settings/reject-list" class="{% if active_nav == 'reject' %}on{% endif %}">Reject list</a>{% endif %}
+  <span class="caps">You</span>
   <a href="/settings/display" class="{% if active_nav == 'display' %}on{% endif %}">Display</a>
-  {% if can(user, 'manage_users') %}
-  <a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}">Users &amp; permissions</a>
-  {% endif %}
-  <a href="/" style="margin-top:12px">← Back to directory</a>
-  <span class="sub" style="padding:12px 12px 0">NetGate {{ VERSION }}</span>
+  {% if can_any(user, ['manage_users', 'manage_roles']) %}<span class="caps">People</span>{% endif %}
+  {% if can(user, 'manage_users') %}<a href="/settings/users" class="{% if active_nav == 'users' %}on{% endif %}">Users</a>{% endif %}
+  {% if can(user, 'manage_roles') %}<a href="/settings/roles" class="{% if active_nav == 'roles' %}on{% endif %}">Roles &amp; permissions</a>{% endif %}
 </nav>

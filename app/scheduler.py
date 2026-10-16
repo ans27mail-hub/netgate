@@ -7,7 +7,7 @@ from redis import Redis
 from rq import Queue
 from sqlalchemy import select
 
-from .db import Job, NightRun, SessionLocal, init_db
+from .db import Job, NightRun, SessionLocal, init_db, log
 from .jobs import in_window, local_now, night_date, night_settings
 
 night_queue = Queue("netgate-night", connection=Redis.from_url(os.environ["REDIS_URL"]))
@@ -27,8 +27,10 @@ def tick():
         if s.scalar(select(NightRun).where(NightRun.night_date == nd)):
             return  # tonight's run already started
         run = NightRun(night_date=nd, status="running", stats={})
-        job = Job(query=f"Night run {nd.isoformat()}", kind="night")
-        s.add_all([run, job])
+        s.add(run)
+        s.flush()
+        job = Job(query=f"Night run {nd.isoformat()}", kind="night", params={"run_id": run.id}, stats={})
+        s.add(job)
         s.commit()
         night_queue.enqueue("app.jobs.run_job", job.id, run_id=run.id, job_timeout=14 * 3600)
         print(f"{datetime.now():%Y-%m-%d %H:%M} night run {run.id} started", flush=True)
@@ -47,14 +49,20 @@ def main():
             tick()
         except Exception as e:
             print(f"scheduler: {type(e).__name__}: {e}", flush=True)
-        if time.time() - last_purge > 3600:   # once an hour: drop old cached pages
+            log("error", "scheduler", f"{type(e).__name__}: {e}")
+        if time.time() - last_purge > 3600:   # once an hour: old cached pages, deleted requests, old traces
             try:
+                from .control import purge_deleted
                 from .crawl import purge_cache
                 n = purge_cache()
-                if n:
-                    print(f"scheduler: removed {n} old cached pages", flush=True)
+                with SessionLocal() as s:
+                    m = purge_deleted(s)
+                    s.commit()
+                if n or m:
+                    print(f"scheduler: removed {n} old cached pages, {m} deleted requests", flush=True)
             except Exception as e:
-                print(f"scheduler: cache cleanup failed: {type(e).__name__}: {e}", flush=True)
+                print(f"scheduler: cleanup failed: {type(e).__name__}: {e}", flush=True)
+                log("warning", "scheduler", f"Cleanup failed: {type(e).__name__}: {e}")
             last_purge = time.time()
         time.sleep(60)
 

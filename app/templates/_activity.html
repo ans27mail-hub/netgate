@@ -2,9 +2,12 @@
 {% for j in jobs %}
 <div class="job">
   <span>{{ {'keyword': 'Discover: ', 'request': 'Discover: ', 'enrich': 'Enrich: ', 'night': ''}.get(j.kind, '') }}{{ j.query }}</span>
-  <span class="st st-{{ j.status }}">{{ j.status }}{% if j.message %} · {{ j.message if j.status in ('done', 'failed') else (j.message.split(': http')[0] if 'Page ' in j.message else j.message)|truncate(70) }}{% endif %}</span>
+  <span class="st st-{{ j.status }}">{{ j.status }}{% if j.message %} · {{ j.message if j.status in ('done', 'failed', 'paused', 'stopped', 'rejected') else (j.message.split(': http')[0] if 'Page ' in j.message else j.message)|truncate(70) }}{% endif %}</span>
+  {% if j.stats and j.stats.get('pages_total') and j.status not in ('done', 'failed', 'stopped', 'rejected') %}
+  <span class="bar sm-dark" aria-hidden="true"><span style="width:{{ (j.stats.page_no * 100 / j.stats.pages_total)|int }}%"></span></span>
+  {% endif %}
 </div>
 {% else %}
 <p class="sub" style="color:#aab0bc;margin:0">Nothing running right now.</p>
 {% endfor %}
-<a href="/requests">All requests</a>
+<a href="/requests">All requests →</a>

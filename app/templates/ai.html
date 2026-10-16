@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}AI servers · NetGate{% endblock %}
 {% block content %}
-<div class="wrap settings">
+<div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
-    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
     <div class="shead"><h1>AI servers &amp; models</h1></div>
 
     <section class="panel" style="display:flex;flex-direction:column;gap:12px">
@@ -61,7 +60,7 @@
           {% for key, label in (JOB_TYPES.items()|list) + [('fallback', 'Fallback')] %}
             {% set conf = jobs.get(key) or {} %}
             <tr>
-              <td><b>{{ label }}</b><br><span class="sub">{{ {'discover': 'Find names, city, country, website', 'enrich': 'Fill missing fields for one company', 'night': 'Bulk discover and enrich at night', 'fallback': 'Used when OpenRouter is off or over its limit'}[key] }}</span></td>
+              <td><b>{{ label }}</b><br><span class="sub">{{ {'discover': 'Find names, city, country, website', 'enrich': 'Fill missing fields for one company', 'night': 'Bulk discover and enrich at night', 'help': 'Answers questions in Help → Ask NetGate (small, fast model is fine)', 'fallback': 'Used when OpenRouter is off or over its limit'}[key] }}</span></td>
               <td>
                 <select name="{{ key }}_server" aria-label="{{ label }} server">
                   {% for sv in servers if sv.enabled and (key != 'fallback' or sv.kind == 'ollama') %}<option value="{{ sv.id }}" {% if conf.get('server') == sv.id %}selected{% endif %}>{{ sv.name }}</option>{% endfor %}
@@ -85,6 +84,13 @@
         <label class="field">Max per 24 hours (USD)<input type="number" step="0.5" min="0" name="limit_night" value="{{ limits.get('night', 0) }}"></label>
         <label class="field">Max per month (USD)<input type="number" step="1" min="0" name="limit_month" value="{{ limits.get('month', 0) }}"></label>
         <span class="hint" style="flex:2 1 260px">Spent: ${{ '%.2f'|format(spend.day) }} in the last 24 h · ${{ '%.2f'|format(spend.month) }} this month.</span>
+      </div>
+      <div class="subpanel row">
+        <b style="flex:1 1 100%">Learning from your decisions</b>
+        <label class="field">Embedding model for Inbox suggestions (optional)
+          <input type="text" name="embed_model" value="{{ learn.get('embed_model', '') }}" list="models-all" placeholder="e.g. nomic-embed-text">
+        </label>
+        <span class="hint" style="flex:2 1 300px">Leave empty to compare companies by their words (works with no extra download). With an embedding model on the Discover server (run <span class="mono-sm">ollama pull nomic-embed-text</span> on the iMac) the “AI suggests …%” in the Inbox understands meaning, not only words.</span>
       </div>
       <div><button type="submit" class="btn btn-primary">Save AI settings</button></div>
     </form>

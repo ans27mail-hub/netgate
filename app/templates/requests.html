@@ -1,29 +1,101 @@
 {% extends "base.html" %}
 {% block title %}Requests · NetGate{% endblock %}
 {% block content %}
-<div class="wrap page">
-  {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
-  <div class="shead"><h1 style="margin:0;font-size:26px">Requests</h1></div>
-  <section class="panel" style="padding:0">
-    <div class="overflow">
-      <table class="t">
-        <thead><tr><th>#</th><th>Request</th><th>Group</th><th>Status</th><th>Details</th><th>Started</th></tr></thead>
-        <tbody>
-        {% for j in jobs %}
-          <tr>
-            <td class="mono">{{ j.id }}</td>
-            <td><span class="badge {{ 'blue' if j.kind in ('keyword', 'request') else ('amber' if j.kind == 'enrich' else '') }}">{{ {'keyword': 'Discover', 'request': 'Discover', 'enrich': 'Enrich', 'night': 'Night'}.get(j.kind, j.kind) }}</span> {{ j.query }}</td>
-            <td>{{ group_names.get(j.group_id, '—') }}</td>
-            <td><span class="badge {% if j.status == 'done' %}green{% elif j.status != 'failed' %}blue{% endif %}">{{ j.status }}</span></td>
-            <td class="sub" style="max-width:420px;overflow-wrap:anywhere">{{ j.message or '' }}</td>
-            <td class="sub mono" style="white-space:nowrap">{{ j.created_at.strftime('%d %b %H:%M') if j.created_at else '' }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="sub" style="padding:24px">No requests yet.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+<div class="pagehead">
+  <h1>Requests</h1>
+  <span class="sub">Every search and enrich. Deleting or rejecting a request never changes the contacts it found.</span>
+  {% if can(user, 'requests_own') or can(user, 'requests_all') %}
+  <span class="ml-auto btnrow">
+    <form method="post" action="/requests/pause-all" class="inline"><button type="submit" class="btn btn-outline" title="Pause every waiting and running request{{ ' (also the night run)' if can(user, 'requests_all') else ' of yours' }}">Pause all</button></form>
+    {% if counts.paused %}<form method="post" action="/requests/pause-all" class="inline"><input type="hidden" name="resume" value="1"><button type="submit" class="btn btn-outline">Resume all</button></form>{% endif %}
+  </span>
+  {% endif %}
 </div>
+
+<nav class="utabs" aria-label="Request status">
+  {% for key, label in [('all', 'All'), ('running', 'Running'), ('waiting', 'Waiting'), ('paused', 'Paused'), ('done', 'Done'), ('failed', 'Failed'), ('stopped', 'Stopped'), ('rejected', 'Rejected'), ('deleted', 'Deleted')] %}
+  <a href="/requests?tab={{ key }}" class="{% if tab == key %}on{% endif %}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }} <span>{{ counts[key] }}</span></a>
+  {% endfor %}
+</nav>
+
+<form method="get" action="/requests" class="filters">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <label>Search<input type="search" name="q" value="{{ q }}" placeholder="keyword or company"></label>
+  <label>Directory<select name="dir" onchange="this.form.submit()"><option value="">All</option>{% for g in groups %}<option value="{{ g.id }}" {% if f_dir == g.id|string %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+  <label>Type<select name="kind" onchange="this.form.submit()"><option value="">All</option>{% for k, l in [('discover', 'Discover'), ('enrich', 'Enrich'), ('night', 'Night')] %}<option value="{{ k }}" {% if f_kind == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+  {% if can(user, 'requests_all') %}<label>Who<select name="who" onchange="this.form.submit()"><option value="">Everyone</option>{% for uid, name in users.items() %}<option value="{{ uid }}" {% if f_who == uid|string %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>{% endif %}
+  <noscript><button type="submit" class="btn btn-outline">Apply</button></noscript>
+</form>
+
+{% if tab == 'deleted' %}<p class="hint" style="margin:0">Deleted requests stay here for 30 days, then they are removed. Their contacts are never touched.</p>{% endif %}
+
+<form id="rq" method="post" action="/requests/bulk"></form>
+{% if jobs %}
+<div class="selbar big" data-selbar="rq">
+  <strong><span data-selcount="rq">0</span> selected</strong>
+  {% for a, l in [('pause', 'Pause'), ('resume', 'Resume'), ('stop', 'Stop'), ('delete', 'Delete'), ('again', 'Run again')] %}
+  <button type="submit" form="rq" name="action" value="{{ a }}" class="btn btn-outline btn-small">{{ l }}</button>
+  {% endfor %}
+  <details class="menu"><summary class="btn btn-danger btn-small">Reject…</summary>
+    <div class="menu-body reasons">
+      <span class="caps-sm">Reason (the keywords go on the reject list)</span>
+      {% for x in ['Wrong results', 'Off-topic', 'Duplicate keyword', 'Too broad'] %}<button type="submit" form="rq" name="reason" value="{{ x }}" formaction="/requests/bulk-reject" class="reason">{{ x }}</button>{% endfor %}
+    </div>
+  </details>
+</div>
+{% endif %}
+
+<section class="panel" style="padding:0">
+  <div class="overflow">
+    <table class="t reqtable">
+      <thead><tr><th style="width:36px"><input type="checkbox" aria-label="Select all" data-all="rq"></th><th>Request</th><th>Directory</th><th>Status</th><th>Progress</th><th>Started</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for j in jobs %}
+        {% set st = j.stats or {} %}
+        <tr>
+          <td>{% if can_control(j) %}<input type="checkbox" name="ids" value="{{ j.id }}" form="rq" aria-label="Select request {{ j.id }}">{% endif %}</td>
+          <td><span class="badge {{ 'blue' if j.kind in ('keyword', 'request') else ('amber' if j.kind == 'enrich' else '') }}">{{ KIND_LABELS.get(j.kind, j.kind) }}</span> <b>{{ j.query }}</b>
+            <span class="sub dblock">#{{ j.id }} · {{ users.get(j.user_id, 'NetGate') }}{% if (j.params or {}).get('methods') %} · {% for m in j.params.methods %}{{ METHODS[m].name if m in METHODS else m }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</span></td>
+          <td>{{ group_names.get(j.group_id, '—') }}</td>
+          <td><span class="badge st-{{ job_tab(j) }}">{{ j.status }}</span></td>
+          <td class="prog">
+            {% if st.get('pages_total') and job_tab(j) in ('running', 'paused') %}
+            <span class="bar" aria-hidden="true"><span style="width:{{ (st.page_no * 100 / st.pages_total)|int }}%"></span></span>
+            {% endif %}
+            <span class="sub">{{ (j.message or '')|truncate(140) }}</span>
+          </td>
+          <td class="sub mono-sm" style="white-space:nowrap">{{ j.created_at.strftime('%d %b %H:%M') if j.created_at else '' }}</td>
+          <td class="rowacts">
+            {% if can_control(j) %}
+            {% for a in job_actions(j) %}
+              {% if a == 'reject' %}
+              <details class="menu inline"><summary class="btn btn-danger btn-xs">Reject</summary>
+                <form method="post" action="/requests/{{ j.id }}/reject" class="menu-body reasons right">
+                  <span class="caps-sm">Why? “{{ j.query|truncate(30) }}” goes on the reject list</span>
+                  {% for x in ['Wrong results', 'Off-topic', 'Duplicate keyword', 'Too broad'] %}<button type="submit" name="reason" value="{{ x }}" class="reason">{{ x }}</button>{% endfor %}
+                </form>
+              </details>
+              {% else %}
+              <form method="post" action="/requests/{{ j.id }}/{{ a }}" class="inline"><button type="submit" class="btn {{ 'btn-outline' }} btn-xs">{{ {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'restore': 'Restore', 'again': 'Run again'}[a] }}</button></form>
+              {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% if can(user, 'debug') %}<a href="/requests/{{ j.id }}/debug" class="btn btn-outline btn-xs">Debug</a>{% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="sub" style="padding:24px">No requests here.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if tab == 'rejected' and rejected %}
+<section class="panel stack">
+  <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Reject list</h2>{% if can(user, 'reject_list') %}<a href="/settings/reject-list">Manage the reject list</a>{% endif %}</div>
+  <div class="chiplist">{% for r in rejected %}<span class="chip chip-sm chip-static" title="{{ r.reason }}">{{ r.text }}{% if r.group_id %} · {{ group_names.get(r.group_id, '') }}{% endif %}</span>{% endfor %}</div>
+  <span class="hint">These keywords are never searched (by people, keywords or night jobs) until restored.</span>
+</section>
+{% endif %}
 {% endblock %}

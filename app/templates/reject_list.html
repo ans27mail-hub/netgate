@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Reject list · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead"><h1>Reject list</h1></div>
+    <p class="hint" style="margin:0">Keywords here are never searched — not by people, keyword clicks or night jobs. The match ignores capitals, word order and plurals (“Leather Gloves” = “glove leather”). Similar keywords get a warning but still run.</p>
+    <section class="panel" style="padding:0">
+      <div class="overflow">
+        <table class="t">
+          <thead><tr><th>Keyword</th><th>Directory</th><th>Reason</th><th>By</th><th>When</th><th></th></tr></thead>
+          <tbody>
+          {% for r in rows %}
+            <tr><td><b>{{ r.text }}</b></td><td>{{ group_names.get(r.group_id, 'All directories') }}</td><td class="sub">{{ r.reason or '—' }}</td>
+              <td class="sub">{{ users.get(r.user_id, '—') }}</td><td class="sub">{{ ago(r.at) }}</td>
+              <td style="text-align:right"><form method="post" action="/settings/reject-list/{{ r.id }}/delete" class="inline"><button type="submit" class="btn btn-outline btn-xs">Restore</button></form></td></tr>
+          {% else %}
+            <tr><td colspan="6" class="sub" style="padding:24px">Nothing rejected. Reject a request on the Requests page, or add keywords below.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <form method="post" action="/settings/reject-list" class="panel row">
+      <label class="field" style="flex:3 1 280px">Keywords to block (comma separated)<input type="text" name="text" required placeholder="e.g. cheap jackets, wholesale china"></label>
+      <label class="field">Directory<select name="group_id"><option value="">All directories</option>{% for g in all %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
+      <label class="field">Reason<input type="text" name="reason" placeholder="optional"></label>
+      <button type="submit" class="btn btn-outline">Add</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

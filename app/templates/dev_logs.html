@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Logs · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead"><h1>Logs</h1><span class="sub">Newest first. Errors from the web app, workers and scheduler.</span><a href="/dev" class="ml-auto">← Developer tools</a></div>
+<nav class="utabs"><a href="/dev/logs" class="{% if not level %}on{% endif %}">All</a><a href="/dev/logs?level=error" class="{% if level == 'error' %}on{% endif %}">Errors</a><a href="/dev/logs?level=warning" class="{% if level == 'warning' %}on{% endif %}">Warnings</a><a href="/dev/logs?level=info" class="{% if level == 'info' %}on{% endif %}">Info</a></nav>
+<div class="trace">
+{% for r in rows %}
+  <details class="tr tr-{{ 'error' if r.level == 'error' else 'note' }}">
+    <summary><span class="tk">{{ r.level }}</span><span class="mono-sm">{{ r.at.strftime('%d %b %H:%M:%S') if r.at else '' }}</span><span class="sub">{{ r.source }}</span><span class="tu">{{ r.message|truncate(160) }}</span></summary>
+    <div class="trbody"><pre>{{ r.message }}{% if r.detail %}
+
+{{ r.detail }}{% endif %}</pre></div>
+  </details>
+{% else %}
+  <div class="empty">Nothing logged.</div>
+{% endfor %}
+</div>
+{% endblock %}

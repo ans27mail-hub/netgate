@@ -19,7 +19,7 @@ from .db import PageCache, SessionLocal, get_setting, url_domain
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://searxng:8080")
 RENDER_URL = os.environ.get("RENDER_URL", "http://renderer:3000")
-UA = "Mozilla/5.0 (compatible; NetGate/0.4; business directory research)"
+UA = "Mozilla/5.0 (compatible; NetGate/0.5; business directory research)"
 HEADERS = {"User-Agent": UA, "Accept-Language": "en;q=0.9,*;q=0.5"}
 
 CRAWLER_DEFAULTS = {

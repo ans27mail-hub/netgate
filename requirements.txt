@@ -10,3 +10,5 @@ redis==5.*
 rq==2.*
 httpx==0.28.*
 trafilatura==2.*
+markdown==3.*
+numpy==2.*

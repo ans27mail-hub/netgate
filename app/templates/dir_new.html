@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}New directory · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <form class="scontent" method="post" action="/settings/directories">
+    <div class="shead"><h1>New directory</h1><button type="submit" class="btn btn-primary ml-auto">Create directory</button></div>
+    <ol class="stepchips"><li><b>1</b> Basics</li><li><b>2</b> Search methods</li><li><b>3</b> Fields</li><li><b>4</b> Instructions</li><li><b>5</b> Keywords</li></ol>
+
+    <section class="panel row">
+      <h2 class="fullrow">1 · Basics</h2>
+      <label class="field">Directory name<input type="text" name="name" required placeholder="e.g. Online retailers"></label>
+      <label class="field" style="flex:2 1 360px">Short description<input type="text" name="description" placeholder="e.g. Shops that sell motorcycle apparel online — possible customers for MFI"></label>
+      <label class="field">Words added to every web search (optional)<input type="text" name="search_terms" placeholder="e.g. manufacturer exporter"></label>
+    </section>
+
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>2 · Search methods</h2><span class="hint">Pick one or more. Each method knows how its site works.</span></div>
+      {% set cur = {'web': {}, 'website': {}} %}
+      {% set opts = {'ebay': {'sites': [], 'category_id': '', 'per_keyword': 200, 'min_feedback': 0, 'business_only': True, 'max_sellers': 60}, 'directory': {'start_urls': '', 'sites': ''}} %}
+      {% include "_dir_methods.html" %}
+    </section>
+
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>3 · Fields</h2><span class="hint">Pick the starting fields. Change types, “Filled from” and add more after creating.</span></div>
+      <div class="gchecks">
+        {% for key, name, ftype, stage, flt, card, lst, source, choices, words in presets %}
+        <label {% if key in ebay_presets %}title="Filled from eBay when eBay search is on"{% endif %}><input type="checkbox" name="presets" value="{{ key }}" {% if key in default_presets %}checked{% endif %}> {{ name }}{% if source %} <span class="sub">(from eBay)</span>{% endif %}</label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel stack">
+      <h2>4 · Instructions for the AI</h2>
+      <label class="field"><span><b class="ink">What belongs here</b> · used when judging results</span>
+        <textarea name="instructions" rows="2" placeholder="e.g. Shops that sell motorcycle jackets, gloves, suits or boots to riders. Must sell several products, not one-off items."></textarea></label>
+      <label class="field"><span><b class="ink">How to fill the fields</b> · used by Enrich</span>
+        <textarea name="enrich_instructions" rows="2" placeholder="e.g. Look for the store's own website outside the marketplace, using the store name and country. Email only from the store's own domain."></textarea></label>
+      <label class="field"><span><b class="ink">Ignore</b></span>
+        <textarea name="ignore_instructions" rows="2" placeholder="e.g. Private sellers, used/second-hand only sellers."></textarea></label>
+    </section>
+
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>5 · Keywords</h2><span class="hint">Results go to the Inbox, marked for this directory</span></div>
+      <label class="field">Keywords (comma separated or one per line)<textarea name="keywords" rows="2" placeholder="e.g. leather motorcycle jacket, textile motorcycle jacket, motorcycle gloves"></textarea></label>
+      <label class="check-inline"><input type="checkbox" name="night" checked> Run these in night jobs</label>
+    </section>
+    <div><button type="submit" class="btn btn-primary">Create directory</button></div>
+  </form>
+</div>
+{% endblock %}

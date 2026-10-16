@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Inbox · NetGate{% endblock %}
+{% block content %}
+{% set base_path = '/inbox' %}
+<div class="pagehead">
+  <h1>Inbox</h1>
+  <span class="sub">New companies from discovery and from people. Nothing reaches a directory until it is accepted.</span>
+</div>
+
+{% if kw_rows %}
+<section class="panel kwpanel" aria-label="Discovery keywords">
+  {% for row in kw_rows %}
+  <div class="kwrow">
+    <span class="kwm">{{ METHODS[row.method].name }}</span>
+    {% for k in row.keywords %}
+    <form method="post" action="/groups/{{ row.group.id }}/keywords/{{ k.id }}/run" class="inline">
+      <input type="hidden" name="method" value="{{ row.method }}">
+      <button type="submit" class="chip chip-sm" title="Search “{{ k.text }}” with {{ METHODS[row.method].name }} (last run {{ ago(k.last_run_at) }}, {{ k.found_count or 0 }} found)">{{ k.text }}</button>
+    </form>
+    {% endfor %}
+    <span class="kwt">→ for {{ row.group.name }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<nav class="utabs" aria-label="Inbox tabs">
+  {% for key, label in tabs %}
+  <a href="/inbox?tab={{ key }}" class="{% if tab == key %}on{% endif %}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }} <span>{{ counts[key] }}</span></a>
+  {% endfor %}
+</nav>
+
+<div class="toolrow">
+  {% include "_filters.html" %}
+  <span class="ml-auto btnrow">
+    <form method="get" action="/inbox" class="inline">
+      {% for k, v in flt.hidden(skip=('sort',)) %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <label class="sortlbl">Sort
+        <select name="sort" onchange="this.form.submit()">
+          <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest first</option>
+          <option value="score" {% if sort == 'score' %}selected{% endif %}>AI suggestion</option>
+          <option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option>
+        </select>
+      </label>
+    </form>
+    {% if tab != 'rejected' and can(user, 'review') %}
+    <form method="post" action="/inbox/rescore" class="inline"><button type="submit" class="btn btn-outline btn-small" title="Compare again with your latest accept / reject decisions">Refresh suggestions</button></form>
+    {% endif %}
+  </span>
+</div>
+
+<form id="ib" method="post" action="/inbox/accept"></form>
+{% if rows and can(user, 'review') %}
+<div class="selbar big" data-selbar="ib">
+  <strong><span data-selcount="ib">0</span> selected</strong>
+  {% if tab == 'rejected' %}
+  <button type="submit" form="ib" formaction="/inbox/restore" class="btn btn-dark btn-small">Restore to Inbox</button>
+  {% else %}
+  <label class="inline">Accept into
+    <select name="group_id" form="ib">
+      <option value="">its own directory</option>
+      {% for g in targets %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" form="ib" class="btn btn-dark btn-small">Accept</button>
+  {% if can(user, 'enrich') %}<button type="submit" form="ib" formaction="/inbox/enrich" class="btn btn-outline btn-small">Enrich</button>{% endif %}
+  <details class="menu">
+    <summary class="btn btn-danger btn-small">Reject…</summary>
+    <div class="menu-body reasons">
+      <span class="caps-sm">Reason</span>
+      {% for x in REJECT_REASONS %}<button type="submit" form="ib" formaction="/inbox/reject" name="reason" value="{{ x }}" class="reason">{{ x }}</button>{% endfor %}
+      <input type="text" name="reason_text" form="ib" placeholder="Other reason…" aria-label="Other reason">
+      <button type="submit" form="ib" formaction="/inbox/reject" class="btn btn-danger btn-small">Reject</button>
+    </div>
+  </details>
+  <span class="hint ml-auto">One company can be accepted into several directories.</span>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not rows %}
+<div class="empty">
+  {% if flt.active() %}Nothing matches. Remove a filter or try another search.
+  {% elif tab == 'new' %}No new companies. Click a keyword above or use “+ Run discovery”.{% if counts.enriched %} {{ counts.enriched }} enriched ones are waiting in the <a href="/inbox?tab=enriched">Enriched</a> tab.{% endif %}
+  {% elif tab == 'enriched' %}Nothing enriched is waiting. Enrich new companies to fill their details before you decide.
+  {% else %}No rejected companies.{% endif %}
+</div>
+{% else %}
+<div class="panel" style="padding:0">
+  <div class="overflow">
+    <table class="t inbox-table">
+      <thead><tr>
+        <th style="width:36px"><input type="checkbox" aria-label="Select all" data-all="ib"></th>
+        <th>Company / store</th><th>Found by</th><th>Country</th><th>Website</th>
+        <th>{{ 'Reason' if tab == 'rejected' else 'AI suggests' }}</th><th><span class="sr">Actions</span></th>
+      </tr></thead>
+      <tbody>
+      {% for it, r in rows %}
+      {% set g = by_id.get(it.group_id) %}
+      {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
+      <tr class="clickable" hx-get="/records/{{ r.id }}/open" hx-target="#iopen-{{ it.id }}" hx-swap="innerHTML" hx-trigger="click[!event.target.closest('button,a,input,label,select,details')]">
+        <td><input type="checkbox" name="ids" value="{{ it.id }}" form="ib" aria-label="Select {{ r.title }}"></td>
+        <td><strong class="dblock">{{ r.title }}</strong>
+          <span class="sub">{{ (r.summary or '')|truncate(90) or ([(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ')) }}</span>
+          <span class="sub dblock">{{ filled }}/{{ total }} fields{% if r.enrich_runs %} · enriched {{ ago(r.last_enriched_at) }}{% endif %}{% if r.accepted_at %} · already in another directory{% endif %}</span></td>
+        <td><span class="mbadge m-{{ METHODS[it.method].kind if it.method in METHODS else 'manual' }}">{{ METHOD_LABELS.get(it.method, it.method) }}</span>{% if it.keyword %}<span class="sub dblock">“{{ it.keyword|truncate(40) }}”</span>{% endif %}</td>
+        <td>{{ (r.data or {}).get('country') or '—' }}</td>
+        <td class="mono-sm">{% if r.domain %}<a href="{{ (r.data or {}).get('website') or ('https://' ~ r.domain) }}" target="_blank" rel="noopener">{{ r.domain }}</a>{% else %}<span class="missing">—</span>{% endif %}</td>
+        <td>
+          {% if tab == 'rejected' %}
+            <span class="badge red">{{ it.reason or 'Rejected' }}</span><span class="sub dblock">{{ ago(it.decided_at) }}</span>
+          {% else %}
+            <span class="sugg">
+              {% if it.suggest == 'reject' %}<span>Reject</span>{% else %}<span>{{ g.name if g else 'Choose a directory' }}</span>{% endif %}
+              {% if it.score is not none %}<span class="conf {{ 'hi' if it.score >= 0.8 else ('mid' if it.score >= 0.6 else 'lo') }}">{{ (it.score * 100)|round|int }}%</span>{% elif it.why == 'directory chosen when added' %}<span class="conf hi">chosen</span>{% endif %}
+            </span>
+            <span class="sub dblock">{{ it.why or '' }}</span>
+          {% endif %}
+        </td>
+        <td class="rowacts">
+          {% if can(user, 'review', it.group_id) %}
+          {% if tab == 'rejected' %}
+          <form method="post" action="/inbox/restore" class="inline"><input type="hidden" name="ids" value="{{ it.id }}"><button type="submit" class="btn btn-outline btn-xs">Restore</button></form>
+          {% else %}
+          {% if it.group_id %}<form method="post" action="/inbox/accept" class="inline"><input type="hidden" name="ids" value="{{ it.id }}"><button type="submit" class="btn btn-primary btn-xs">Accept</button></form>{% endif %}
+          {% if can(user, 'enrich') %}<form method="post" action="/inbox/enrich" class="inline"><input type="hidden" name="ids" value="{{ it.id }}"><button type="submit" class="btn btn-outline btn-xs">Enrich</button></form>{% endif %}
+          <details class="menu inline">
+            <summary class="btn btn-danger btn-xs">Reject</summary>
+            <form method="post" action="/inbox/reject" class="menu-body reasons right">
+              <input type="hidden" name="ids" value="{{ it.id }}">
+              <span class="caps-sm">Reason</span>
+              {% for x in REJECT_REASONS %}<button type="submit" name="reason" value="{{ x }}" class="reason">{{ x }}</button>{% endfor %}
+              <input type="text" name="reason_text" placeholder="Other reason…" aria-label="Other reason">
+              <button type="submit" class="btn btn-danger btn-small">Reject</button>
+            </form>
+          </details>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      <tr class="open-row"><td colspan="7" id="iopen-{{ it.id }}"></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% if limited %}<p class="hint">Showing the first {{ rows|length }}. Use filters or search to find others.</p>{% endif %}
+{% endif %}
+<p class="hint">Rejected companies move to the Rejected tab, are skipped when a search finds them again for the same directory, and can be restored. Every accept and reject is saved to improve the suggestions (and can be exported as training data).</p>
+{% endblock %}

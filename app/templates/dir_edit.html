@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} settings · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead">
+      <h1>{{ group.name }}</h1>
+      <span class="badge">{{ count }} contact{{ '' if count == 1 else 's' }}</span>
+      <a href="/d/{{ group.id }}" class="ml-auto">Open directory</a>
+    </div>
+    <nav class="jumps" aria-label="Sections"><a href="#basics">Basics &amp; methods</a><a href="#fields">Fields</a><a href="#instructions">Instructions</a><a href="#keywords">Keywords</a><a href="#test">Test a page</a></nav>
+
+    <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="basics">
+      <input type="hidden" name="section" value="basics">
+      <h2>Basics &amp; search methods</h2>
+      <div class="row">
+        <label class="field">Directory name<input type="text" name="name" value="{{ group.name }}" required></label>
+        <label class="field" style="flex:2 1 320px">Short description<input type="text" name="description" value="{{ group.description }}"></label>
+        <label class="field" style="flex:0 1 110px">Menu order<input type="number" name="position" value="{{ group.position }}"></label>
+        <label class="field">Words added to every web search<input type="text" name="search_terms" value="{{ group.search_terms }}" placeholder="e.g. manufacturer exporter Pakistan"></label>
+      </div>
+      {% set cur = group.methods or {} %}
+      {% include "_dir_methods.html" %}
+      <div><button type="submit" class="btn btn-primary">Save basics &amp; methods</button></div>
+    </form>
+
+    {% for f in group.fields %}
+    <form id="ff{{ f.id }}" method="post" action="/settings/directories/{{ group.id }}/fields/{{ f.id }}" hidden></form>
+    <form id="fd{{ f.id }}" method="post" action="/settings/directories/{{ group.id }}/fields/{{ f.id }}/delete" onsubmit="return confirm('Remove the field {{ f.name|e }}? Values already found stay on the contacts.')" hidden></form>
+    {% endfor %}
+    <section class="panel stack" id="fields">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2>Fields &amp; where they come from</h2>
+        <span class="hint">“Filled from” decides who fills a field: the AI and code from pages, a method like eBay, or only people.</span>
+      </div>
+      <div class="overflow">
+        <table class="t" style="min-width:1100px">
+          <thead><tr><th>Field</th><th>Type</th><th>Filled from</th><th>Step</th><th>Search words</th><th>Choices</th><th class="c">Filter</th><th class="c">Sort</th><th class="c">Card</th><th class="c">List</th><th></th></tr></thead>
+          <tbody>
+          {% for f in group.fields %}
+            <tr>
+              <td><input form="ff{{ f.id }}" type="text" name="name" value="{{ f.name }}" aria-label="Field name" style="width:140px"></td>
+              <td><select form="ff{{ f.id }}" name="type" aria-label="Field type">{% for k, label in FIELD_TYPES.items() %}<option value="{{ k }}" {% if f.type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+              <td><select form="ff{{ f.id }}" name="source" aria-label="Filled from" style="min-width:200px">{% for k, label in FIELD_SOURCES %}{% if not k.startswith('ebay:') or 'ebay' in (group.methods or {}) or f.source == k %}<option value="{{ k }}" {% if f.source == k %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select></td>
+              <td><select form="ff{{ f.id }}" name="stage" aria-label="Step"><option value="discover" {% if f.stage == 'discover' %}selected{% endif %}>Find</option><option value="enrich" {% if f.stage != 'discover' %}selected{% endif %}>Enrich</option></select></td>
+              <td><input form="ff{{ f.id }}" type="text" name="words" value="{{ f.words }}" aria-label="Search words" placeholder="e.g. contact, email" style="width:100%;min-width:150px"></td>
+              <td><input form="ff{{ f.id }}" type="text" name="choices" value="{{ f.choices }}" aria-label="Choices" placeholder="{{ 'only for Choice' if f.type != 'choice' else '' }}" style="width:100%;min-width:120px"></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="filter" aria-label="Use {{ f.name }} as filter" {% if f.filter %}checked{% endif %}></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="sort" aria-label="Allow sorting by {{ f.name }}" {% if f.sort %}checked{% endif %}></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="card" aria-label="Show {{ f.name }} on card" {% if f.card %}checked{% endif %}></td>
+              <td class="c"><input form="ff{{ f.id }}" type="checkbox" name="list" aria-label="Show {{ f.name }} in list" {% if f.list %}checked{% endif %}></td>
+              <td style="white-space:nowrap">
+                <input form="ff{{ f.id }}" type="hidden" name="position" value="{{ f.position }}">
+                <button form="ff{{ f.id }}" type="submit" class="btn btn-outline btn-small">Save</button>
+                <button form="fd{{ f.id }}" type="submit" class="btn btn-danger btn-small" aria-label="Remove field {{ f.name }}">Remove</button>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <form method="post" action="/settings/directories/{{ group.id }}/fields" class="row addrow">
+        <label class="field">New field name<input type="text" name="name" placeholder="e.g. Certifications" required></label>
+        <label class="field" style="flex:0 1 130px">Type<select name="type">{% for k, label in FIELD_TYPES.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="field">Filled from<select name="source">{% for k, label in FIELD_SOURCES %}{% if not k.startswith('ebay:') or 'ebay' in (group.methods or {}) %}<option value="{{ k }}">{{ label }}</option>{% endif %}{% endfor %}</select></label>
+        <label class="field">Search words<input type="text" name="words" placeholder="e.g. ISO, CE, certified"></label>
+        <label class="field">Choices (Choice type only)<input type="text" name="choices" placeholder="e.g. Small, Medium, Large"></label>
+        <label class="field" style="flex:0 1 110px">Step<select name="stage"><option value="enrich">Enrich</option><option value="discover">Find</option></select></label>
+        <button type="submit" class="btn btn-outline">+ Add field</button>
+      </form>
+    </section>
+
+    <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="instructions">
+      <input type="hidden" name="section" value="instructions">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Instructions for the AI</h2><span class="hint">Plain language. Sent to the model with every job in this directory.</span></div>
+      <label class="field"><span><b class="ink">What belongs here</b> · used when judging results</span>
+        <textarea name="instructions" rows="3" placeholder="e.g. Companies that manufacture motorcycle apparel themselves (jackets, gloves, suits, boots). One listing per company.">{{ group.instructions }}</textarea></label>
+      <label class="field"><span><b class="ink">How to fill the fields</b> · used by Enrich</span>
+        <textarea name="enrich_instructions" rows="3" placeholder="e.g. Prefer the company's own website. Products: list product types, not model names. Email: only addresses on the company's own domain.">{{ group.enrich_instructions }}</textarea></label>
+      <label class="field"><span><b class="ink">Ignore</b> · pages and companies to skip</span>
+        <textarea name="ignore_instructions" rows="2" placeholder="e.g. Traders and resellers who don't manufacture. Single product listings on marketplaces.">{{ group.ignore_instructions }}</textarea></label>
+      <div><button type="submit" class="btn btn-primary">Save instructions</button></div>
+    </form>
+
+    <section class="panel stack" id="keywords">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Keywords</h2><span class="hint">Each keyword finds new companies for this directory. Results go to the Inbox.</span></div>
+      {% set finds = (group.methods or {}).keys()|select('in', ['web', 'directory', 'ebay'])|list %}
+      {% if group.keywords %}
+      <div class="overflow">
+        <table class="t" style="min-width:680px">
+          <thead><tr><th>Keyword</th><th>Search with</th><th>Last run</th><th>Found</th><th class="c">Night jobs</th><th></th></tr></thead>
+          <tbody>
+          {% for k in group.keywords %}
+            <tr>
+              <td><span class="chip chip-sm chip-static">{{ k.text }}</span></td>
+              <td>
+                <form method="post" action="/settings/directories/{{ group.id }}/keywords/{{ k.id }}" class="inline">
+                  <select name="method" onchange="this.form.submit()" aria-label="Search “{{ k.text }}” with">
+                    <option value="all" {% if k.method == 'all' %}selected{% endif %}>All methods</option>
+                    {% for m in finds %}<option value="{{ m }}" {% if k.method == m %}selected{% endif %}>{{ METHODS[m].name }}</option>{% endfor %}
+                  </select>
+                </form>
+              </td>
+              <td class="sub">{{ ago(k.last_run_at) }}</td>
+              <td class="sub">{{ k.found_count or 0 }} new</td>
+              <td class="c">
+                <form method="post" action="/settings/directories/{{ group.id }}/keywords/{{ k.id }}" class="inline">
+                  <input type="hidden" name="night" value="{{ 'off' if k.night else 'on' }}">
+                  <button type="submit" class="toggle {% if k.night %}on{% endif %}" aria-pressed="{{ 'true' if k.night else 'false' }}" aria-label="Include “{{ k.text }}” in night jobs">{{ 'On' if k.night else 'Off' }}</button>
+                </form>
+              </td>
+              <td style="text-align:right;white-space:nowrap">
+                <form method="post" action="/groups/{{ group.id }}/keywords/{{ k.id }}/run" class="inline"><button type="submit" class="btn btn-outline btn-small">Run</button></form>
+                <form method="post" action="/settings/directories/{{ group.id }}/keywords/{{ k.id }}/delete" class="inline"><button type="submit" class="btn btn-danger btn-small" aria-label="Remove keyword {{ k.text }}">Remove</button></form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<span class="hint">No keywords yet.</span>{% endif %}
+      <form method="post" action="/settings/directories/{{ group.id }}/keywords" class="row">
+        <label class="field" style="flex:3 1 300px">Add keywords (separate several with commas)<input type="text" name="text" placeholder="e.g. kids motorcycle gear, rain suits, racing leathers" required></label>
+        <label class="field" style="flex:1 1 160px">Search with<select name="method"><option value="all">All methods</option>{% for m in finds %}<option value="{{ m }}">{{ METHODS[m].name }}</option>{% endfor %}</select></label>
+        <button type="submit" class="btn btn-outline">Add</button>
+      </form>
+    </section>
+
+    <section class="panel stack" id="test">
+      <h2>Test the instructions on a page</h2>
+      <form method="post" action="/settings/directories/{{ group.id }}/test" class="row">
+        <label class="field">Web address<input type="text" name="url" value="{{ test.url if test else '' }}" placeholder="https://… a list page or a company page" required></label>
+        <label class="field">Looking for (optional)<input type="text" name="query" placeholder="e.g. leather gloves"></label>
+        <button type="submit" class="btn btn-outline">Test (saves nothing)</button>
+      </form>
+      {% include "_test_result.html" %}
+    </section>
+
+    <section class="panel row" style="justify-content:space-between;align-items:center">
+      <div><h2>Delete directory</h2><span class="hint">Deletes the directory, its keywords and fields. The {{ count }} contact(s) stay in All contacts and in any other directory.</span></div>
+      <form method="post" action="/settings/directories/{{ group.id }}/delete" onsubmit="return confirm('Delete the directory {{ group.name|e }}? Its contacts are kept.')">
+        <button type="submit" class="btn btn-danger">Delete {{ group.name }}</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Display · NetGate{% endblock %}
 {% block content %}
-<div class="wrap settings">
+<div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
-    {% if flash %}<div class="flash {% if flash[1] %}err{% endif %}" role="status">{{ flash[0] }}</div>{% endif %}
     <form method="post" action="/settings/display" style="display:flex;flex-direction:column;gap:16px">
       <div class="shead"><h1>Display</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
 
@@ -46,8 +45,8 @@
         </label>
         <label class="field">Applies to
           <select name="scope">
-            {% if can(user, 'manage_groups') %}<option value="everyone" {% if not mine %}selected{% endif %}>Everyone (default)</option>{% endif %}
-            <option value="me" {% if mine or not can(user, 'manage_groups') %}selected{% endif %}>Only me</option>
+            {% if can(user, 'display_all') %}<option value="everyone" {% if not mine %}selected{% endif %}>Everyone (default)</option>{% endif %}
+            <option value="me" {% if mine or not can(user, 'display_all') %}selected{% endif %}>Only me</option>
           </select>
         </label>
       </section>

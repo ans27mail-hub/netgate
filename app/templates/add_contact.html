@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Add contact · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Add contact</h1>
+  <span class="sub">Put in what you know; NetGate checks for duplicates, then fills the rest with the steps you choose.</span>
+</div>
+
+<nav class="utabs" aria-label="How to add">
+  <a href="/contacts/add?tab=one{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'one' %}on{% endif %}">One contact</a>
+  <a href="/contacts/add?tab=list{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'list' %}on{% endif %}">Paste a list</a>
+  <a href="/contacts/add?tab=csv{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'csv' %}on{% endif %}">Import CSV</a>
+</nav>
+
+<form method="post" action="/contacts/add" enctype="multipart/form-data" class="addlayout">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="addmain">
+    {% if tab == 'one' %}
+    <section class="panel stack">
+      <h2>What you know</h2>
+      <div class="row">
+        <label class="field" style="flex:2 1 280px">Company / store name
+          <input type="text" name="name" id="c-name" required autocomplete="off"
+                 hx-get="/contacts/check" hx-trigger="keyup changed delay:500ms" hx-target="#dupcheck" hx-include="#c-name,#c-links">
+        </label>
+        <label class="field">City<input type="text" name="city" placeholder="optional"></label>
+        <label class="field">Country<input type="text" name="country" placeholder="optional"></label>
+      </div>
+      <label class="field">Any links you have (one per line) — website, eBay / Etsy / Amazon store, Instagram, Facebook…
+        <textarea name="links" id="c-links" rows="3" class="mono" placeholder="https://www.ebay.co.uk/usr/store-name&#10;https://instagram.com/store-name"
+                  hx-get="/contacts/check" hx-trigger="keyup changed delay:700ms" hx-target="#dupcheck" hx-include="#c-name,#c-links"></textarea>
+        <span class="hint">NetGate recognises each link and files it in the right place automatically.</span>
+      </label>
+      <div class="row">
+        <label class="field">Email<input type="text" name="email" placeholder="optional"></label>
+        <label class="field">Phone / WhatsApp<input type="text" name="phone" placeholder="optional"></label>
+      </div>
+      <label class="field">Notes for the AI (optional)<input type="text" name="notes" placeholder="e.g. Met at EICMA 2026 — sells textile jackets, wants a private label"></label>
+    </section>
+    {% elif tab == 'list' %}
+    <section class="panel stack">
+      <h2>Paste a list</h2>
+      <label class="field">One company per line: name, city, country, website (leave out what you don't know)
+        <textarea name="list" rows="10" class="mono" required placeholder="Acme Leather, Sialkot, Pakistan, acme.pk&#10;Rider Store Ltd, Leeds, United Kingdom&#10;Moto Shop GmbH, , Germany, https://www.ebay.de/usr/motoshop"></textarea>
+      </label>
+      <span class="hint">Commas, semicolons or tabs all work (you can paste straight from Excel). Emails and phone numbers on a line are recognised too.</span>
+    </section>
+    {% else %}
+    <section class="panel stack">
+      <h2>Import a CSV file</h2>
+      <label class="field">CSV file<input type="file" name="file" accept=".csv,text/csv" required></label>
+      <span class="hint">The first row must hold column names. NetGate understands <b>name</b> (or company, store, shop), <b>city</b>, <b>country</b>, <b>website</b>, <b>email</b>, <b>phone</b>, <b>notes</b>, links, and any column named like a field of the chosen directory. From Excel: File → Save as → CSV.</span>
+    </section>
+    {% endif %}
+
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Enrich with</h2><span class="hint">Steps run in this order; each uses what the one before found</span></div>
+      <label class="field" style="max-width:380px">Intended directory (sets which fields to look for)
+        <select name="group_id">
+          {% for g in targets %}<option value="{{ g.id }}" {% if g.id == sel_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+          <option value="0" {% if not sel_id and not targets %}selected{% endif %}>Not sure yet — common fields only</option>
+        </select>
+      </label>
+      <div class="steps">
+        {% for key, name, desc, tag in ENRICH_STEPS %}
+        <label class="stepbox"><span class="n">{{ loop.index }}</span><input type="checkbox" name="steps" value="{{ key }}" checked>
+          <span class="stepinfo"><strong>{{ name }}</strong><span class="hint">{{ desc }}</span></span><span class="tag">{{ tag }}</span></label>
+        {% endfor %}
+      </div>
+      {% if can(user, 'review') %}
+      <label class="check-inline"><input type="checkbox" name="accept_now"> Accept into the directory straight away (skip the Inbox)</label>
+      {% endif %}
+    </section>
+
+    <div class="btnrow">
+      {% if can(user, 'enrich') %}<button type="submit" name="then" value="enrich" class="btn btn-primary">Save &amp; enrich now</button>{% endif %}
+      <button type="submit" name="then" value="inbox" class="btn btn-outline">Save to Inbox only</button>
+      <button type="submit" name="then" value="tonight" class="btn btn-outline">Save &amp; enrich tonight</button>
+    </div>
+  </div>
+
+  <aside class="addside">
+    <section class="panel stack" id="dupcheck">
+      <strong>Already in NetGate?</strong>
+      <span class="hint">NetGate checks the name, website and store links as you type. If the company exists, your details are added to that record instead of creating a duplicate.</span>
+    </section>
+    <section class="panel stack">
+      <strong>What happens next</strong>
+      <ul class="hint tight">
+        <li>New contacts wait in the <a href="/inbox">Inbox</a> for the chosen directory.</li>
+        <li>Enrich fills missing fields; the card shows where each value came from.</li>
+        <li>Your notes are given to the AI as a hint.</li>
+      </ul>
+    </section>
+  </aside>
+</form>
+{% endblock %}

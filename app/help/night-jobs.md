@@ -1,0 +1,17 @@
+---
+title: Night jobs
+section: Settings
+order: 20
+needs: night
+summary: Search and enrich while you sleep
+---
+Settings → **Night jobs**.
+
+- **When** — start and stop time (e.g. 11 pm – 7 am), the time zone and which nights. Jobs stop by themselves when the window ends.
+- **Limits** — how many contacts to enrich per night, and a pause between pages.
+- **Also enrich new Inbox companies** — so they are waiting in the *Enriched* tab with details filled in the morning.
+- **Per directory** — Discover with its night keywords, Enrich incomplete contacts (least complete first), and refresh complete ones after 30 days … 1 year.
+
+Order of work each night: night keywords → contacts marked *enrich tonight* → incomplete contacts → new Inbox companies → refreshes.
+
+The night run is a request like any other: it shows on the Requests page, and people allowed to control everyone's requests can pause, resume or stop it. Rejected keywords are skipped. Keep the iMac and the PC awake overnight.

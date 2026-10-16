@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ sel_group.name if sel_group else 'All contacts' }} · NetGate{% endblock %}
+{% block content %}
+{% set base_path = '/d/' ~ sel_group.id if sel_group else '/contacts' %}
+{% if night and night.stats and not sel_group %}
+<div class="banner">
+  <strong>{{ 'Tonight' if night.status == 'running' else 'Last night' }}:</strong>
+  <span>{{ night.stats.get('saved', 0) }} new in the Inbox · {{ night.stats.get('fields', 0) }} fields filled · {{ night.stats.get('companies', 0) }} enriched{% if night.status == 'running' %} · still running{% elif night.status == 'paused' %} · paused{% elif night.status == 'stopped' %} · stopped{% endif %}</span>
+  {% if can(user, 'night') %}<a href="/settings/night" class="ml-auto">See report</a>{% endif %}
+</div>
+{% endif %}
+
+<div class="pagehead">
+  <h1>{{ sel_group.name if sel_group else 'All contacts' }}</h1>
+  <span class="sub">{{ stats.total if stats else records|length }}{{ '+' if limited else '' }} contact{{ '' if (stats.total if stats else records|length) == 1 else 's' }}</span>
+  {% if sel_group %}
+  <span class="mbadges">
+    {% for key in (sel_group.methods or {}).keys() if key in METHODS %}<span class="mbadge m-{{ METHODS[key].kind }}">{{ METHODS[key].name }}</span>{% endfor %}
+  </span>
+  <span class="ml-auto btnrow">
+    {% if can(user, 'request', sel_group.id) %}<button type="button" class="btn btn-primary" onclick="document.getElementById('ask-dir').value='{{ sel_group.id }}';askMethods();document.getElementById('ask').showModal()">Find new</button>{% endif %}
+    {% if sel_group.keywords and can(user, 'keywords', sel_group.id) %}
+    <form method="post" action="/groups/{{ sel_group.id }}/keywords/run-all"><button type="submit" class="btn btn-outline">Run all {{ sel_group.keywords|length }} keyword{{ "" if sel_group.keywords|length == 1 else "s" }}</button></form>
+    {% endif %}
+    {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ sel_group.id }}" class="btn btn-outline">Directory settings</a>{% endif %}
+  </span>
+  {% else %}
+  <span class="sub">Every accepted company, across all directories</span>
+  {% endif %}
+</div>
+{% if sel_group and sel_group.description %}<p class="hint" style="margin:-6px 0 0">{{ sel_group.description }}</p>{% endif %}
+
+{% if stats and stats.total %}
+<section class="panel actions-row">
+  <span class="caps">Complete</span>
+  <span class="bar" aria-hidden="true" style="flex:0 1 220px"><span style="width:{{ stats.pct }}%"></span></span>
+  <span class="sub">{{ stats.complete }} of {{ stats.total }} complete{% if stats.missing %} · most missing: {{ stats.missing|join(', ') }}{% endif %}</span>
+  {% if stats.complete < stats.total and can(user, 'enrich', sel_group.id) %}
+  <form method="post" action="/groups/{{ sel_group.id }}/enrich-incomplete" class="ml-auto"><button type="submit" class="btn btn-dark btn-small">Enrich all incomplete</button></form>
+  {% endif %}
+</section>
+{% endif %}
+
+<div class="toolrow">
+  {% include "_filters.html" %}
+  <span class="ml-auto btnrow">
+    <details class="menu">
+      <summary class="btn btn-outline btn-small">Save view</summary>
+      <form method="post" action="/views" class="menu-body">
+        <label class="field">Name this view<input type="text" name="name" required placeholder="e.g. UK shops with email"></label>
+        <input type="hidden" name="path" value="{{ base_path }}"><input type="hidden" name="qs" value="{{ flt.qs(skip=()) }}">
+        <button type="submit" class="btn btn-primary btn-small">Save</button>
+        <span class="hint">It appears under “Saved views” on the left.</span>
+      </form>
+    </details>
+    <form method="get" action="{{ base_path }}" class="inline">
+      {% for k, v in flt.hidden(skip=('sort',)) %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <label class="sortlbl">Sort
+        <select name="sort" onchange="this.form.submit()">
+          <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Recently updated</option>
+          <option value="added" {% if sort == 'added' %}selected{% endif %}>Recently added</option>
+          <option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option>
+          <option value="least" {% if sort == 'least' %}selected{% endif %}>Least complete</option>
+          {% for f in fields if f.sort and sel_group %}<option value="f_{{ f.key }}" {% if sort == 'f_' ~ f.key %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <noscript><button type="submit" class="btn btn-outline btn-small">Sort</button></noscript>
+    </form>
+    <span class="seg" role="group" aria-label="View">
+      <a href="?{{ flt.qs(skip=('view',)) }}{{ '&' if flt.qs(skip=('view',)) else '' }}view=grid" class="{% if view == 'grid' %}on{% endif %}" {% if view == 'grid' %}aria-current="page"{% endif %}>Grid</a>
+      <a href="?{{ flt.qs(skip=('view',)) }}{{ '&' if flt.qs(skip=('view',)) else '' }}view=list" class="{% if view == 'list' %}on{% endif %}" {% if view == 'list' %}aria-current="page"{% endif %}>List</a>
+    </span>
+  </span>
+</div>
+
+<form id="sel" method="post" action="/records/enrich-selected"></form>
+<div class="list-tools">
+  <span class="sub">{% if flt.active() %}{{ records|length }} match{% else %}{{ records|length }} shown{% endif %}{% if limited %} (first {{ records|length }}; narrow the filters to see others){% endif %}</span>
+  {% if view == 'list' %}
+  <span class="selbar" data-selbar="sel"><strong data-selcount="sel">0</strong> selected</span>
+  {% if can(user, 'enrich') %}<button type="submit" form="sel" class="btn btn-dark btn-small">Enrich selected</button>{% endif %}
+  {% if can(user, 'edit') %}
+  <span class="inline-form">
+    <label for="addto" class="sr">Add selected to directory</label>
+    <select id="addto" name="group_id" form="addsel">{% for g in groups if can(user, 'edit', g.id) %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select>
+    <button type="submit" form="addsel" class="btn btn-outline btn-small">Add to directory</button>
+  </span>
+  {% endif %}
+  {% endif %}
+  {% if can(user, 'export') %}<a class="btn btn-outline btn-small" href="/export.csv?{{ flt.qs() }}{% if sel_group %}&group={{ sel_group.id }}{% endif %}&sort={{ sort }}">Export CSV</a>{% endif %}
+  {% if view == 'list' %}
+  <details class="menu ml-auto">
+    <summary class="btn btn-outline btn-small">Columns ▾</summary>
+    <form method="post" action="/prefs/columns" class="menu-body">
+      <input type="hidden" name="col_key" value="{{ col_key }}">
+      <span class="caps-sm">Show columns</span>
+      {% for f in fields %}<label><input type="checkbox" name="cols" value="{{ f.key }}" {% if f.key in cols %}checked{% endif %}> {{ f.name }}</label>{% endfor %}
+      {% for key, label in SPECIAL_COLS.items() %}<label><input type="checkbox" name="cols" value="{{ key }}" {% if key in cols %}checked{% endif %}> {{ label }}</label>{% endfor %}
+      <div style="display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--line-2);margin-top:4px">
+        <button type="submit" class="btn btn-primary btn-small">Apply</button>
+        <button type="submit" name="reset" value="1" class="btn btn-outline btn-small">Default</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+</div>
+<form id="addsel" method="post" action="/records/add-to-directory" onsubmit="document.querySelectorAll('input[name=ids][form=sel]:checked').forEach(function(c){var i=document.createElement('input');i.type='hidden';i.name='ids';i.value=c.value;this.appendChild(i)}.bind(this))"></form>
+
+{% if not records %}
+<div class="empty">
+  {% if flt.active() %}No contacts match. Remove a filter or try another search.
+  {% elif sel_group %}No contacts in {{ sel_group.name }} yet. Run discovery or a keyword — new companies wait in the <a href="/inbox">Inbox</a> until you accept them.
+  {% else %}No accepted contacts yet. New companies wait in the <a href="/inbox">Inbox</a> until someone accepts them.{% endif %}
+</div>
+{% elif view == 'list' %}
+{% include "_table.html" %}
+{% else %}
+<div class="grid" id="cards" {% if display.per_row %}style="grid-template-columns:repeat({{ display.per_row }},minmax(0,1fr))"{% endif %}>
+  {% for r in records %}
+  {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
+  {% set pct = (filled * 100 / total)|int if total else 100 %}
+  <article class="card" id="card-{{ r.id }}" hx-get="/records/{{ r.id }}/open" hx-target="#card-{{ r.id }}" hx-swap="afterend"
+           hx-trigger="click[!event.target.closest('button,a,form')]">
+    <div class="card-head">
+      <div class="pic" tabindex="0" aria-label="About {{ r.title }}">{{ (r.title or '?')[:1] }}{% if r.summary %}<span class="tip" role="tooltip">{{ r.summary|truncate(320) }}</span>{% endif %}</div>
+      <div class="card-title">
+        <h3>{{ r.title }}</h3>
+        <span class="sub">{{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or '—' }}</span>
+      </div>
+      {% if can(user, 'enrich') %}
+      <form method="post" action="/records/{{ r.id }}/enrich">
+        <button type="submit" class="icon-btn" aria-label="Enrich {{ r.title }}: look for missing information" title="Look for missing information"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="chips">
+      {% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}
+      {% if sel_group %}
+        {% set shown = namespace(n=0) %}
+        {% set linknames = (r.links or {}).keys()|map('replace', 'ebay', 'eBay')|map('replace', 'etsy', 'Etsy')|map('replace', 'amazon', 'Amazon')|list %}
+        {% for f in sel_group.fields if f.card and f.key not in ('city', 'country') and not empty((r.data or {}).get(f.key)) and fmt(r, f) not in linknames %}{% if shown.n < 2 %}<span>{{ fmt(r, f)|truncate(36) }}</span>{% set shown.n = shown.n + 1 %}{% endif %}{% endfor %}
+      {% else %}
+        {% for d in dirs_of.get(r.id, []) %}<span class="dchip">{{ d }}</span>{% endfor %}
+      {% endif %}
+    </div>
+    <div class="completeness">
+      <span class="bar {{ pct_class(filled, total) }}" aria-hidden="true"><span style="width:{{ pct }}%"></span></span>
+      <span>{{ filled }}/{{ total }}</span>
+      {% if fresh(r) %}<span class="badge green">Updated</span>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+<strong>Already in NetGate?</strong>
+{% if found %}
+<span class="dupwarn">{{ found|length }} possible match{{ 'es' if found|length != 1 else '' }}. Saving adds your details to an exact match instead of creating a duplicate.</span>
+<ul class="duplist">
+  {% for r in found %}
+  <li><b>{{ r.title }}</b><span class="sub">{{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or '' }}{% if r.domain %} · {{ r.domain }}{% endif %}{% if not r.accepted_at %} · in the Inbox{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% elif name|length >= 3 %}
+<span class="dupok">No match found — a new card will be created.</span>
+{% else %}
+<span class="hint">NetGate checks the name, website and store links as you type.</span>
+{% endif %}
