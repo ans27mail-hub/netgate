@@ -1,5 +1,6 @@
 # NetGate releases, newest first:  version  commit  date  description
 # 'netgate versions', 'netgate version' and 'netgate rollback' read this file.
 v0.3  40b90f2  2026-10-15  Discover + Enrich, night jobs, AI servers, compact cards, list view, display width
+v0.4  f5cad11  2026-10-16  Crawler upgrade: browser for JS pages, next pages, directory profiles, code-first contacts, sitemap, cache, polite limits, Connections settings
 v0.2  8a35ded  2026-10-15  Login, users & permissions, groups with keywords and fields, new directory design
 v0.1  b0a2062  2026-10-15  Starter: search, crawl and save with the local AI
