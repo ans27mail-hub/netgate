@@ -12,13 +12,13 @@
       <select name="status" onchange="this.form.submit()"><option value="">Everyone</option><option value="active" {% if f_status == 'active' %}selected{% endif %}>Active</option><option value="disabled" {% if f_status == 'disabled' %}selected{% endif %}>Disabled</option></select></label>
     <button type="submit" class="btn btn-outline">Search</button>
   </form>
-  <a href="/settings/users/new" class="btn btn-primary ml-auto">+ Add user</a>
+  <a href="/settings/users/new" class="btn btn-primary ml-auto">+ Add User</a>
 </div>
 
 <section class="panel" style="padding:0">
   <div class="overflow">
     <table class="t userstable">
-      <thead><tr><th>User</th><th>Role</th><th>Directories</th><th>Status</th><th>Last login</th><th><span class="sr">Actions</span></th></tr></thead>
+      <thead><tr><th>User</th><th>Role</th><th>Directories</th><th>Status</th><th>Last Login</th><th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         {% for u in users %}
         <tr>

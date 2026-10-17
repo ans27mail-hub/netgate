@@ -24,7 +24,7 @@ At the top you see each directory's keywords, grouped by search method, e.g. *eB
 Click a row to open the full card.
 
 ## “AI suggests”
-NetGate compares each new company with the ones you accepted and rejected before for the same directory, e.g. *Online retailers 94% · like 23 you accepted* or *Reject 71% · like 6 you rejected as private seller*. With only a few decisions it says *not enough decisions yet*. Press **Refresh suggestions** after many decisions. See [AI suggestions](/help/ai-suggestions).
+NetGate compares each new company with the ones you accepted and rejected before for the same directory, e.g. *Online retailers 94% · like 23 you accepted* or *Reject 71% · like 6 you rejected as private seller*. With only a few decisions it says *not enough decisions yet*. Press **Refresh Suggestions** after many decisions. See [AI suggestions](/help/ai-suggestions).
 
 ## Good to know
 - A rejected company is not put in the Inbox again when a later search finds it for the same directory.

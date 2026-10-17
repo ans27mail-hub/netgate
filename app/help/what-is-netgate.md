@@ -21,7 +21,7 @@ NetGate builds **business directories** for you: manufacturers, suppliers, onlin
 |---|---|
 | **Dashboard** | The start page: numbers, what needs attention, system status |
 | **Inbox** | New companies waiting for a decision |
-| **All contacts** | Every accepted company, with filters and saved views |
+| **All Contacts** | Every accepted company, with filters and saved views |
 | **Directories** | All directories as cards; each opens its own page |
 | **Requests** | Every search and enrich: pause, stop, delete, reject |
 | **People** | Users, roles and login history (for admins) |

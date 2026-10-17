@@ -6,5 +6,6 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY CHANGELOG.md ./
+COPY CHANGELOG.md docker-compose.yml requirements.txt ./
+COPY docs ./docs
 COPY app ./app

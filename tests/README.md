@@ -38,4 +38,14 @@ DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up5 REDIS_URL=redis://
 OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 NO_PROXY=.test,127.0.0.1 \
 python3 tests/test_v06.py
 ```
-`tests/test_v05.py` also still runs with the current code (v0.4 → v0.6 in one go).
+`tests/test_v05.py` also still runs with the current code (v0.4 → v0.7 in one go).
+
+## Run (v0.7 test, upgrading from v0.6)
+Make a v0.6 database the same way (run `tests/test_v06.py` with the v0.6 code), then with the current code:
+```
+DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up6 REDIS_URL=redis://x SEARXNG_URL=http://127.0.0.1:9 \
+OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 BACKUP_DIR=/tmp/ngbackups \
+NO_PROXY=.test,127.0.0.1 python3 tests/test_v07.py
+```
+`tests/test_v06.py` also runs with the current code (v0.5 → v0.7). The v0.7 test also checks that every feature
+in `app/handbook.py` has a Handbook page.

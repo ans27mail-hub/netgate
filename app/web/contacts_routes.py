@@ -7,21 +7,24 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 
 from .. import contacts as C
-from ..auth import can
-from ..db import Group, InboxItem, Membership, Record, SessionLocal, slugify
+from .. import tags as T
+from ..auth import can, own_contacts_only, sees_all_groups
+from ..db import ExistingHit, Group, InboxItem, Membership, Record, SessionLocal, User, slugify
 from ..jobs import night_settings
-from .common import (SPECIAL_COLS, Forbidden, all_groups, back, current_user, display_for, flash, fmt_value, go,
-                     last_night, memberships_map, record_fields_map, render, require, start_job, templates,
-                     view_groups, visible_records_clause)
+from .common import (SPECIAL_COLS, Forbidden, all_groups, back, card_cfg, card_fields, current_user, display_for,
+                     flash, fmt_value, go, last_night, memberships_map, own_clause, record_fields_map, render,
+                     require, start_job, templates, view_groups, visible_records_clause)
 from .filters import Filters, distinct_values
 
 router = APIRouter()
 LIMIT = 500
 
 
-def _sort(records, sort, fmap, fields):
+def _sort(records, sort, fmap, fields, tmap=None):
     from ..jobs import empty
-    if sort == "name":
+    if sort == "tag":
+        records.sort(key=lambda r: T.tag_order_key(tmap or {}, r.id))
+    elif sort == "name":
         records.sort(key=lambda r: (r.title or "").lower())
     elif sort == "least":
         records.sort(key=lambda r: fmap.get(r.id, ([], 0, 0))[1])
@@ -76,9 +79,11 @@ def _all_fields(s) -> list:
 def _listing(request: Request, s, user, sel=None):
     groups = view_groups(s, user)
     fields = list(sel.fields) if sel else _all_fields(s)
-    flt = Filters(request, fields=fields if sel else [f for f in fields if f.filter], groups=groups)
+    tags = T.all_tags(s)
+    flt = Filters(request, fields=fields if sel else [f for f in fields if f.filter], groups=groups, tags=tags)
     if sel:
-        base = select(Record).where(Record.id.in_(select(Membership.record_id).where(Membership.group_id == sel.id)))
+        base = select(Record).where(Record.id.in_(select(Membership.record_id).where(Membership.group_id == sel.id)),
+                                    own_clause(user))
     else:
         base = select(Record).where(visible_records_clause(user, groups))
     email_keys = tuple({f.key for f in fields if f.type == "email"} | {"contact_email", "email"})
@@ -87,8 +92,9 @@ def _listing(request: Request, s, user, sel=None):
     records = s.scalars(stmt.order_by(Record.updated_at.desc()).limit(LIMIT)).all()
     fmap = record_fields_map(s, records, sel)
     records = flt.keep_complete(list(records), fmap)
+    tmap = T.tags_map(s, [r.id for r in records])
     sort = request.query_params.get("sort", "updated")
-    records = _sort(records, sort, fmap, fields)
+    records = _sort(records, sort, fmap, fields, tmap)
     d = display_for(s, user)
     view = request.query_params.get("view", "")
     if view in ("grid", "list") and (user.prefs or {}).get("view") != view:
@@ -126,7 +132,10 @@ def _listing(request: Request, s, user, sel=None):
                 fields=fields, options=options, cols=_columns(user, col_key, fields), col_key=col_key,
                 dirs_of=memberships_map(s, records), q=flt.q, limited=len(records) >= LIMIT,
                 colfields={f.key: f for f in fields}, groups=groups, night=last_night(s), night_cfg=night_settings(s),
-                edit_gids=[g.id for g in groups if can(user, "edit", g.id)])
+                edit_gids=[g.id for g in groups if can(user, "edit", g.id)], tags=tags, tmap=tmap,
+                tag_labels={t.id: t.name for t in tags},
+                tag_counts=T.counts(s, base.with_only_columns(Record.id)), card=card_cfg(s, user, sel),
+                cardf=card_fields(user, sel), tint=T.tint)
 
 
 @router.get("/contacts", response_class=HTMLResponse)
@@ -138,8 +147,15 @@ def all_contacts(request: Request):
         return render(request, s, user, "contacts.html", active_nav="contacts", help="contacts", **ctx)
 
 
+def _hits_stmt(user, gid):
+    stmt = select(ExistingHit).where(ExistingHit.group_id == gid)
+    if own_contacts_only(user) or not sees_all_groups(user) and not can(user, "review", gid):
+        stmt = stmt.where(ExistingHit.user_id == user.id)
+    return stmt
+
+
 @router.get("/d/{gid}", response_class=HTMLResponse)
-def directory_page(request: Request, gid: int):
+def directory_page(request: Request, gid: int, tab: str = ""):
     with SessionLocal() as s:
         user = current_user(s, request)
         sel = s.get(Group, gid)
@@ -147,27 +163,59 @@ def directory_page(request: Request, gid: int):
             return go("/contacts")
         require(user, "view", gid)
         ctx = _listing(request, s, user, sel)
-        counts = dict(s.execute(select(Membership.group_id, func.count(Membership.record_id))
-                                .group_by(Membership.group_id)).all())
+        mq = select(Membership.group_id, func.count(Membership.record_id)).group_by(Membership.group_id)
+        if own_contacts_only(user):
+            mq = mq.join(Record, Record.id == Membership.record_id).where(Record.found_by == user.id)
+        counts = dict(s.execute(mq).all())
+        hits_n = s.scalar(select(func.count()).select_from(_hits_stmt(user, gid).subquery())) or 0
+        hits = []
+        if tab == "existing":
+            rows = s.scalars(_hits_stmt(user, gid).order_by(ExistingHit.at.desc()).limit(500)).all()
+            recs = {r.id: r for r in s.scalars(select(Record).where(Record.id.in_([h.record_id for h in rows]))).all()}
+            names = dict(s.execute(select(User.id, User.username)).all())
+            for h in rows:
+                r = recs.get(h.record_id)
+                if r:
+                    hits.append({"hit": h, "r": r, "by": names.get(h.user_id, "(deleted user)"),
+                                 "first": names.get(r.found_by, "(deleted user)") if r.found_by else "NetGate",
+                                 "limited": C.limited_view(user, r), "enrich": C.may_enrich(user, r, gid)})
         return render(request, s, user, "contacts.html", active_nav=f"d{gid}", help="directories",
-                      switch_counts=counts, **ctx)
+                      switch_counts=counts, dtab="existing" if tab == "existing" else "", hits=hits, hits_n=hits_n,
+                      **ctx)
 
 
 # ---------- the contact card ----------
 
-def _card(request, s, user, rec, edit=False, ctx_gid=None):
+def _card(request, s, user, rec, edit=False, ctx_gid=None, notice=""):
     groups = all_groups(s)
     by_id = {g.id: g for g in groups}
     mids = C.member_ids(s, rec.id)
     items = s.scalars(select(InboxItem).where(InboxItem.record_id == rec.id).order_by(InboxItem.id)).all()
     fields = C.fields_for(s, rec)
     filled, total = C.completeness_of(rec, fields)
+    limited = C.limited_view(user, rec)
+    if limited and (user.existing_view or "full") == "fields":
+        allowed = set(user.existing_fields or [])
+        fields = [f for f in fields if f.key in allowed]
+    ctx_gid = ctx_gid if ctx_gid in mids else None
+    panel_group = by_id.get(ctx_gid) or (by_id.get(mids[0]) if mids else None)
+    rec_tags = T.tags_map(s, [rec.id]).get(rec.id, [])
+    can_tag = not limited and any(can(user, "edit", g) for g in mids) if mids else (not limited and can(user, "edit"))
+    finder = s.get(User, rec.found_by) if rec.found_by else None
     return templates.TemplateResponse(request, "_bigcard.html", {
         "r": rec, "user": user, "fields": fields, "filled": filled, "total": total,
-        "members": [by_id[g] for g in mids if g in by_id], "items": items, "by_id": by_id, "edit": edit,
-        "ctx_gid": ctx_gid if ctx_gid in mids else None,
-        "edit_ids": [g for g in mids if can(user, "edit", g)],
-        "add_targets": [g for g in groups if g.id not in mids and can(user, "edit", g.id)]})
+        "members": [by_id[g] for g in mids if g in by_id], "items": items, "by_id": by_id,
+        "edit": edit and not limited, "ctx_gid": ctx_gid, "limited": limited,
+        "show_all": not limited or (user.existing_view or "full") == "full",
+        "edit_ids": [] if limited else [g for g in mids if can(user, "edit", g)],
+        "add_targets": [] if limited else [g for g in groups if g.id not in mids and can(user, "edit", g.id)],
+        "rec_tags": rec_tags, "can_tag": can_tag,
+        "tag_choices": [t for t in T.all_tags(s) if T.usable_in(t, mids)],
+        "may_enrich": C.may_enrich(user, rec, mids[0] if mids else None),
+        "finder": finder.username if finder else ("(deleted user)" if rec.found_by else ""),
+        "panel_group": panel_group, "panel_keys": [f.key for f in card_fields(user, panel_group)],
+        "panel_mine": panel_group is not None and str(panel_group.id) in ((user.prefs or {}).get("cardfields") or {}),
+        "can_dir_cards": panel_group is not None and can(user, "manage_dirs"), "notice": notice})
 
 
 @router.get("/records/{rid}/open", response_class=HTMLResponse)
@@ -188,7 +236,7 @@ async def edit_record(request: Request, rid: int, from_: int | None = Query(None
     with SessionLocal() as s:
         user = current_user(s, request)
         rec = s.get(Record, rid)
-        if not rec or not C.can_see_record(s, user, rec):
+        if not rec or not C.can_see_record(s, user, rec) or C.limited_view(user, rec):
             raise Forbidden
         require(user, "edit")
         from ..jobs import clean
@@ -224,7 +272,7 @@ def record_directory(request: Request, rid: int, group_id: int = Form(...), acti
     with SessionLocal() as s:
         user = current_user(s, request)
         rec = s.get(Record, rid)
-        if not rec or not C.can_see_record(s, user, rec):
+        if not rec or not C.can_see_record(s, user, rec) or C.limited_view(user, rec):
             raise Forbidden
         require(user, "edit", group_id)
         g = s.get(Group, group_id)
@@ -280,7 +328,7 @@ async def move_selected(request: Request):
         sources: set = set()
         for rid in ids:
             rec = s.get(Record, rid)
-            if not rec or not C.can_see_record(s, user, rec):
+            if not rec or not C.can_see_record(s, user, rec) or C.limited_view(user, rec):
                 continue
             mids = C.member_ids(s, rec.id)
             src = [from_id] if from_id else [m for m in mids if m != gid and can(user, "edit", m)]
@@ -314,7 +362,8 @@ async def add_selected_to_directory(request: Request):
         n = 0
         for rid in ids:
             rec = s.get(Record, rid)
-            if rec and C.can_see_record(s, user, rec) and C.add_to_directory(s, rec, gid, user):
+            if rec and C.can_see_record(s, user, rec) and not C.limited_view(user, rec) \
+                    and C.add_to_directory(s, rec, gid, user):
                 n += 1
         s.commit()
         g = s.get(Group, gid)
@@ -330,7 +379,7 @@ def enrich_many(s, user, ids: list[int], steps=None) -> int:
         if not rec or not C.can_see_record(s, user, rec):
             continue
         gids = C.member_ids(s, rec.id) + C.open_item_group_ids(s, rec.id)
-        if not can(user, "enrich", gids[0] if gids else None):
+        if not C.may_enrich(user, rec, gids[0] if gids else None):
             continue
         start_job(s, user, "enrich", rec.title, gids[0] if gids else None, record_id=rec.id,
                   params={"steps": steps} if steps else {})
@@ -384,12 +433,95 @@ def delete_record(request: Request, rid: int):
         if not rec:
             return go("/contacts")
         gids = C.member_ids(s, rec.id) + C.open_item_group_ids(s, rec.id)
-        if not all(can(user, "delete", g) for g in gids) or not can(user, "delete"):
+        if not all(can(user, "delete", g) for g in gids) or not can(user, "delete") or C.limited_view(user, rec):
             raise Forbidden
         s.delete(rec)
         s.commit()
         flash(request, f"{rec.title} deleted.")
     return back(request, "/contacts")
+
+
+# ---------- tags ----------
+
+def _taggable(s, user, rec) -> bool:
+    if not rec or not C.can_see_record(s, user, rec) or C.limited_view(user, rec):
+        return False
+    mids = C.member_ids(s, rec.id)
+    return any(can(user, "edit", g) for g in mids) if mids else can(user, "edit")
+
+
+@router.post("/records/{rid}/tags", response_class=HTMLResponse)
+async def record_tags(request: Request, rid: int):
+    """Set the tags of one contact (ticked boxes), or remove one (×). Answers with the updated card."""
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        rec = s.get(Record, rid)
+        if not _taggable(s, user, rec):
+            raise Forbidden
+        if form.get("remove"):
+            T.remove_tag(s, rec, int(form.get("remove") or 0), user)
+        else:
+            T.set_tags(s, rec, {int(i) for i in form.getlist("tag_ids") if str(i).isdigit()}, user)
+        s.commit()
+        from_raw = str(form.get("from") or "")
+        return _card(request, s, user, rec, ctx_gid=int(from_raw) if from_raw.isdigit() else None)
+
+
+@router.post("/records/tags-bulk")
+async def tags_bulk(request: Request):
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()][:500]
+    tag_id = int(form.get("tag_id") or 0)
+    action = str(form.get("action") or "add")
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        n = 0
+        for rid in ids:
+            rec = s.get(Record, rid)
+            if not _taggable(s, user, rec):
+                continue
+            if (T.add_tag(s, rec, tag_id, user) if action == "add" else T.remove_tag(s, rec, tag_id, user)):
+                n += 1
+        s.commit()
+        from ..db import Tag
+        tag = s.get(Tag, tag_id)
+        if not ids:
+            flash(request, "Tick one or more contacts first.", True)
+        else:
+            flash(request, f"Tag “{tag.name if tag else '?'}” {'added to' if action == 'add' else 'removed from'} "
+                           f"{n} contact{'s' if n != 1 else ''}.")
+    return back(request, "/contacts")
+
+
+@router.post("/records/{rid}/cardfields", response_class=HTMLResponse)
+async def card_fields_save(request: Request, rid: int):
+    """“Short Card Shows…”: the fields on a directory's short cards, for everyone or only for me."""
+    form = await request.form()
+    gid = int(form.get("group_id") or 0)
+    keys = [k for k in form.getlist("fields") if k][:3]
+    scope = str(form.get("scope") or "me")
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        rec = s.get(Record, rid)
+        group = s.get(Group, gid)
+        if not rec or not group or not C.can_see_record(s, user, rec) or not can(user, "view", gid):
+            raise Forbidden
+        valid = {f.key for f in group.fields}
+        keys = [k for k in keys if k in valid]
+        mine = dict((user.prefs or {}).get("cardfields") or {})
+        if scope == "dir":
+            require(user, "manage_dirs")
+            for f in group.fields:
+                f.card = f.key in keys
+            mine.pop(str(gid), None)
+            msg = f"Short cards in {group.name} now show: {', '.join(keys) or 'name and city only'} (for everyone)."
+        else:
+            mine[str(gid)] = keys
+            msg = "Your short cards in this directory now show the ticked fields (only for you)."
+        user.prefs = {**(user.prefs or {}), "cardfields": mine}
+        s.commit()
+        return _card(request, s, user, rec, ctx_gid=gid, notice=msg + " Reload the page to see the cards.")
 
 
 # ---------- preferences & saved views ----------

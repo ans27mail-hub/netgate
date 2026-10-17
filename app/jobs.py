@@ -127,11 +127,20 @@ class Ctx:
         self.notes: list[str] = []
         self.new_items: list[int] = []
         self._control, self._checked, self._traces = "", 0.0, 0
+        self._uid: int | None = None
+        self._uid_known = False
         try:
             with SessionLocal() as s:
                 self.tracing = bool((get_setting(s, "dev", {}) or {}).get("trace", True)) and job_id is not None
         except Exception:
             self.tracing = False
+
+    def user_id(self, s) -> int | None:
+        """Who started this request (they become the first finder of new contacts)."""
+        if not self._uid_known:
+            job = s.get(Job, self.job_id) if self.job_id else None
+            self._uid, self._uid_known = (job.user_id if job else None), True
+        return self._uid
 
     def step(self, status: str, message: str):
         if self.job_id is None:   # a test run from Settings: nothing to record
@@ -220,9 +229,12 @@ def save_found(s, ctx: Ctx, group, *, name: str, values: dict, sources: dict, me
     name = (name or "").strip()
     if len(name) < 2 or len(name) > 150:
         return None
+    uid = ctx.user_id(s)
     rec, created, changed = contacts.upsert(
         s, name=name, values=values, sources=sources, social=social, links=links, ext=ext, summary=summary,
-        source_url=page_url, topic=query, job_id=ctx.job_id, history=ctx.history(method, query))
+        source_url=page_url, topic=query, job_id=ctx.job_id, history=ctx.history(method, query), found_by=uid)
+    if not created and uid and rec.found_by != uid:
+        contacts.note_existing_hit(s, uid, rec, group.id, query, ctx.job_id)
     item = contacts.to_inbox(s, rec, group.id, method=method, keyword=query, job_id=ctx.job_id, found_url=page_url)
     if item:
         if not created:

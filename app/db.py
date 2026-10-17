@@ -40,6 +40,8 @@ class Group(Base):
     night_discover: Mapped[bool] = mapped_column(Boolean, default=True)
     night_enrich: Mapped[bool] = mapped_column(Boolean, default=True)
     refresh_days: Mapped[int] = mapped_column(Integer, default=0)        # 0 = never refresh
+    owner_id: Mapped[int | None] = mapped_column(Integer)                # who it belongs to ("own directories")
+    card: Mapped[dict] = mapped_column(JSONB, default=dict)              # short card: style A/B/C, width, tint
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     keywords: Mapped[list["Keyword"]] = relationship(order_by="Keyword.id", cascade="all, delete-orphan",
@@ -102,6 +104,9 @@ class Role(Base):
     all_groups: Mapped[bool] = mapped_column(Boolean, default=True)  # default directory access for new users
     group_ids: Mapped[list] = mapped_column(JSONB, default=list)
     position: Mapped[int] = mapped_column(Integer, default=0)
+    contacts_scope: Mapped[str] = mapped_column(String(10), default="all")   # default for new users: all / own
+    existing_view: Mapped[str] = mapped_column(String(10), default="full")   # full / fields
+    existing_fields: Mapped[list] = mapped_column(JSONB, default=list)
 
     @property
     def perm_set(self) -> set[str]:
@@ -123,10 +128,16 @@ class User(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     prefs: Mapped[dict] = mapped_column(JSONB, default=dict)       # view, list columns, display, saved views
     must_change: Mapped[bool] = mapped_column(Boolean, default=False)  # asked to pick a new password at next login
+    contacts_scope: Mapped[str] = mapped_column(String(10), default="all")  # all / own (found or added first by them)
+    dir_scope: Mapped[str] = mapped_column(String(10), default="all")       # all / some / own
+    existing_view: Mapped[str] = mapped_column(String(10), default="full")  # what they see of others' contacts
+    existing_fields: Mapped[list] = mapped_column(JSONB, default=list)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     group_links: Mapped[list["UserGroup"]] = relationship(cascade="all, delete-orphan", lazy="selectin")
     role_obj: Mapped[Role | None] = relationship(lazy="joined")
+    owned_groups: Mapped[list["Group"]] = relationship(primaryjoin="foreign(Group.owner_id) == User.id",
+                                                       viewonly=True, lazy="selectin")
 
     @property
     def perm_set(self) -> set[str]:
@@ -142,7 +153,8 @@ class User(Base):
 
     @property
     def group_ids(self) -> set[int]:
-        return {link.group_id for link in self.group_links}
+        """Directories this person may work in when not “all”: the ticked ones plus the ones they own."""
+        return {link.group_id for link in self.group_links} | {g.id for g in self.owned_groups}
 
 
 class UserGroup(Base):
@@ -228,8 +240,43 @@ class Record(Base):
     vec: Mapped[bytes | None] = mapped_column(LargeBinary)           # embedding used for AI suggestions
     vec_model: Mapped[str | None] = mapped_column(Text)
     added_by: Mapped[int | None] = mapped_column(Integer)
+    found_by: Mapped[int | None] = mapped_column(Integer, index=True)   # first person who found or added it
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Tag(Base):
+    """A label for a contact's status, e.g. Hot lead. Lower position = stronger (its colour wins on the card)."""
+    __tablename__ = "tags"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    color: Mapped[str] = mapped_column(String(9), default="#2457d6")
+    description: Mapped[str] = mapped_column(Text, default="")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    color_card: Mapped[bool] = mapped_column(Boolean, default=True)
+    all_groups: Mapped[bool] = mapped_column(Boolean, default=True)
+    group_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class RecordTag(Base):
+    __tablename__ = "record_tags"
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id", ondelete="CASCADE"), primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True, index=True)
+    added_by: Mapped[int | None] = mapped_column(Integer)
+    added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ExistingHit(Base):
+    """A person's search found a contact someone else found first (shown in the Existing Contacts tab).
+    One row per person + contact + directory; the contact keeps its first finder."""
+    __tablename__ = "existing_hits"
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id", ondelete="CASCADE"), primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True, index=True)
+    keyword: Mapped[str] = mapped_column(Text, default="")
+    job_id: Mapped[int | None] = mapped_column(Integer)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class Membership(Base):
@@ -421,6 +468,18 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP",
     "ALTER TABLE decisions ALTER COLUMN decision TYPE VARCHAR(20)",
+    # v0.7
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS owner_id INTEGER",
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS card JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE roles ADD COLUMN IF NOT EXISTS contacts_scope VARCHAR(10) NOT NULL DEFAULT 'all'",
+    "ALTER TABLE roles ADD COLUMN IF NOT EXISTS existing_view VARCHAR(10) NOT NULL DEFAULT 'full'",
+    "ALTER TABLE roles ADD COLUMN IF NOT EXISTS existing_fields JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS contacts_scope VARCHAR(10) NOT NULL DEFAULT 'all'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dir_scope VARCHAR(10) NOT NULL DEFAULT 'all'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS existing_view VARCHAR(10) NOT NULL DEFAULT 'full'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS existing_fields JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS found_by INTEGER",
+    "CREATE INDEX IF NOT EXISTS ix_records_found_by ON records (found_by)",
 ]
 
 EMPLOYEE_RANGES = "1–10, 11–50, 51–200, 201–500, 500+"
@@ -566,6 +625,54 @@ def _seed_roles(s):
         s.add(Setting(key="roles_seeded", value="1"))
 
 
+DEFAULT_TAGS = [
+    ("Hot lead", "#c43d3d", "Good fit, follow up this week"),
+    ("Customer", "#2f8f5b", "Already buys from us"),
+    ("Sample sent", "#c27a12", "We sent product samples; waiting for feedback"),
+    ("Contacted", "#2457d6", "First email or call done"),
+    ("Not interested", "#7a808c", "Said no for now"),
+    ("Do not contact", "#16181d", "Asked us not to contact them"),
+]
+
+
+def _upgrade_v07(s):
+    """One-time data changes for v0.7. Nothing is deleted."""
+    if s.get(Setting, "v07_upgraded"):
+        return
+    # the first finder of every existing contact: whoever added it, else whoever ran the request that found it
+    s.execute(text("UPDATE records SET found_by = added_by WHERE found_by IS NULL AND added_by IS NOT NULL"))
+    s.execute(text("UPDATE records r SET found_by = j.user_id FROM jobs j "
+                   "WHERE r.found_by IS NULL AND r.job_id = j.id AND j.user_id IS NOT NULL"))
+    # existing directories belong to the first admin
+    first_admin = s.scalar(select(User.id).where(User.is_admin).order_by(User.id).limit(1))
+    if first_admin:
+        s.execute(text("UPDATE groups SET owner_id = :a WHERE owner_id IS NULL"), {"a": first_admin})
+    # directory access as a choice: all / some
+    s.execute(text("UPDATE users SET dir_scope = CASE WHEN all_groups OR is_admin THEN 'all' ELSE 'some' END"))
+    # new permissions: who could enrich may also enrich others' contacts (as before); see methods only for
+    # roles that manage directories or are Developer (the owner wants methods hidden from other levels)
+    for r in s.scalars(select(Role)).all():
+        if r.locked:
+            continue
+        perms = split(r.perms)
+        if "enrich" in perms:
+            perms.add("enrich_others")
+        if "manage_dirs" in perms or r.name == "Developer":
+            perms.add("see_methods")
+        if "manage_dirs" in perms:
+            perms.add("manage_tags")
+        r.perms = join(perms)
+    for u in s.scalars(select(User)).all():
+        extra = split(u.extra_perms)
+        if "enrich" in extra:
+            extra.add("enrich_others")
+            u.extra_perms = join(extra)
+    if not s.scalar(select(func.count(Tag.id))):
+        for i, (name, color, desc) in enumerate(DEFAULT_TAGS):
+            s.add(Tag(name=name, color=color, description=desc, position=i))
+    s.add(Setting(key="v07_upgraded", value="1"))
+
+
 def _upgrade_v05(s):
     """One-time data changes for v0.5 on existing installs. Nothing is deleted."""
     if s.get(Setting, "v05_upgraded"):
@@ -642,5 +749,7 @@ def init_db():
         _seed_roles(s)
         s.flush()
         _upgrade_v05(s)
+        s.flush()
+        _upgrade_v07(s)
         _seed_ai(s)
         s.commit()

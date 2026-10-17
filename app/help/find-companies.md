@@ -7,9 +7,9 @@ summary: Run discovery and keywords
 ---
 There are three ways to search:
 
-1. **+ Run discovery** (top of every page): type what you are looking for, pick the directory and the methods to use.
-2. **Keywords**: click a keyword chip in the Inbox, or **Run all keywords** on a directory's page.
-3. **Night jobs** run the night keywords automatically (see [Night jobs](/help/night-jobs)).
+1. **+ Run Discovery** (top of every page): type what you are looking for, pick the directory and the methods to use.
+2. **Keywords**: click a keyword chip in the Inbox, or **Run All Keywords** on a directory's page.
+3. **Night Jobs** run the night keywords automatically (see [Night jobs](/help/night-jobs)).
 
 Every search becomes a **request** you can follow on the Requests page. New companies go to the Inbox for the directory you searched for.
 

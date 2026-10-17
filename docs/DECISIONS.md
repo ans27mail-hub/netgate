@@ -2,6 +2,18 @@
 
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
+## 2026-10-17 (v0.7)
+- **Tags belong to all directories or chosen ones** (owner: OK). Shown as small bars under the Enrich button (owner chose this over circles at the top-left); one tag may tint the card (mixed into the theme's card colour so it works in Dark too). Anyone who may edit contacts can tag; *Manage tags* is needed to create / change / merge / delete tags.
+- **Card style and width are per directory** (Directory Settings → Cards), default from Display. “Short card shows” can be saved for every card in the directory or only for me.
+- **Themes only change colours, font, corners and spacing**, never the layout. Built-in themes can't be edited, only copied. Theme for everyone + optional personal choice + optional “Dark when the computer is in dark mode”.
+- **Own contacts = found first or added by that person** (`records.found_by`). The first finder is kept; no “found again” history on the contact (owner). A later search by someone else lists it in their **Existing Contacts** tab (`existing_hits`), with full card or chosen fields per person, and *Enrich other people's contacts* as a permission.
+- **Directories get an Owner**; “only their own directories” means owned or created by them. Existing directories got the first admin as owner.
+- **Search methods are hidden** unless the person has *See search methods* (Admin, Manager, Developer by default; not Researcher / Viewer). Without it, their searches use the directory's methods.
+- **Title Case** for headings, menus, tabs and buttons; normal sentences stay normal.
+- **Developer Handbook**: admin-only by default, grantable with *Developer help*. Written pages in `docs/dev/` (one per feature, test enforced) + automatic pages from the code. Never contains passwords or keys.
+- **Backups** run in their own small container (`backup`, postgres:16-alpine) with `pg_dump`, into `BACKUP_DIR` (default `./backups`; better on another disk). The web app only reads the folder. **Restore only on the server** (`netgate restore`, which first saves a safety copy), never from the web page.
+- **NetGate Scanner** will be a separate app with its own Docker stack on a shared network (owner: OK).
+
 ## 2026-10-16 (v0.6)
 - **Start page = Dashboard** (was the Inbox). `/?group=` still redirects to the directory (v0.4 links).
 - **Directories leave the sidebar**; they live on the Directories page (cards / list). Inside a directory: **tabs + “Jump to…”** (owner chose both).

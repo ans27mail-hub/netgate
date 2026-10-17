@@ -1,0 +1,28 @@
+<div class="rj-head">
+  <h2 id="rj-h">Running Jobs</h2>
+  {% if running_n or waiting_n %}<span class="badge blue"><span class="dot-live" aria-hidden="true"></span>{{ running_n }} Running · {{ waiting_n }} Waiting</span>{% endif %}
+  <a href="/requests" class="ml-auto">All Requests →</a>
+</div>
+{% if not rows and not waiting %}
+<div class="rj-empty"><span class="sub">Nothing running{% if last %} · last finished {{ ago(last) }}{% endif %}</span>
+  {% if req_groups %}<button type="button" class="btn btn-primary btn-small ml-auto" onclick="document.getElementById('ask').showModal()">Run Discovery</button>{% endif %}</div>
+{% endif %}
+{% for r in rows %}{% set j = r.j %}
+<div class="rj">
+  <div class="rj-top">
+    <span class="rj-kind k-{{ 'enrich' if j.kind == 'enrich' else ('night' if j.kind == 'night' else 'disc') }}">{{ KIND_LABELS.get(j.kind, j.kind) }}</span>
+    <a href="/requests?tab=running" class="rj-q" title="{{ j.query }}">{{ j.query }}</a>
+    {% if r.control and 'pause' in job_actions(j) %}<form method="post" action="/requests/{{ j.id }}/pause"><button type="submit" class="rj-btn" aria-label="Pause {{ j.query }}" title="Pause"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button></form>{% endif %}
+    {% if r.control and 'stop' in job_actions(j) %}<form method="post" action="/requests/{{ j.id }}/stop"><button type="submit" class="rj-btn stop" aria-label="Stop {{ j.query }}" title="Stop"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button></form>{% endif %}
+  </div>
+  <span class="bar" aria-hidden="true"><span style="width:{{ r.pct }}%"></span></span>
+  <div class="rj-meta"><span>{{ r.dir }}</span><span>{{ (j.message or j.status)|truncate(70) }}</span><span class="ml-auto">{{ r.found }} · {{ r.who }} · {{ ago(r.since) }}</span></div>
+</div>
+{% endfor %}
+{% if waiting %}
+<div class="rj-wait">
+  <span class="caps-sm">Waiting</span>
+  {% for w in waiting %}<div class="rj-w"><span class="rj-kind k-wait">{{ KIND_LABELS.get(w.kind, w.kind) }}</span><span class="rj-q">{{ w.query }}</span><span class="sub">{{ names.get(w.group_id, '') }}</span></div>{% endfor %}
+  {% if waiting_n > waiting|length %}<span class="sub">+ {{ waiting_n - waiting|length }} more</span>{% endif %}
+</div>
+{% endif %}

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}New directory · NetGate{% endblock %}
+{% block title %}New Directory · NetGate{% endblock %}
 {% block content %}
 <div class="settings">
   {% include "_settings_nav.html" %}
   <form class="scontent" method="post" action="/settings/directories">
-    <div class="shead"><h1>New directory</h1><button type="submit" class="btn btn-primary ml-auto">Create directory</button></div>
+    <div class="shead"><h1>New Directory</h1><button type="submit" class="btn btn-primary ml-auto">Create Directory</button></div>
     <ol class="stepchips"><li><b>1</b> Basics</li><li><b>2</b> Search methods</li><li><b>3</b> Fields</li><li><b>4</b> Instructions</li><li><b>5</b> Keywords</li></ol>
 
     <section class="panel row">
@@ -15,7 +15,7 @@
     </section>
 
     <section class="panel stack">
-      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>2 · Search methods</h2><span class="hint">Pick one or more. Each method knows how its site works.</span></div>
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>2 · Search Methods</h2><span class="hint">Pick one or more. Each method knows how its site works.</span></div>
       {% set cur = {'web': {}, 'website': {}} %}
       {% set opts = {'ebay': {'sites': [], 'category_id': '', 'per_keyword': 200, 'min_feedback': 0, 'business_only': True, 'max_sellers': 60}, 'directory': {'start_urls': '', 'sites': ''}} %}
       {% include "_dir_methods.html" %}
@@ -45,7 +45,7 @@
       <label class="field">Keywords (comma separated or one per line)<textarea name="keywords" rows="2" placeholder="e.g. leather motorcycle jacket, textile motorcycle jacket, motorcycle gloves"></textarea></label>
       <label class="check-inline"><input type="checkbox" name="night" checked> Run these in night jobs</label>
     </section>
-    <div><button type="submit" class="btn btn-primary">Create directory</button></div>
+    <div><button type="submit" class="btn btn-primary">Create Directory</button></div>
   </form>
 </div>
 {% endblock %}

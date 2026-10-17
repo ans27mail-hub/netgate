@@ -1,10 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Debug #{{ job.id }} · NetGate{% endblock %}
 {% block content %}
+<p style="margin:0"><a href="/requests?tab={{ job_tab(job) }}" class="btn btn-outline btn-small">← Back to Requests</a></p>
 <div class="pagehead">
   <h1>Debug: {{ job.query }}</h1>
   <span class="badge st-{{ job_tab(job) }}">{{ job.status }}</span>
-  <a href="/requests" class="ml-auto">← Requests</a>
+  <span class="ml-auto btnrow">
+    {% if control %}
+    {% set labels = {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'reject': 'Reject…', 'restore': 'Take Off Reject List', 'again': 'Run Again'} %}
+    {% for a in job_actions(job) %}
+    {% if a == 'reject' %}
+    <form method="post" action="/requests/{{ job.id }}/reject" class="inline" onsubmit="var r=prompt('Why reject this keyword? (it goes on the reject list)');if(r===null)return false;this.reason.value=r"><input type="hidden" name="reason"><button type="submit" class="btn btn-outline btn-small">Reject…</button></form>
+    {% else %}
+    <form method="post" action="/requests/{{ job.id }}/{{ a }}" class="inline"><button type="submit" class="btn {{ 'btn-danger' if a in ('delete', 'stop') else 'btn-outline' }} btn-small">{{ labels.get(a, a) }}</button></form>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% if rows %}<form method="post" action="/requests/{{ job.id }}/debug/clear" class="inline" onsubmit="return confirm('Delete the debug notes of this request? The request and its contacts stay.')"><button type="submit" class="btn btn-outline btn-small">Clear Debug Notes</button></form>{% endif %}
+  </span>
 </div>
 <p class="hint" style="margin:0">#{{ job.id }} · {{ KIND_LABELS.get(job.kind, job.kind) }} · {{ group_names.get(job.group_id, '—') }} · {{ job.message or '' }}</p>
 
@@ -38,7 +51,7 @@
 
 {% if new_items %}
 <section class="panel stack">
-  <h2>Put in the Inbox by this request ({{ new_items|length }})</h2>
+  <h2>Put in the Inbox by This Request ({{ new_items|length }})</h2>
   <ul class="tight">{% for it in new_items %}<li>{{ recs[it.record_id].title if it.record_id in recs else it.record_id }} · {{ it.status }}{% if it.reason %} ({{ it.reason }}){% endif %}</li>{% endfor %}</ul>
 </section>
 {% endif %}

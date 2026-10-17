@@ -18,7 +18,7 @@ summary: The words NetGate uses
 | **Field** | One piece of information, e.g. City, Email, Seller rating. |
 | **Filled from** | Who fills a field: the AI and code from web pages, a method like eBay, or only people. |
 | **Request** | One search or enrich job. See the Requests page. |
-| **Reject list** | Keywords that are never searched again (until restored). |
+| **Reject List** | Keywords that are never searched again (until restored). |
 | **Night run** | Searches and enriching done automatically at night. |
 | **AI suggests** | NetGate's guess, based on your earlier accept / reject decisions. |
 | **Role** | A named set of permissions, e.g. Researcher. |

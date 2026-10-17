@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 
 from .. import contacts as C
 from .. import control, learn, methods
-from ..auth import can, sees_all_groups
+from ..auth import can, own_contacts_only, sees_all_groups
 from ..db import Group, InboxItem, Record, SessionLocal
 from .common import back, current_user, flash, go, record_fields_map, render, require, view_groups
 from .filters import Filters
@@ -19,6 +19,8 @@ def _items_stmt(user, groups, tab: str):
     stmt = select(InboxItem, Record).join(Record, Record.id == InboxItem.record_id)
     if not sees_all_groups(user):
         stmt = stmt.where(InboxItem.group_id.in_([g.id for g in groups] or [-1]))
+    if own_contacts_only(user):   # only companies they found first
+        stmt = stmt.where(Record.found_by == user.id)
     if tab == "rejected":
         return stmt.where(InboxItem.status == "rejected")
     stmt = stmt.where(InboxItem.status == "new")

@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}NetGate{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="{{ theme_font or 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap' }}">
   <link rel="stylesheet" href="/static/app.css?v={{ VERSION }}">
+  {% if theme_css %}<style>{{ theme_css|safe }}</style>{% endif %}
   <script src="/static/htmx.min.js?v=2.0.3"></script>
 </head>
 <body style="{{ page_style or '' }}">
@@ -23,12 +25,12 @@
         <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="{% if path == '/inbox' %}Search the Inbox by name, city, website…{% elif sel_group %}Search {{ sel_group.name }}…{% else %}Search all contacts by name, city, product…{% endif %}">
       </form>
       <details class="jobs-pop" {% if running_n %}data-running{% endif %}>
-        <summary hx-get="/activity" hx-target="#activity" hx-trigger="click once" class="pill-btn"><span class="dot {% if not running_n %}off{% endif %}" aria-hidden="true"></span>{% if running_n %}{{ running_n }} AI job{{ '' if running_n == 1 else 's' }} running{% else %}No AI jobs running{% endif %} ▾</summary>
+        <summary hx-get="/activity" hx-target="#activity" hx-trigger="click once" class="pill-btn"><span class="dot {% if not running_n %}off{% endif %}" aria-hidden="true"></span>{% if running_n %}{{ running_n }} AI Job{{ '' if running_n == 1 else 's' }} Running{% else %}No AI Jobs Running{% endif %} ▾</summary>
         <section class="activity" id="activity" hx-get="/activity" hx-trigger="every 5s [document.querySelector('.jobs-pop').open]" hx-swap="innerHTML"><p class="sub">Loading…</p></section>
       </details>
       {% if help %}<button type="button" class="pill-btn help-btn" aria-label="Help for this page" hx-get="/help/{{ help }}?partial=1" hx-target="#helpbody" onclick="document.getElementById('helpdlg').showModal()">?</button>{% endif %}
-      {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add{% if sel_group %}?group={{ sel_group.id }}{% endif %}" class="btn btn-outline pill">+ Add contact</a>{% endif %}
-      {% if req_groups %}<button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Run discovery</button>{% endif %}
+      {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add{% if sel_group %}?group={{ sel_group.id }}{% endif %}" class="btn btn-outline pill">+ Add Contact</a>{% endif %}
+      {% if req_groups %}<button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Run Discovery</button>{% endif %}
     </header>
     {% if sel_group and path.startswith('/d/') %}{% include "_dirswitch.html" %}{% endif %}
     <main class="wrap page">
@@ -41,7 +43,7 @@
 {% if req_groups %}
 <dialog id="ask" aria-labelledby="ask-title">
   <form method="post" action="/jobs">
-    <h2 id="ask-title">Run discovery</h2>
+    <h2 id="ask-title">Run Discovery</h2>
     <p class="hint" style="margin:0">NetGate searches with the directory's methods. New companies go to the Inbox, where you accept or reject them.</p>
     <label class="field">What should the AI look for?
       <textarea name="query" rows="3" required placeholder="e.g. leather glove manufacturers in Sialkot"></textarea>
@@ -51,7 +53,7 @@
         {% for g in req_groups %}<option value="{{ g.id }}" data-methods="{{ (g.methods or {}).keys()|list|join(',') }}" {% if sel_group and g.id == sel_group.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
       </select>
     </label>
-    <fieldset class="methods-pick" id="ask-methods">
+    <fieldset class="methods-pick" id="ask-methods" {% if not sees_methods(user) %}hidden{% endif %}>
       <legend class="hint">Search with</legend>
       {% for key, m in METHODS.items() if m.step == 'find' and m.ready %}
       <label data-m="{{ key }}"><input type="checkbox" name="methods" value="{{ key }}" checked> {{ m.name }}</label>

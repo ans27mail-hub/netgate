@@ -1,0 +1,5 @@
+<div class="answer">
+  {% if r.error %}<p class="hint">{{ r.error }}</p>{% endif %}
+  {% if r.answer %}<p>{{ r.answer|e|replace('\n', '<br>'|safe) }}</p>{% endif %}
+  {% if r.sources %}<p class="hint">From: {% for p in r.sources %}<a href="/dev/handbook/{{ p.slug }}">{{ p.title }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</div>

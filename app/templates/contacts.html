@@ -1,28 +1,30 @@
 {% extends "base.html" %}
-{% block title %}{{ sel_group.name if sel_group else 'All contacts' }} · NetGate{% endblock %}
+{% block title %}{{ sel_group.name if sel_group else 'All Contacts' }} · NetGate{% endblock %}
 {% block content %}
 {% set base_path = '/d/' ~ sel_group.id if sel_group else '/contacts' %}
 {% if night and night.stats and not sel_group %}
 <div class="banner">
-  <strong>{{ 'Tonight' if night.status == 'running' else 'Last night' }}:</strong>
+  <strong>{{ 'Tonight' if night.status == 'running' else 'Last Night' }}:</strong>
   <span>{{ night.stats.get('saved', 0) }} new in the Inbox · {{ night.stats.get('fields', 0) }} fields filled · {{ night.stats.get('companies', 0) }} enriched{% if night.status == 'running' %} · still running{% elif night.status == 'paused' %} · paused{% elif night.status == 'stopped' %} · stopped{% endif %}</span>
-  {% if can(user, 'night') %}<a href="/settings/night" class="ml-auto">See report</a>{% endif %}
+  {% if can(user, 'night') %}<a href="/settings/night" class="ml-auto">See Report</a>{% endif %}
 </div>
 {% endif %}
 
 <div class="pagehead">
-  <h1>{{ sel_group.name if sel_group else 'All contacts' }}</h1>
-  <span class="sub">{{ stats.total if stats else records|length }}{{ '+' if limited else '' }} contact{{ '' if (stats.total if stats else records|length) == 1 else 's' }}</span>
+  <h1>{{ sel_group.name if sel_group else 'All Contacts' }}</h1>
+  <span class="sub">{{ stats.total if stats else records|length }}{{ '+' if limited else '' }} contact{{ '' if (stats.total if stats else records|length) == 1 else 's' }}{% if own_only(user) %} · only the ones you found{% endif %}</span>
   {% if sel_group %}
+  {% if sees_methods(user) %}
   <span class="mbadges">
     {% for key in (sel_group.methods or {}).keys() if key in METHODS %}<span class="mbadge m-{{ METHODS[key].kind }}">{{ METHODS[key].name }}</span>{% endfor %}
   </span>
+  {% endif %}
   <span class="ml-auto btnrow">
-    {% if can(user, 'request', sel_group.id) %}<button type="button" class="btn btn-primary" onclick="document.getElementById('ask-dir').value='{{ sel_group.id }}';askMethods();document.getElementById('ask').showModal()">Find new</button>{% endif %}
+    {% if can(user, 'request', sel_group.id) %}<button type="button" class="btn btn-primary" onclick="document.getElementById('ask-dir').value='{{ sel_group.id }}';askMethods();document.getElementById('ask').showModal()">Find New</button>{% endif %}
     {% if sel_group.keywords and can(user, 'keywords', sel_group.id) %}
-    <form method="post" action="/groups/{{ sel_group.id }}/keywords/run-all"><button type="submit" class="btn btn-outline">Run all {{ sel_group.keywords|length }} keyword{{ "" if sel_group.keywords|length == 1 else "s" }}</button></form>
+    <form method="post" action="/groups/{{ sel_group.id }}/keywords/run-all"><button type="submit" class="btn btn-outline">Run All {{ sel_group.keywords|length }} Keyword{{ "" if sel_group.keywords|length == 1 else "s" }}</button></form>
     {% endif %}
-    {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ sel_group.id }}" class="btn btn-outline">Directory settings</a>{% endif %}
+    {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ sel_group.id }}" class="btn btn-outline">Directory Settings</a>{% endif %}
   </span>
   {% else %}
   <span class="sub">Every accepted company, across all directories</span>
@@ -30,14 +32,62 @@
 </div>
 {% if sel_group and sel_group.description %}<p class="hint" style="margin:-6px 0 0">{{ sel_group.description }}</p>{% endif %}
 
+{% if sel_group %}
+<nav class="utabs" aria-label="Directory tabs">
+  <a href="{{ base_path }}" class="{% if dtab != 'existing' %}on{% endif %}" {% if dtab != 'existing' %}aria-current="page"{% endif %}>Contacts <span>{{ stats.total if stats else records|length }}</span></a>
+  <a href="{{ base_path }}?tab=existing" class="{% if dtab == 'existing' %}on{% endif %}" {% if dtab == 'existing' %}aria-current="page"{% endif %}>Existing Contacts <span>{{ hits_n }}</span></a>
+</nav>
+{% endif %}
+
+{% if dtab == 'existing' %}
+<p class="hint" style="margin:0">Companies a search {{ 'of yours' if own_only(user) else '' }} found that were already in NetGate. They stay with the person who found them first.</p>
+{% if hits %}
+<section class="panel" style="padding:0">
+  <div class="overflow">
+    <table class="t list-table">
+      <thead><tr><th>Company</th><th>City</th><th>Found First by</th><th>Found Again by</th><th>Keyword</th><th>When</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+        {% for h in hits %}
+        <tr class="clickable" hx-get="/records/{{ h.r.id }}/open?from={{ sel_group.id }}" hx-target="#xopen-{{ h.r.id }}" hx-swap="innerHTML" hx-trigger="click[!event.target.closest('button,a,form')]">
+          <td><strong>{{ h.r.title }}</strong>{% if h.limited %} <span class="badge">limited view</span>{% endif %}</td>
+          <td>{{ (h.r.data or {}).get('city') or '—' }}</td>
+          <td>{{ h.first }}</td>
+          <td>{{ h.by }}</td>
+          <td class="sub">{{ h.hit.keyword or '—' }}</td>
+          <td class="sub">{{ ago(h.hit.at) }}</td>
+          <td class="rowacts">{% if h.enrich %}<form method="post" action="/records/{{ h.r.id }}/enrich"><button type="submit" class="icon-btn" aria-label="Enrich {{ h.r.title }}" title="Enrich"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button></form>{% endif %}</td>
+        </tr>
+        <tr class="open-row"><td colspan="7" id="xopen-{{ h.r.id }}"></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="empty">No existing contacts here yet. When a search finds a company that someone already found, it is listed here instead of being added twice.</div>
+{% endif %}
+
+{% else %}
 {% if stats and stats.total %}
 <section class="panel actions-row">
   <span class="caps">Complete</span>
   <span class="bar" aria-hidden="true" style="flex:0 1 220px"><span style="width:{{ stats.pct }}%"></span></span>
   <span class="sub">{{ stats.complete }} of {{ stats.total }} complete{% if stats.missing %} · most missing: {{ stats.missing|join(', ') }}{% endif %}</span>
   {% if stats.complete < stats.total and can(user, 'enrich', sel_group.id) %}
-  <form method="post" action="/groups/{{ sel_group.id }}/enrich-incomplete" class="ml-auto"><button type="submit" class="btn btn-dark btn-small">Enrich all incomplete</button></form>
+  <form method="post" action="/groups/{{ sel_group.id }}/enrich-incomplete" class="ml-auto"><button type="submit" class="btn btn-dark btn-small">Enrich All Incomplete</button></form>
   {% endif %}
+</section>
+{% endif %}
+
+{% if tags and tag_counts %}
+<section class="tagbar" aria-label="Tags">
+  <span class="caps-sm">Tags</span>
+  {% set active_tags = flt.values.tag %}
+  {% for t in tags if tag_counts.get(t.id) %}
+  {% set on = (t.id|string) in active_tags %}
+  <a href="{{ base_path }}{{ flt.without('tag', t.id|string) if on else ('?' ~ (flt.qs(skip=()) ~ '&' if flt.qs(skip=()) else '') ~ 'tag=' ~ t.id) }}" class="tagpill {% if on %}on{% endif %}" style="--tc:{{ t.color }}" {% if t.description %}title="{{ t.description }}"{% endif %} {% if on %}aria-current="true"{% endif %}><span class="tagmark" aria-hidden="true"></span>{{ t.name }} <span class="n">{{ tag_counts.get(t.id) }}</span></a>
+  {% endfor %}
+  {% if can(user, 'manage_tags') %}<a href="/settings/tags" class="ml-auto">Manage Tags</a>{% endif %}
 </section>
 {% endif %}
 
@@ -45,22 +95,23 @@
   {% include "_filters.html" %}
   <span class="ml-auto btnrow">
     <details class="menu">
-      <summary class="btn btn-outline btn-small">Save view</summary>
+      <summary class="btn btn-outline btn-small">Save View</summary>
       <form method="post" action="/views" class="menu-body">
         <label class="field">Name this view<input type="text" name="name" required placeholder="e.g. UK shops with email"></label>
         <input type="hidden" name="path" value="{{ base_path }}"><input type="hidden" name="qs" value="{{ flt.qs(skip=()) }}">
         <button type="submit" class="btn btn-primary btn-small">Save</button>
-        <span class="hint">It appears under “Saved views” on the left.</span>
+        <span class="hint">It appears under “Saved Views” on the left.</span>
       </form>
     </details>
     <form method="get" action="{{ base_path }}" class="inline">
       {% for k, v in flt.hidden(skip=('sort',)) %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
       <label class="sortlbl">Sort
         <select name="sort" onchange="this.form.submit()">
-          <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Recently updated</option>
-          <option value="added" {% if sort == 'added' %}selected{% endif %}>Recently added</option>
+          <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Recently Updated</option>
+          <option value="added" {% if sort == 'added' %}selected{% endif %}>Recently Added</option>
           <option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option>
-          <option value="least" {% if sort == 'least' %}selected{% endif %}>Least complete</option>
+          <option value="least" {% if sort == 'least' %}selected{% endif %}>Least Complete</option>
+          {% if tags %}<option value="tag" {% if sort == 'tag' %}selected{% endif %}>Tag Order</option>{% endif %}
           {% for f in fields if f.sort and sel_group %}<option value="f_{{ f.key }}" {% if sort == 'f_' ~ f.key %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
         </select>
       </label>
@@ -73,19 +124,27 @@
   </span>
 </div>
 
-<form id="sel" method="post" action="/records/enrich-selected"></form>
+<form id="sel" hidden method="post" action="/records/enrich-selected"></form>
 <div class="list-tools">
   <span class="sub">{% if flt.active() %}{{ records|length }} match{% else %}{{ records|length }} shown{% endif %}{% if limited %} (first {{ records|length }}; narrow the filters to see others){% endif %}</span>
   {% if view == 'list' %}
   <span class="selbar" data-selbar="sel"><strong data-selcount="sel">0</strong> selected</span>
-  {% if can(user, 'enrich') %}<button type="submit" form="sel" class="btn btn-dark btn-small">Enrich selected</button>{% endif %}
+  {% if can(user, 'enrich') %}<button type="submit" form="sel" class="btn btn-dark btn-small">Enrich Selected</button>{% endif %}
   {% set targets = groups|rejectattr('id', 'equalto', sel_group.id if sel_group else 0)|selectattr('id', 'in', edit_gids)|list %}
   {% if targets %}
   <span class="inline-form">
     <label for="addto" class="caps-sm">Directory</label>
     <select id="addto" name="group_id" form="addsel">{% for g in targets %}<option value="{{ g.id }}" data-fields="{{ g.fields|map(attribute='key')|join(',') }}" data-names="{{ g.fields|map(attribute='name')|join('|') }}">{{ g.name }}</option>{% endfor %}</select>
-    {% if not sel_group or sel_group.id in edit_gids %}<button type="button" class="btn btn-outline btn-small" onclick="openMove()">Move there</button>{% endif %}
-    <button type="submit" form="addsel" class="btn btn-outline btn-small">Also add there</button>
+    {% if not sel_group or sel_group.id in edit_gids %}<button type="button" class="btn btn-outline btn-small" onclick="openMove()">Move There</button>{% endif %}
+    <button type="submit" form="addsel" class="btn btn-outline btn-small">Also Add There</button>
+  </span>
+  {% endif %}
+  {% if tags and edit_gids %}
+  <span class="inline-form">
+    <label for="tagsel" class="caps-sm">Tag</label>
+    <select id="tagsel" name="tag_id" form="tagform">{% for t in tags %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
+    <button type="submit" form="tagform" name="action" value="add" class="btn btn-outline btn-small">Add Tag</button>
+    <button type="submit" form="tagform" name="action" value="remove" class="btn btn-outline btn-small">Remove Tag</button>
   </span>
   {% endif %}
   {% endif %}
@@ -106,7 +165,8 @@
   </details>
   {% endif %}
 </div>
-<form id="addsel" method="post" action="/records/add-to-directory" onsubmit="copyIds(this)"></form>
+<form id="addsel" hidden method="post" action="/records/add-to-directory" onsubmit="copyIds(this)"></form>
+<form id="tagform" hidden method="post" action="/records/tags-bulk" onsubmit="copyIds(this)"></form>
 {% if view == 'list' and targets %}
 <dialog id="movedlg" aria-labelledby="move-title">
   <form id="movesel" method="post" action="/records/move" onsubmit="copyIds(this)" class="stack">
@@ -171,41 +231,50 @@
 {% elif view == 'list' %}
 {% include "_table.html" %}
 {% else %}
-<div class="grid" id="cards" {% if display.per_row %}style="grid-template-columns:repeat({{ display.per_row }},minmax(0,1fr))"{% endif %}>
+{% set maxw = (card.per_row * card.width + (card.per_row - 1) * 12) if card.per_row else 0 %}
+<div class="grid cards style-{{ card.style|lower }}" id="cards" style="--cardw:{{ card.width }}px{% if maxw %};max-width:{{ maxw }}px{% endif %}">
   {% for r in records %}
   {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
   {% set pct = (filled * 100 / total)|int if total else 100 %}
+  {% set rtags = tmap.get(r.id, []) %}
+  {% set tc = tint(rtags) if card.tint else None %}
   <article class="card" id="card-{{ r.id }}" hx-get="/records/{{ r.id }}/open{% if sel_group %}?from={{ sel_group.id }}{% endif %}" hx-target="#card-{{ r.id }}" hx-swap="afterend"
-           hx-trigger="click[!event.target.closest('button,a,form')]">
-    <div class="card-head">
-      <div class="pic" tabindex="0" aria-label="About {{ r.title }}">{{ (r.title or '?')[:1] }}{% if r.summary %}<span class="tip" role="tooltip">{{ r.summary|truncate(320) }}</span>{% endif %}</div>
+           hx-trigger="click[!event.target.closest('button,a,form')]" {% if tc %}style="background:{{ tc[0] }};border-color:{{ tc[1] }}"{% endif %}>
+    <div class="card-main">
       <div class="card-title">
-        <h3>{{ r.title }}</h3>
-        <span class="sub">{{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or '—' }}</span>
+        <span class="ttl" {% if r.summary %}tabindex="0"{% endif %}><h3>{{ r.title }}</h3>{% if r.summary %}<span class="tip" role="tooltip">{{ r.summary|truncate(320) }}</span>{% endif %}</span>
+        {% if card.style == 'C' %}
+        <span class="card-side inline">
+          {% for t in rtags %}<a href="{{ base_path }}?tag={{ t.id }}" class="tagbar-mark" style="--tc:{{ t.color }}" title="{{ t.name }}" aria-label="Tag {{ t.name }} — show only these"></a>{% endfor %}
+          {% if can(user, 'enrich') %}<form method="post" action="/records/{{ r.id }}/enrich"><button type="submit" class="enrich-sq" aria-label="Enrich {{ r.title }}: look for missing information" title="Look for missing information"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button></form>{% endif %}
+        </span>
+        {% endif %}
       </div>
-      {% if can(user, 'enrich') %}
-      <form method="post" action="/records/{{ r.id }}/enrich">
-        <button type="submit" class="icon-btn" aria-label="Enrich {{ r.title }}: look for missing information" title="Look for missing information"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button>
-      </form>
-      {% endif %}
+      <span class="sub">{{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or '—' }}</span>
+      <div class="chips">
+        {% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}
+        {% if sel_group %}
+          {% set linknames = (r.links or {}).keys()|map('replace', 'ebay', 'eBay')|map('replace', 'etsy', 'Etsy')|map('replace', 'amazon', 'Amazon')|list %}
+          {% for f in cardf if not empty((r.data or {}).get(f.key)) and fmt(r, f) not in linknames %}<span title="{{ f.name }}">{{ fmt(r, f)|truncate(36) }}</span>{% endfor %}
+        {% else %}
+          {% for d in dirs_of.get(r.id, []) %}<span class="dchip">{{ d }}</span>{% endfor %}
+        {% endif %}
+      </div>
+      <div class="completeness">
+        <span class="bar {{ pct_class(filled, total) }}" aria-hidden="true"><span style="width:{{ pct }}%"></span></span>
+        <span>{{ filled }}/{{ total }}</span>
+        {% if fresh(r) %}<span class="badge green">Updated</span>{% endif %}
+      </div>
     </div>
-    <div class="chips">
-      {% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}
-      {% if sel_group %}
-        {% set shown = namespace(n=0) %}
-        {% set linknames = (r.links or {}).keys()|map('replace', 'ebay', 'eBay')|map('replace', 'etsy', 'Etsy')|map('replace', 'amazon', 'Amazon')|list %}
-        {% for f in sel_group.fields if f.card and f.key not in ('city', 'country') and not empty((r.data or {}).get(f.key)) and fmt(r, f) not in linknames %}{% if shown.n < 2 %}<span>{{ fmt(r, f)|truncate(36) }}</span>{% set shown.n = shown.n + 1 %}{% endif %}{% endfor %}
-      {% else %}
-        {% for d in dirs_of.get(r.id, []) %}<span class="dchip">{{ d }}</span>{% endfor %}
-      {% endif %}
+    {% if card.style != 'C' %}
+    <div class="card-side">
+      {% if can(user, 'enrich') %}<form method="post" action="/records/{{ r.id }}/enrich"><button type="submit" class="enrich-sq" aria-label="Enrich {{ r.title }}: look for missing information" title="Look for missing information"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></button></form>{% endif %}
+      {% for t in rtags %}<a href="{{ base_path }}?tag={{ t.id }}" class="tagbar-mark" style="--tc:{{ t.color }}" title="{{ t.name }}" aria-label="Tag {{ t.name }} — show only these"></a>{% endfor %}
     </div>
-    <div class="completeness">
-      <span class="bar {{ pct_class(filled, total) }}" aria-hidden="true"><span style="width:{{ pct }}%"></span></span>
-      <span>{{ filled }}/{{ total }}</span>
-      {% if fresh(r) %}<span class="badge green">Updated</span>{% endif %}
-    </div>
+    {% endif %}
   </article>
   {% endfor %}
 </div>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Page tester · NetGate{% endblock %}
+{% block title %}Page Tester · NetGate{% endblock %}
 {% block content %}
-<div class="pagehead"><h1>Page tester</h1><span class="sub">What Discover would find on one page with a directory's instructions. Saves nothing.</span><a href="/dev" class="ml-auto">← Developer tools</a></div>
+<div class="pagehead"><h1>Page Tester</h1><span class="sub">What Discover would find on one page with a directory's instructions. Saves nothing.</span><a href="/dev" class="ml-auto">← Developer Tools</a></div>
 <section class="panel stack">
   <form method="post" action="/settings/directories/{{ sel_id or (groups[0].id if groups else 0) }}/test" class="row" onsubmit="this.action='/settings/directories/' + this.querySelector('select').value + '/test'">
     <label class="field">Directory<select name="gid">{% for g in groups %}<option value="{{ g.id }}" {% if g.id == sel_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>

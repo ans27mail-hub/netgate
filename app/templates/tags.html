@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Tags · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead">
+      <h1>Tags</h1>
+      <span class="sub">Labels for a contact's status. Higher in the list = its colour wins on the card.</span>
+      <a href="/settings/tags?edit=0#newtag" class="btn btn-primary ml-auto">+ New Tag</a>
+    </div>
+
+    <section class="panel" style="padding:0">
+      <div class="overflow">
+        <table class="t tagtable">
+          <thead><tr><th style="width:84px">Order</th><th>Tag</th><th>Meaning</th><th>Directories</th><th>Contacts</th><th><span class="sr">Actions</span></th></tr></thead>
+          <tbody>
+            {% for t in tags %}
+            <tr {% if cur and cur.id == t.id %}style="background:var(--accent-soft)"{% endif %}>
+              <td class="rowacts">
+                <form method="post" action="/settings/tags/{{ t.id }}" class="inline"><input type="hidden" name="action" value="up"><button type="submit" class="btn btn-outline btn-xs" aria-label="Move {{ t.name }} up" {% if loop.first %}disabled{% endif %}>↑</button></form>
+                <form method="post" action="/settings/tags/{{ t.id }}" class="inline"><input type="hidden" name="action" value="down"><button type="submit" class="btn btn-outline btn-xs" aria-label="Move {{ t.name }} down" {% if loop.last %}disabled{% endif %}>↓</button></form>
+              </td>
+              <td><span class="tagchip" style="--tc:{{ t.color }}"><span class="tagmark" aria-hidden="true"></span><b>{{ t.name }}</b></span>{% if not t.color_card %} <span class="sub">(dot only)</span>{% endif %}</td>
+              <td class="sub">{{ t.description or '—' }}</td>
+              <td class="sub">{% if t.all_groups %}All directories{% else %}{% for g in all if g.id in (t.group_ids or []) %}{{ g.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+              <td>{{ counts.get(t.id, 0) }}</td>
+              <td class="rowacts"><a href="/settings/tags?edit={{ t.id }}" class="btn btn-outline btn-small">Edit</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="sub" style="padding:24px">No tags yet. Make the first one below.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    {% set t = cur %}
+    <form class="panel stack" method="post" action="{{ '/settings/tags/%d' % t.id if t else '/settings/tags/new' }}" id="newtag">
+      <div class="layout">
+        <div class="stack" style="flex:1 1 380px">
+          <h2>{{ 'Edit Tag' if t else 'New Tag' }}</h2>
+          <div class="row">
+            <label class="field">Name<input type="text" name="name" value="{{ t.name if t else '' }}" required maxlength="60"></label>
+            <label class="field" style="flex:2 1 260px">Meaning (shown when you hover the tag)<input type="text" name="description" value="{{ t.description if t else '' }}" maxlength="300"></label>
+          </div>
+          <fieldset class="stack" style="border:0;padding:0;margin:0">
+            <legend class="field" style="padding:0 0 8px">Colour</legend>
+            <div class="swatches">
+              {% set cc = t.color if t else '#2457d6' %}
+              {% for name, hexv in palette %}
+              <label><input type="radio" name="color" value="{{ hexv }}" aria-label="{{ name }}" style="--sw:{{ hexv }}" {% if cc|lower == hexv|lower %}checked{% endif %}></label>
+              {% endfor %}
+              <label class="field" style="flex-direction:row;align-items:center;gap:6px;margin-left:8px">Own colour
+                <input type="text" name="custom" value="{% if cc|lower not in palette|map(attribute=1)|map('lower')|list %}{{ cc }}{% endif %}" placeholder="#c27a12" pattern="#[0-9a-fA-F]{6}" style="width:110px" class="mono"></label>
+            </div>
+          </fieldset>
+          <fieldset class="gchecks">
+            <legend class="field" style="padding:0 0 8px">Where it can be used</legend>
+            <label><input type="radio" name="where" value="all" {% if not t or t.all_groups %}checked{% endif %}> All directories</label>
+            <label><input type="radio" name="where" value="some" {% if t and not t.all_groups %}checked{% endif %}> Only these:</label>
+            {% for g in all %}<label><input type="checkbox" name="groups" value="{{ g.id }}" {% if t and g.id in (t.group_ids or []) %}checked{% endif %}> {{ g.name }}</label>{% endfor %}
+          </fieldset>
+          <label class="check-inline"><input type="checkbox" name="color_card" {% if not t or t.color_card %}checked{% endif %}> Colour the card (switch off for tags that should only show their mark)</label>
+          <div class="btnrow">
+            <button type="submit" name="action" value="save" class="btn btn-primary">{{ 'Save' if t else 'Create Tag' }}</button>
+            {% if t %}
+            <span class="inline-form">
+              <label for="into" class="sr">Merge into</label>
+              <select id="into" name="into"><option value="">Merge into…</option>{% for o in tags if o.id != t.id %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select>
+              <button type="submit" name="action" value="merge" class="btn btn-outline" onclick="return this.form.into.value ? confirm('Move all contacts from {{ t.name|e }} to the chosen tag and delete {{ t.name|e }}?') : (alert('Choose a tag first.'), false)">Merge</button>
+            </span>
+            <button type="submit" name="action" value="delete" class="btn btn-danger ml-auto" formnovalidate onclick="return confirm('Delete the tag {{ t.name|e }}? It is taken off {{ counts.get(t.id, 0) }} contact(s); the contacts stay.')">Delete Tag</button>
+            {% endif %}
+          </div>
+          {% if t %}<span class="hint">Deleting a tag only takes it off the contacts; the contacts stay. Merging moves them to another tag.</span>{% endif %}
+        </div>
+        <div class="stack" style="flex:0 0 250px">
+          <span class="sub">Preview on a card</span>
+          <div class="card" aria-hidden="true" style="cursor:default;flex-direction:row;background:{{ soft(cc, 0.07) }};border-color:{{ soft(cc, 0.30) }}">
+            <div class="card-main"><b>[Company name]</b><span class="sub">Sialkot, Pakistan</span>
+              <span class="completeness"><span class="bar" style="flex:1"><span style="width:70%"></span></span></span></div>
+            <div class="card-side"><span class="enrich-sq">↻</span><span class="tagbar-mark" style="--tc:{{ cc }}"></span></div>
+          </div>
+        </div>
+      </div>
+    </form>
+    <p class="hint" style="margin:0">People with <b>Manage tags</b> create, colour, order, merge and delete tags. Anyone who may <b>edit contacts</b> can put tags on them — on the card, or many at once in the list view.</p>
+  </div>
+</div>
+{% endblock %}

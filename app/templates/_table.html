@@ -4,7 +4,7 @@
       <thead>
         <tr>
           <th style="width:36px"><input type="checkbox" aria-label="Select all" data-all="sel"></th>
-          <th>Company / store</th>
+          <th>Company / Store</th>
           {% for c in cols %}<th>{{ colfields[c].name if c in colfields else SPECIAL_COLS.get(c, c) }}</th>{% endfor %}
           <th><span class="sr">Enrich</span></th>
         </tr>
@@ -15,10 +15,12 @@
         <tr id="row-{{ r.id }}" class="clickable" hx-get="/records/{{ r.id }}/open{% if sel_group %}?from={{ sel_group.id }}{% endif %}" hx-target="#open-{{ r.id }}" hx-swap="innerHTML"
             hx-trigger="click[!event.target.closest('button,a,input,label')]">
           <td><input type="checkbox" name="ids" value="{{ r.id }}" form="sel" aria-label="Select {{ r.title }}"></td>
-          <td><span class="cell-name"><span class="pic pic-xs" aria-hidden="true">{{ (r.title or '?')[:1] }}</span><strong>{{ r.title }}</strong>{% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}</span></td>
+          <td><span class="cell-name">{% for t in tmap.get(r.id, []) %}<span class="tagbar-mark" style="--tc:{{ t.color }};width:6px;height:18px" title="{{ t.name }}"></span>{% else %}<span class="pic pic-xs" aria-hidden="true">{{ (r.title or '?')[:1] }}</span>{% endfor %}<strong>{{ r.title }}</strong>{% for site in (r.links or {}).keys() %}<span class="mk mk-{{ site }}">{{ {'ebay': 'eBay', 'etsy': 'Etsy', 'amazon': 'Amazon'}.get(site, site) }}</span>{% endfor %}</span></td>
           {% for c in cols %}
             {% if c == '_complete' %}
             <td><span class="completeness"><span class="bar sm {{ pct_class(filled, total) }}" aria-hidden="true"><span style="width:{{ (filled * 100 / total)|int if total else 100 }}%"></span></span>{{ filled }}/{{ total }}</span></td>
+            {% elif c == '_tags' %}
+            <td>{% for t in tmap.get(r.id, []) %}<span class="tagchip" style="--tc:{{ t.color }}"><span class="tagmark" aria-hidden="true"></span>{{ t.name }}</span> {% else %}<span class="sub">—</span>{% endfor %}</td>
             {% elif c == '_updated' %}
             <td class="sub">{{ ago(r.updated_at) }}</td>
             {% elif c == '_dirs' %}

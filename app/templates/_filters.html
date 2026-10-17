@@ -1,4 +1,5 @@
-{# Filter chips and the "+ Add filter" menu. Needs: flt, options, base_path, show_dir #}
+{# Filter chips and the "+ Add Filter" menu. Needs: flt, options, base_path, show_dir; optional: tags #}
+
 {% macro addform(param, label, values=None, kind='select', labels=None) %}
 <details class="fopt">
   <summary>{{ label }}</summary>
@@ -23,7 +24,7 @@
   <span class="fchip"><span class="k">{{ label }}:</span> {{ value }}<a href="{{ base_path }}{{ url }}" aria-label="Remove filter {{ label }} {{ value }}">×</a></span>
   {% endfor %}
   <details class="menu addfilter">
-    <summary class="addchip">+ Add filter</summary>
+    <summary class="addchip">+ Add Filter</summary>
     <div class="menu-body wide">
       <span class="caps-sm">Common</span>
       {% if show_dir %}{{ addform('dir', 'Directory', groups|map(attribute='id')|list, labels=dir_labels) }}{% endif %}
@@ -33,7 +34,8 @@
       {{ addform('complete', 'Completeness', ['100', '50', 'missing'], labels={'100': 'Complete', '50': '50% or more', 'missing': 'Missing fields'}) }}
       {{ addform('added', 'Date added', ['7', '30', '90'], labels={'7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days'}) }}
       {{ addform('kw', 'Found by keyword', kind='text') }}
-      {{ addform('method', 'Found by method', ['web', 'directory', 'ebay', 'manual', 'csv'], labels=METHOD_LABELS) }}
+      {% if tags %}{{ addform('tag', 'Tag', tags|map(attribute='id')|list, labels=tag_labels) }}{% endif %}
+      {% if sees_methods(user) %}{{ addform('method', 'Found by method', ['web', 'directory', 'ebay', 'manual', 'csv'], labels=METHOD_LABELS) }}{% endif %}
       {% if flt.fields %}
       <span class="caps-sm">{{ sel_group.name if sel_group else 'From directories' }}</span>
       {% for key, f in flt.fields.items() if key not in ('city', 'country') and options.get(key) %}
@@ -42,5 +44,5 @@
       {% endif %}
     </div>
   </details>
-  {% if flt.active() %}<a href="{{ base_path }}{% if tab %}?tab={{ tab }}{% endif %}" class="clearchip">Clear all</a>{% endif %}
+  {% if flt.active() %}<a href="{{ base_path }}{% if tab %}?tab={{ tab }}{% endif %}" class="clearchip">Clear All</a>{% endif %}
 </div>

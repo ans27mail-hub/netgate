@@ -1,0 +1,25 @@
+---
+title: Discovery (finding companies)
+order: 30
+updated: v0.7
+---
+**What it does:** turns a keyword into new companies in the Inbox.
+
+## How it works
+1. Started by **Run Discovery**, a keyword chip / **Run All Keywords**, or the night run → `start_job()` → a `jobs` row + RQ job → `jobs.run_job()`.
+2. `discover()` runs each chosen method (people without *See search methods* always use all of the directory's methods):
+   - **web** — `discover_queries()`: the keyword (+ directory search words), `… list`, `top … companies`, page 2 → up to `MAX_PAGES` (15) result pages.
+   - **directory** — list pages from settings (`{q}` = keyword) and `site:` searches; profiles and next pages always on.
+   - **ebay** — `ebay.find_sellers()` (see eBay).
+3. `crawl_pages()` per page: download (cache, robots, delay, renderer when needed) → `_ask_entries()` (AI lists companies, `DISCOVER_PROMPT`, long pages in parts) → `_enhance_entries()` (code finds emails / phones / links on the page or opens up to 15 profile pages) → next page put first in the queue (up to 4) → `save_entry()`.
+4. `save_found()` → `contacts.upsert()` (match: eBay id → website domain → name + city; new contact's `found_by` = who started the request) → existing contact found again by someone else → `note_existing_hit()` → `to_inbox()` (not if already in / decided for that directory) → suggestions scored.
+5. Pause / Stop are checked every 2 s (`Ctx.check`); state is saved for Resume. Every step goes to the debug trace.
+
+## Files
+`app/jobs.py`, `app/crawl.py`, `app/extract.py`, `app/contacts.py`, `app/ai.py`.
+
+## Tests
+`test_v05.py` (whole flow), `test_v07.py` (first finder, existing hits).
+
+## Limits & ideas
+Small AI model; sites change. Ideas: site recipes (Scanner), Etsy / Amazon methods.

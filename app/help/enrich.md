@@ -5,7 +5,7 @@ order: 40
 needs: enrich
 summary: How Enrich finds emails, phones, websites and more
 ---
-**Enrich** looks for a contact's missing fields. Start it with the round-arrow button on a card, **Enrich now** on an open card, **Enrich selected** in list view, or **Enrich** in the Inbox.
+**Enrich** looks for a contact's missing fields. Start it with the round-arrow button on a card, **Enrich Now** on an open card, **Enrich Selected** in list view, or **Enrich** in the Inbox.
 
 ## The steps
 1. **eBay store lookup** — if the contact has an eBay link, reads the seller's details (rating, feedback, business name, address, email, phone).

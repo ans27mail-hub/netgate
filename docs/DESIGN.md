@@ -14,6 +14,21 @@ The D4 mockups are on the owner's design canvas (claude.ai artifact *NetGate lay
 - Completeness bar: green ≥ 80 %, blue, amber < 50 %.
 - Plain-English labels, short hints under fields, no jargon.
 
+## v0.7 additions
+- Card styles **A** (tag bars right, under the Enrich button), **B** (left), **C** (one line with the name); fixed card width per directory. Tag colours: 10 fixed colours; a tag may tint the card (mixed into the theme's card colour).
+- Themes are CSS variables on `:root` (`app/themes.py`); every colour in `app.css` uses them, so new CSS must use `var(--card)`, `var(--ink)` etc., never fixed white.
+
+| Page | Screenshot |
+|---|---|
+| Big card with tags | `design/v07-big-card-tags.png` |
+| Settings → Tags | `design/v07-tags.png` |
+| Settings → Themes | `design/v07-themes.png` |
+| Dark theme | `design/v07-dark.png` |
+| Settings → Backups | `design/v07-backups.png` |
+| Developer Handbook | `design/v07-handbook.png` |
+| A user: What This Person Sees | `design/v07-user-sees.png` |
+| Help window | `design/v07-help-window.png` |
+
 ## Pages (v0.6 screenshots)
 | Page | Screenshot |
 |---|---|

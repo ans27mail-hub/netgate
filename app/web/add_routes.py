@@ -111,6 +111,8 @@ def _add_one(s, user, group, row: dict, how: str, accept_now: bool) -> tuple[str
         rec.notes = ((rec.notes + "\n") if rec.notes else "") + str(row["notes"]).strip()[:1000]
     if not created:
         C.add_history(rec, f"{user.username} added details by hand ({how})")
+        if group and rec.found_by != user.id:
+            C.note_existing_hit(s, user.id, rec, group.id, f"added by hand ({how})", None)
     item = C.to_inbox(s, rec, group.id if group else None, method="manual" if how != "CSV" else "csv",
                       keyword="", found_url="")
     if item:

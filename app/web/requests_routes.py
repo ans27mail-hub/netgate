@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, or_, select
 
 from .. import control, methods
-from ..auth import can
+from ..auth import can, sees_methods
 from ..db import Group, InboxItem, Job, JobTrace, Keyword, Record, RejectedKeyword, SessionLocal, User
 from .common import (Forbidden, all_groups, back, can_control, current_user, flash, go, jobs_clause,
                      keyword_blocked, render, require, start_job, templates)
@@ -162,8 +162,20 @@ def debug(request: Request, jid: int, kind: str = ""):
         new_items = s.scalars(select(InboxItem).where(InboxItem.job_id == jid).limit(200)).all()
         recs = {r.id: r for r in s.scalars(select(Record).where(Record.id.in_([i.record_id for i in new_items] or [-1])))}
         return render(request, s, user, "debug.html", active_nav="requests", help="developer", job=job, rows=rows,
-                      kinds=kinds, f_kind=kind, new_items=new_items, recs=recs,
+                      kinds=kinds, f_kind=kind, new_items=new_items, recs=recs, control=can_control(user, job),
                       group_names={g.id: g.name for g in all_groups(s)})
+
+
+@router.post("/requests/{jid}/debug/clear")
+def debug_clear(request: Request, jid: int):
+    """Delete the debug notes of one request (the request and its contacts stay)."""
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "debug")
+        n = s.query(JobTrace).filter(JobTrace.job_id == jid).delete(synchronize_session=False)
+        s.commit()
+        flash(request, f"{n} debug note{'s' if n != 1 else ''} deleted. The request and its contacts are kept.")
+    return go(f"/requests/{jid}/debug")
 
 
 @router.get("/activity", response_class=HTMLResponse)
@@ -207,6 +219,8 @@ async def create_job(request: Request):
         if _blocked_message(request, s, query, gid):
             return back(request, "/inbox")
         use = [m for m in use if m in methods.enabled_find_methods(group)] or None
+        if not sees_methods(user):   # people who don't see methods always search with all of them
+            use = None
         start_job(s, user, "request", query, gid, params={"methods": use} if use else {})
         if not request.session.get("flash"):
             flash(request, f"Discovery started for {group.name}. New companies appear in the Inbox as they are found.")

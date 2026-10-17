@@ -1,4 +1,4 @@
-<h2>AI activity</h2>
+<h2>AI Activity</h2>
 {% for j in jobs %}
 <div class="job">
   <span>{{ {'keyword': 'Discover: ', 'request': 'Discover: ', 'enrich': 'Enrich: ', 'night': ''}.get(j.kind, '') }}{{ j.query }}</span>

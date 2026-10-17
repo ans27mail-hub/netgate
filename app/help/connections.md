@@ -10,7 +10,7 @@ Settings → **Connections**.
 ## eBay
 1. Go to **developer.ebay.com** and create a free developer account.
 2. Open **Application keys** and create a **Production** keyset.
-3. Copy the **App ID (Client ID)** and **Cert ID (Client Secret)** into NetGate and press **Save & test eBay keys**.
+3. Copy the **App ID (Client ID)** and **Cert ID (Client Secret)** into NetGate and press **Save & Test eBay Keys**.
 
 Tick the marketplaces to use by default (UK, Germany, Italy, France, USA, Canada …) and *Business sellers only*. Each directory with eBay search can choose its own marketplaces.
 

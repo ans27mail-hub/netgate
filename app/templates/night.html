@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Night jobs · NetGate{% endblock %}
+{% block title %}Night Jobs · NetGate{% endblock %}
 {% block content %}
 <div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
     <form method="post" action="/settings/night" style="display:flex;flex-direction:column;gap:16px">
       <div class="shead">
-        <h1>Night jobs</h1>
+        <h1>Night Jobs</h1>
         <label style="display:flex;gap:8px;align-items:center;font-size:15px"><input type="checkbox" name="enabled" {% if cfg.enabled %}checked{% endif %}> Enabled</label>
         <button type="submit" class="btn btn-primary ml-auto">Save</button>
       </div>
@@ -37,10 +37,10 @@
       </section>
 
       <section class="panel" style="display:flex;flex-direction:column;gap:12px">
-        <h2>What to do in each directory</h2>
+        <h2>What to Do in Each Directory</h2>
         <div class="overflow">
           <table class="t" style="min-width:600px">
-            <thead><tr><th>Directory</th><th class="c">Discover<br><span class="sub">night keywords → Inbox</span></th><th class="c">Enrich<br><span class="sub">incomplete, least complete first</span></th><th>Refresh complete contacts older than</th></tr></thead>
+            <thead><tr><th>Directory</th><th class="c">Discover<br><span class="sub">night keywords → Inbox</span></th><th class="c">Enrich<br><span class="sub">incomplete, least complete first</span></th><th>Refresh Complete Contacts Older than</th></tr></thead>
             <tbody>
             {% for g in all %}
               <tr>
@@ -64,7 +64,7 @@
     </form>
 
     <section class="panel" style="display:flex;flex-direction:column;gap:10px">
-      <h2>Recent nights</h2>
+      <h2>Recent Nights</h2>
       {% for run in runs %}
       <div class="nightrow">
         <b>{{ run.night_date.strftime('%a %d %b') }}</b>

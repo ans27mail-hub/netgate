@@ -11,11 +11,11 @@
 <section class="panel kwpanel" aria-label="Discovery keywords">
   {% for row in kw_rows %}
   <div class="kwrow">
-    <span class="kwm">{{ METHODS[row.method].name }}</span>
+    {% if sees_methods(user) %}<span class="kwm">{{ METHODS[row.method].name }}</span>{% endif %}
     {% for k in row.keywords %}
     <form method="post" action="/groups/{{ row.group.id }}/keywords/{{ k.id }}/run" class="inline">
       <input type="hidden" name="method" value="{{ row.method }}">
-      <button type="submit" class="chip chip-sm" title="Search “{{ k.text }}” with {{ METHODS[row.method].name }} (last run {{ ago(k.last_run_at) }}, {{ k.found_count or 0 }} found)">{{ k.text }}</button>
+      <button type="submit" class="chip chip-sm" title="Search “{{ k.text }}”{% if sees_methods(user) %} with {{ METHODS[row.method].name }}{% endif %} (last run {{ ago(k.last_run_at) }}, {{ k.found_count or 0 }} found)">{{ k.text }}</button>
     </form>
     {% endfor %}
     <span class="kwt">→ for {{ row.group.name }}</span>
@@ -44,12 +44,12 @@
       </label>
     </form>
     {% if tab != 'rejected' and can(user, 'review') %}
-    <form method="post" action="/inbox/rescore" class="inline"><button type="submit" class="btn btn-outline btn-small" title="Compare again with your latest accept / reject decisions">Refresh suggestions</button></form>
+    <form method="post" action="/inbox/rescore" class="inline"><button type="submit" class="btn btn-outline btn-small" title="Compare again with your latest accept / reject decisions">Refresh Suggestions</button></form>
     {% endif %}
   </span>
 </div>
 
-<form id="ib" method="post" action="/inbox/accept"></form>
+<form id="ib" hidden method="post" action="/inbox/accept"></form>
 {% if rows and can(user, 'review') %}
 <div class="selbar big" data-selbar="ib">
   <strong><span data-selcount="ib">0</span> selected</strong>
@@ -91,7 +91,7 @@
     <table class="t inbox-table">
       <thead><tr>
         <th style="width:36px"><input type="checkbox" aria-label="Select all" data-all="ib"></th>
-        <th>Company / store</th><th>Found by</th><th>Country</th><th>Website</th>
+        <th>Company / Store</th><th>Found by</th><th>Country</th><th>Website</th>
         <th>{{ 'Reason' if tab == 'rejected' else 'AI suggests' }}</th><th><span class="sr">Actions</span></th>
       </tr></thead>
       <tbody>
@@ -103,7 +103,7 @@
         <td><strong class="dblock">{{ r.title }}</strong>
           <span class="sub">{{ (r.summary or '')|truncate(90) or ([(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ')) }}</span>
           <span class="sub dblock">{{ filled }}/{{ total }} fields{% if r.enrich_runs %} · enriched {{ ago(r.last_enriched_at) }}{% endif %}{% if r.accepted_at %} · already in another directory{% endif %}</span></td>
-        <td><span class="mbadge m-{{ METHODS[it.method].kind if it.method in METHODS else 'manual' }}">{{ METHOD_LABELS.get(it.method, it.method) }}</span>{% if it.keyword %}<span class="sub dblock">“{{ it.keyword|truncate(40) }}”</span>{% endif %}</td>
+        <td>{% if sees_methods(user) %}<span class="mbadge m-{{ METHODS[it.method].kind if it.method in METHODS else 'manual' }}">{{ METHOD_LABELS.get(it.method, it.method) }}</span>{% endif %}{% if it.keyword %}<span class="sub dblock">“{{ it.keyword|truncate(40) }}”</span>{% endif %}</td>
         <td>{{ (r.data or {}).get('country') or '—' }}</td>
         <td class="mono-sm">{% if r.domain %}<a href="{{ (r.data or {}).get('website') or ('https://' ~ r.domain) }}" target="_blank" rel="noopener">{{ r.domain }}</a>{% else %}<span class="missing">—</span>{% endif %}</td>
         <td>

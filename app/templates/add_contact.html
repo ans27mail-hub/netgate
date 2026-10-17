@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Add contact · NetGate{% endblock %}
+{% block title %}Add Contact · NetGate{% endblock %}
 {% block content %}
 <div class="pagehead">
-  <h1>Add contact</h1>
+  <h1>Add Contact</h1>
   <span class="sub">Put in what you know; NetGate checks for duplicates, then fills the rest with the steps you choose.</span>
 </div>
 
 <nav class="utabs" aria-label="How to add">
-  <a href="/contacts/add?tab=one{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'one' %}on{% endif %}">One contact</a>
-  <a href="/contacts/add?tab=list{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'list' %}on{% endif %}">Paste a list</a>
+  <a href="/contacts/add?tab=one{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'one' %}on{% endif %}">One Contact</a>
+  <a href="/contacts/add?tab=list{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'list' %}on{% endif %}">Paste a List</a>
   <a href="/contacts/add?tab=csv{% if sel_id %}&group={{ sel_id }}{% endif %}" class="{% if tab == 'csv' %}on{% endif %}">Import CSV</a>
 </nav>
 
@@ -17,7 +17,7 @@
   <div class="addmain">
     {% if tab == 'one' %}
     <section class="panel stack">
-      <h2>What you know</h2>
+      <h2>What You Know</h2>
       <div class="row">
         <label class="field" style="flex:2 1 280px">Company / store name
           <input type="text" name="name" id="c-name" required autocomplete="off"
@@ -39,7 +39,7 @@
     </section>
     {% elif tab == 'list' %}
     <section class="panel stack">
-      <h2>Paste a list</h2>
+      <h2>Paste a List</h2>
       <label class="field">One company per line: name, city, country, website (leave out what you don't know)
         <textarea name="list" rows="10" class="mono" required placeholder="Acme Leather, Sialkot, Pakistan, acme.pk&#10;Rider Store Ltd, Leeds, United Kingdom&#10;Moto Shop GmbH, , Germany, https://www.ebay.de/usr/motoshop"></textarea>
       </label>
@@ -47,7 +47,7 @@
     </section>
     {% else %}
     <section class="panel stack">
-      <h2>Import a CSV file</h2>
+      <h2>Import a CSV File</h2>
       <label class="field">CSV file<input type="file" name="file" accept=".csv,text/csv" required></label>
       <span class="hint">The first row must hold column names. NetGate understands <b>name</b> (or company, store, shop), <b>city</b>, <b>country</b>, <b>website</b>, <b>email</b>, <b>phone</b>, <b>notes</b>, links, and any column named like a field of the chosen directory. From Excel: File → Save as → CSV.</span>
     </section>
@@ -73,9 +73,9 @@
     </section>
 
     <div class="btnrow">
-      {% if can(user, 'enrich') %}<button type="submit" name="then" value="enrich" class="btn btn-primary">Save &amp; enrich now</button>{% endif %}
-      <button type="submit" name="then" value="inbox" class="btn btn-outline">Save to Inbox only</button>
-      <button type="submit" name="then" value="tonight" class="btn btn-outline">Save &amp; enrich tonight</button>
+      {% if can(user, 'enrich') %}<button type="submit" name="then" value="enrich" class="btn btn-primary">Save &amp; Enrich Now</button>{% endif %}
+      <button type="submit" name="then" value="inbox" class="btn btn-outline">Save to Inbox Only</button>
+      <button type="submit" name="then" value="tonight" class="btn btn-outline">Save &amp; Enrich Tonight</button>
     </div>
   </div>
 

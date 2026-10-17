@@ -35,7 +35,7 @@
     </form>
     {% if q %}
     <section class="panel stack">
-      <h2>Pages about “{{ q }}”</h2>
+      <h2>Pages About “{{ q }}”</h2>
       {% for p in found %}<a href="/help/{{ p.slug }}" class="helplink"><b>{{ p.title }}</b><span class="sub">{{ p.section }}{% if p.summary %} · {{ p.summary }}{% endif %}</span></a>{% else %}<span class="hint">No page mentions that.</span>{% endfor %}
     </section>
     {% endif %}

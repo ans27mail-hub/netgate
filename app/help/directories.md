@@ -9,13 +9,16 @@ Open **Directories** in the menu on the left. Every directory is a card: number 
 
 Click a card to open the directory's page, with only the companies accepted into it.
 
+## Existing Contacts
+Next to **Contacts**, the **Existing Contacts** tab lists companies that a search found but that were already in NetGate (found first by someone else). They are not added twice: they stay with the person who found them first. You see who found them first, who found them again, the keyword and when.
+
 ## Switching directories
-On a directory's page, the bar at the top has a tab for every directory, so one click takes you to the next one. **▾ Jump to…** opens a list with a search box, handy when there are many. **← All directories** goes back to the cards.
+On a directory's page, the bar at the top has a tab for every directory, so one click takes you to the next one. **▾ Jump To…** opens a list with a search box, handy when there are many. **← All Directories** goes back to the cards.
 
 ## On a directory's page
 
 - The coloured badges next to the name show its **search methods** (e.g. eBay search, Web search).
-- **Find new** runs a discovery for this directory; **Run all keywords** runs every keyword. Results go to the Inbox.
-- The **Complete** bar shows how many contacts have every field filled, and which fields are most often missing. **Enrich all incomplete** fills the 50 least complete (the rest can run at night).
+- **Find New** runs a discovery for this directory; **Run All Keywords** runs every keyword. Results go to the Inbox.
+- The **Complete** bar shows how many contacts have every field filled, and which fields are most often missing. **Enrich All Incomplete** fills the 50 least complete (the rest can run at night).
 - Filters, saved views, grid / list and sorting work as on [All contacts](/help/contacts). Sorting also offers the directory's sortable fields, e.g. *Seller rating*.
-- **Directory settings** (for people who manage directories) changes methods, fields, instructions and keywords.
+- **Directory Settings** (for people who manage directories) changes methods, fields, instructions and keywords.

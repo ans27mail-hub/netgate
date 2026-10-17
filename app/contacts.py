@@ -137,7 +137,8 @@ def classify_link(url: str) -> str:
 
 def upsert(s, *, name: str, values: dict, sources: dict, social: dict | None = None, links: dict | None = None,
            ext: dict | None = None, summary: str = "", source_url: str = "", topic: str = "",
-           job_id: int | None = None, history: str = "", added_by: int | None = None, overwrite: bool = False):
+           job_id: int | None = None, history: str = "", added_by: int | None = None, overwrite: bool = False,
+           found_by: int | None = None):
     """Add a new contact or fill the gaps of the existing one. Returns (record, created, changed)."""
     nk = name_key(name)
     dom = url_domain(values.get("website"))
@@ -146,7 +147,7 @@ def upsert(s, *, name: str, values: dict, sources: dict, social: dict | None = N
         rec = Record(job_id=job_id, topic=topic[:300], title=name[:300], summary=(summary or "")[:1000], facts="",
                      data=dict(values), sources=dict(sources), social=dict(social or {}), links=dict(links or {}),
                      ext=dict(ext or {}), history=[], notes="", source_url=source_url or "", name_key=nk,
-                     domain=dom, added_by=added_by)
+                     domain=dom, added_by=added_by, found_by=found_by or added_by)
         if history:
             add_history(rec, history)
         s.add(rec)
@@ -168,6 +169,15 @@ def upsert(s, *, name: str, values: dict, sources: dict, social: dict | None = N
         rec.data, rec.sources, rec.social, rec.links, rec.ext = data, src, soc, lnk, ex
         rec.domain = rec.domain or url_domain(data.get("website"))
     return rec, False, changed
+
+
+def note_existing_hit(s, user_id: int, rec, group_id: int, keyword: str, job_id: int | None):
+    """Their search found a contact someone else found first: list it in their Existing Contacts tab."""
+    from .db import ExistingHit
+    if not s.get(ExistingHit, (user_id, rec.id, group_id)):
+        s.add(ExistingHit(user_id=user_id, record_id=rec.id, group_id=group_id, keyword=(keyword or "")[:300],
+                          job_id=job_id))
+        s.flush()
 
 
 def to_inbox(s, rec, group_id: int | None, *, method: str, keyword: str = "", job_id: int | None = None,
@@ -299,11 +309,36 @@ def visible_group_ids(user, groups) -> set[int]:
 
 
 def can_see_record(s, user, rec) -> bool:
-    from .auth import can, sees_all_groups
+    from .auth import can, own_contacts_only, sees_all_groups
+    if own_contacts_only(user) and rec.found_by != user.id:
+        return is_existing_hit(s, user, rec)   # someone else's contact their search found: limited view
     if sees_all_groups(user) and can(user, "view"):
         return True
     gids = member_ids(s, rec.id) + open_item_group_ids(s, rec.id)
     return any(can(user, "view", g) for g in gids)
+
+
+def is_existing_hit(s, user, rec) -> bool:
+    from .db import ExistingHit
+    return bool(s.scalar(select(ExistingHit.record_id).where(ExistingHit.user_id == user.id,
+                                                             ExistingHit.record_id == rec.id).limit(1)))
+
+
+def is_own(user, rec) -> bool:
+    return bool(user and rec and rec.found_by == user.id)
+
+
+def limited_view(user, rec) -> bool:
+    """Someone else's contact for a person who only sees their own: show what their setting allows."""
+    from .auth import own_contacts_only
+    return own_contacts_only(user) and not is_own(user, rec)
+
+
+def may_enrich(user, rec, group_id=None) -> bool:
+    from .auth import can
+    if not can(user, "enrich", group_id):
+        return False
+    return is_own(user, rec) or can(user, "enrich_others", group_id)
 
 
 def search_clause(q: str):

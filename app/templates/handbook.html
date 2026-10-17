@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Developer Handbook · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/dev" class="btn btn-outline btn-small">← Developer Tools</a></p>
+<div class="pagehead">
+  <h1>Developer Handbook</h1>
+  <span class="sub">How NetGate works, for anyone who develops it. Same text as <span class="mono-sm">docs/dev/</span> on GitHub.</span>
+</div>
+<div class="settings" style="padding-top:8px">
+  <nav class="snav hbnav" aria-label="Handbook">
+    <form method="get" action="/dev/handbook/{{ slug }}" style="padding:0 4px 8px">
+      <label for="hbq" class="sr">Search the Handbook</label>
+      <input id="hbq" type="search" name="q" value="{{ hq }}" placeholder="Search the Handbook…" style="width:100%">
+    </form>
+    <span class="caps">Guides</span>
+    {% for p in guides %}<a href="/dev/handbook/{{ p.slug }}" class="{% if p.slug == slug %}on{% endif %}">{{ p.title }}</a>{% endfor %}
+    <span class="caps">Features</span>
+    {% for p in features %}<a href="/dev/handbook/{{ p.slug }}" class="{% if p.slug == slug %}on{% endif %}">{{ p.title }}</a>{% endfor %}
+    <span class="caps">Made From the Code</span>
+    {% for k, t in auto.items() %}<a href="/dev/handbook/{{ k }}" class="{% if k == slug %}on{% endif %}">{{ t }}</a>{% endfor %}
+  </nav>
+  <div class="scontent">
+    {% if hq %}
+    <section class="panel stack">
+      <h2>Pages About “{{ hq }}”</h2>
+      {% for p in results %}<a href="/dev/handbook/{{ p.slug }}">{{ p.title }}</a>{% else %}<span class="sub">Nothing found. Try other words, or ask below.</span>{% endfor %}
+    </section>
+    {% endif %}
+    <section class="panel stack">
+      <h2>Ask the Handbook</h2>
+      <form hx-post="/dev/handbook/ask" hx-target="#hb-answer" hx-indicator="#hb-asking" class="row">
+        <label class="field" style="flex:4 1 320px"><span class="sr">Your question</span><input type="text" name="question" required placeholder="e.g. Where is a contact matched to an existing one? How do I add a search method?"></label>
+        <button type="submit" class="btn btn-primary">Ask</button>
+        <span id="hb-asking" class="htmx-indicator sub">Thinking…</span>
+      </form>
+      <div id="hb-answer"></div>
+    </section>
+    {% if missing %}<div class="flash err" role="status">Features without a Handbook page: {{ missing|join(', ') }}</div>{% endif %}
+    <article class="panel helptext hbtext">
+      {% if page %}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline"><h1 style="margin:0;font-size:26px">{{ page.title }}</h1>{% if page.updated %}<span class="badge">{{ 'Last updated in ' ~ page.updated if page.kind != 'auto' else page.updated }}</span>{% endif %}</div>
+      {{ page.html|safe }}
+      {% else %}
+      <p>No such page. Pick one on the left.</p>
+      {% endif %}
+    </article>
+  </div>
+</div>
+{% endblock %}

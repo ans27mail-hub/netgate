@@ -5,7 +5,7 @@ order: 50
 needs: add_contacts
 summary: One contact, a pasted list or a CSV file
 ---
-Press **+ Add contact** at the top.
+Press **+ Add Contact** at the top.
 
 ## One contact
 Type the name and whatever you know: city, country, links (website, eBay / Etsy / Amazon store, Instagram, Facebook — one per line), email, phone and notes. NetGate recognises each link and puts it in the right place.
@@ -21,5 +21,5 @@ The first row must have column names. NetGate understands *name* (or company, st
 ## Then
 - **Intended directory** decides which fields to look for (or *Not sure yet* for common fields only).
 - **Enrich with** — tick the steps to run (see [Enrich](/help/enrich)).
-- **Save & enrich now**, **Save to Inbox only**, or **Save & enrich tonight**.
+- **Save & Enrich Now**, **Save to Inbox Only**, or **Save & Enrich Tonight**.
 - People who may review can tick **Accept into the directory straight away** to skip the Inbox.

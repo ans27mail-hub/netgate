@@ -11,6 +11,7 @@
 | `redis` | redis:7-alpine | Job queue |
 | `renderer` | `renderer/` Playwright Chromium, `GET /render?url=` | Pages that need JavaScript |
 | `searxng` | searxng/searxng | Search engine (port 8888 on localhost) |
+| `backup` | postgres:16-alpine running `backup/run.sh` | Every minute reads Settings → Backups; makes `pg_dump` files in `BACKUP_DIR` (web mounts it read-only) |
 
 Ollama (the AI) runs outside Docker, on the iMac. `.env` holds passwords and `OLLAMA_URL`; everything else is set in the app.
 
@@ -36,9 +37,14 @@ Ollama (the AI) runs outside Docker, on the iMac. `.env` holds passwords and `OL
 | `control.py` | Request actions (pause, resume, stop, delete, reject, run again), reject list, queues |
 | `help.py` + `help/*.md` | Help Center pages and Ask NetGate |
 | `scheduler.py` | Night window + hourly cleanup |
+| `tags.py` | Tags: list, usable in a directory, set / add / remove, card tint |
+| `themes.py` | Built-in and custom themes → CSS variables, fonts, contrast warnings |
+| `backups.py` | Backup settings, status, files, “Back Up Now” request (the `backup` container does the work) |
+| `handbook.py` + `docs/dev/` | Developer Handbook: written pages, feature list (test enforced), automatic pages from the code |
+| `web/look_routes.py`, `web/backup_routes.py` | Settings → Tags, Themes, Backups |
 
 ## Main tables
-`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`.
+`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `tags`, `record_tags`, `existing_hits` (v0.7: a person's search found a contact someone else found first), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`.
 
 ## How a search runs
 1. A page calls `start_job()` → a `jobs` row + an RQ job → the worker runs `jobs.run_job(id)`.
@@ -63,4 +69,8 @@ Login: the session stores a short tag of the password hash; when the password ch
 There is no pip access in the AI's build environment, so libraries were cloned from GitHub; the tests run against a real local Postgres, a fake website (`tests/fakeweb.py`), a fake eBay API (`tests/fake_ebay.py`) and the real renderer. The search engine and the AI are simulated inside the test. See `tests/README.md`.
 - `tests/test_v05.py` — the full flow: v0.4 → v0.5 upgrade, Discover → Inbox, accept / reject / restore, multiple directories, suggestions, eBay, pause / resume / stop / reject / delete, add contact (one / list / CSV), roles, help, night run.
 - `tests/test_v06.py` — v0.5 → v0.6 upgrade: Dashboard, Directories page, switcher, moving contacts (one / many / from all), People (add with must-change, reset logs out, disable, login history, delete keeps data, roles copy / delete with move).
+- `tests/test_v07.py` — v0.6 → v0.7 upgrade: tags, card styles, short-card fields, themes, debug clear, own / selected / own-directory scopes, search methods hidden, Existing Contacts (limited view, enrich permission), Handbook (every feature has a page), backups settings and files, Running Jobs.
 - After a change, also open the main pages in a browser (the test does GET requests; screenshots catch layout problems).
+
+
+More detail for developers is in the **Developer Handbook** (`docs/dev/`, also in the app under Developer Tools).

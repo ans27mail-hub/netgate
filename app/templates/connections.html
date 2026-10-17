@@ -5,7 +5,7 @@
   {% include "_settings_nav.html" %}
   <div class="scontent">
     <form method="post" action="/settings/connections" style="display:flex;flex-direction:column;gap:16px" autocomplete="off">
-      <div class="shead"><h1>Connections (API keys)</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
+      <div class="shead"><h1>Connections (API Keys)</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
       <p class="hint" style="margin:0">Keys for marketplaces with official APIs. The <b>eBay search</b> method (choose it in a directory's settings) uses the eBay keys; Etsy search comes in a later version. Leave a key box empty to keep the saved key; type a single “-” to remove it.</p>
 
       <section class="panel" style="display:flex;flex-direction:column;gap:12px">
@@ -27,9 +27,9 @@
         </div>
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="ebay_business_only" {% if conn.ebay.business_only %}checked{% endif %}> Business sellers only</label>
         <span class="hint">These are the defaults; each directory using eBay search can choose its own marketplaces.</span>
-        <div><button type="submit" name="test" value="ebay" class="btn btn-outline btn-small">Save &amp; test eBay keys</button></div>
+        <div><button type="submit" name="test" value="ebay" class="btn btn-outline btn-small">Save &amp; Test eBay Keys</button></div>
         <details>
-          <summary class="hint" style="cursor:pointer">How to get eBay keys</summary>
+          <summary class="hint" style="cursor:pointer">How to Get eBay Keys</summary>
           <ol class="hint" style="margin:8px 0 0;padding-left:20px;line-height:1.7">
             <li>Go to developer.ebay.com and create a free developer account.</li>
             <li>Open “Application keys” and create a <b>Production</b> keyset.</li>

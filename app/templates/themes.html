@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Themes · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead"><h1>Themes</h1><span class="sub">Colours, font, corners and spacing. The layout stays the same.</span></div>
+
+    <form method="post" action="/settings/themes" class="panel row" style="align-items:center">
+      <input type="hidden" name="action" value="settings">
+      <label class="field" style="flex:0 1 240px">Theme for everyone
+        <select name="default">{% for t in themes %}<option value="{{ t.id }}" {% if cfg.default == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
+      <label class="check-inline"><input type="checkbox" name="allow_personal" {% if cfg.allow_personal %}checked{% endif %}> Let each person pick their own (Settings → Display)</label>
+      <label class="check-inline"><input type="checkbox" name="follow_dark" {% if cfg.follow_dark %}checked{% endif %}> Use Dark when the computer is in dark mode</label>
+      <button type="submit" class="btn btn-primary ml-auto">Save</button>
+    </form>
+
+    <div class="themegrid">
+      {% for t in themes %}{% set c = t.colors %}
+      <article class="themecard {% if cur and cur.id == t.id %}editing{% elif cfg.default == t.id %}inuse{% endif %}">
+        <div class="tprev" aria-hidden="true">
+          <div style="background:{{ c.side }}"><span style="background:{{ c.side_text }}"></span><span style="background:{{ c.side_text }};opacity:.5"></span><span style="background:{{ c.side_text }};opacity:.5"></span></div>
+          <div style="background:{{ c.bg }}">
+            <span style="background:{{ c.ink }};height:7px;width:50%"></span>
+            <span class="tcards"><span style="background:{{ c.card }};border-color:{{ c.line }}"></span><span style="background:{{ c.card }};border-color:{{ c.line }}"></span></span>
+            <span style="background:{{ c.accent }};height:13px;width:40%"></span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong>{{ t.name }}</strong>
+          {% if cfg.default == t.id %}<span class="badge green">In Use</span>{% endif %}
+          <span class="sub ml-auto">{{ 'built in' if t.builtin else 'yours' }}</span>
+        </div>
+        <div class="btnrow">
+          <form method="post" action="/settings/themes" class="inline"><input type="hidden" name="action" value="use"><input type="hidden" name="id" value="{{ t.id }}"><button type="submit" class="btn btn-outline btn-xs">Use</button></form>
+          <form method="post" action="/settings/themes" class="inline"><input type="hidden" name="action" value="mine"><input type="hidden" name="id" value="{{ t.id }}"><button type="submit" class="btn btn-outline btn-xs">Try for Me</button></form>
+          <form method="post" action="/settings/themes" class="inline"><input type="hidden" name="action" value="copy"><input type="hidden" name="id" value="{{ t.id }}"><button type="submit" class="btn btn-outline btn-xs">Copy</button></form>
+          {% if not t.builtin %}<a href="/settings/themes?edit={{ t.id }}" class="btn btn-outline btn-xs">Edit</a>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+
+    {% if cur %}{% set c = cur.colors %}
+    <form method="post" action="/settings/themes" class="panel" id="edit">
+      <input type="hidden" name="id" value="{{ cur.id }}">
+      <div class="layout">
+        <div class="stack" style="flex:1 1 380px">
+          <h2>Edit Theme</h2>
+          {% for w in warnings %}<div class="flash err" role="status">{{ w }}</div>{% endfor %}
+          <label class="field">Name<input type="text" name="name" value="{{ cur.name }}" maxlength="60" required></label>
+          <div class="colorgrid">
+            {% for key, label in COLOURS %}
+            <label class="colorpick"><input type="color" name="c_{{ key }}" value="{{ c[key] }}" aria-label="{{ label }}" data-k="{{ key }}"><span><b>{{ label }}</b><span class="mono-sm">{{ c[key] }}</span></span></label>
+            {% endfor %}
+          </div>
+          <div class="row">
+            <label class="field">Font<select name="font">{% for f in FONTS %}<option {% if cur.font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+            <label class="field">Corners<select name="corners">{% for k, v in CORNERS.items() %}<option value="{{ k }}" {% if cur.corners == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}</select></label>
+            <label class="field">Spacing<select name="spacing">{% for k, v in SPACING.items() %}<option value="{{ k }}" {% if cur.spacing == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}</select></label>
+          </div>
+          <span class="hint">NetGate warns you when text and background are too close in colour to read easily.</span>
+          <div class="btnrow">
+            <button type="submit" name="action" value="save" class="btn btn-primary">Save Theme</button>
+            <button type="submit" name="action" value="try" class="btn btn-outline">Save and Try for Me</button>
+            <button type="submit" name="action" value="delete" class="btn btn-danger ml-auto" formnovalidate onclick="return confirm('Delete the theme {{ cur.name|e }}?')">Delete</button>
+          </div>
+        </div>
+        <div class="stack" style="flex:1 1 340px">
+          <span class="sub">Live preview</span>
+          <div class="livepreview" id="lp" aria-hidden="true">
+            <div class="lp-side" data-bg="side" data-fg="side_text"><b>NetGate</b><span>Dashboard</span><span>Inbox</span><span class="lp-on" data-hi="1">Directories</span></div>
+            <div class="lp-page" data-bg="bg" data-fg="ink">
+              <b style="font-size:16px">Manufacturers</b>
+              <div style="display:flex;gap:8px"><span class="lp-btn" data-bg="accent">Find New</span><span class="lp-btn2" data-bg="card" data-line="line">Directory Settings</span></div>
+              <div class="lp-cards"><div data-bg="card" data-line="line"><b>[Company]</b><span data-fg="muted">Sialkot</span></div><div data-bg="card" data-line="line"><b>[Company]</b><span data-fg="muted">Lahore</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+    <script>
+      (function () {
+        var lp = document.getElementById('lp');
+        function val(k) { var i = document.querySelector('input[data-k=' + k + ']'); return i ? i.value : ''; }
+        function paint() {
+          lp.querySelectorAll('[data-bg]').forEach(function (el) { el.style.background = val(el.dataset.bg); });
+          lp.querySelectorAll('[data-fg]').forEach(function (el) { el.style.color = val(el.dataset.fg); });
+          lp.querySelectorAll('[data-line]').forEach(function (el) { el.style.borderColor = val(el.dataset.line); });
+          document.querySelectorAll('.colorpick').forEach(function (l) { var i = l.querySelector('input'); l.querySelector('.mono-sm').textContent = i.value; });
+        }
+        document.querySelectorAll('.colorpick input').forEach(function (i) { i.addEventListener('input', paint); });
+        paint();
+      })();
+    </script>
+    {% else %}
+    <p class="hint" style="margin:0">To make your own theme, press <b>Copy</b> on a theme and change its colours. Built-in themes can't be changed.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

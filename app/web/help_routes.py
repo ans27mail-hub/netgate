@@ -105,6 +105,39 @@ def dev_tester(request: Request, group: int = 0):
                       groups=all_groups(s), sel_id=group)
 
 
+@router.get("/dev/handbook", response_class=HTMLResponse)
+@router.get("/dev/handbook/{slug}", response_class=HTMLResponse)
+def handbook(request: Request, slug: str = "overview", q: str = ""):
+    """The Developer Handbook: written pages (docs/dev) plus pages made from the code."""
+    from .. import handbook as HB
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "dev_help")
+        pages = HB.written()
+        if slug in HB.AUTO:
+            page = {"slug": slug, "title": HB.AUTO[slug], "kind": "auto", "updated": "made from the code just now",
+                    "html": HB.html(HB.auto_page(slug, request.app))}
+        else:
+            page = next((p for p in pages if p["slug"] == slug), None)
+            if page:
+                page = {**page, "html": HB.html(page["body"])}
+        results = HB.search(q) if q.strip() else []
+        return render(request, s, user, "handbook.html", active_nav="dev", help="developer-tools", page=page,
+                      guides=[p for p in pages if p["kind"] == "guide"],
+                      features=[p for p in pages if p["kind"] == "feature"], auto=HB.AUTO, slug=slug, hq=q,
+                      results=results, missing=HB.missing_features())
+
+
+@router.post("/dev/handbook/ask", response_class=HTMLResponse)
+def handbook_ask(request: Request, question: str = Form(...)):
+    from .. import handbook as HB
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "dev_help")
+    result = HB.ask(question.strip()[:500])
+    return templates.TemplateResponse(request, "_handbook_answer.html", {"r": result, "question": question})
+
+
 @router.get("/dev/training.jsonl")
 def training_export(request: Request):
     with SessionLocal() as s:

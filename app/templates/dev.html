@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Developer tools · NetGate{% endblock %}
+{% block title %}Developer Tools · NetGate{% endblock %}
 {% block content %}
-<div class="pagehead"><h1>Developer tools</h1><span class="sub">For testing and improving NetGate. Code changes go through GitHub, never through these pages.</span></div>
+<div class="pagehead"><h1>Developer Tools</h1><span class="sub">For testing and improving NetGate. Code changes go through GitHub, never through these pages.</span></div>
 <div class="helpgrid">
   {% if can(user, 'debug') %}
   <section class="panel stack">
-    <h2>Debug view</h2>
+    <h2>Debug View</h2>
     <span class="hint">Each request records which pages it read, what code found, and what the AI was asked and answered. Open one from <a href="/requests">Requests</a> → Debug.</span>
     <form method="post" action="/dev/settings" class="row">
       <label class="check-inline"><input type="checkbox" name="trace" {% if dev.get('trace', True) %}checked{% endif %}> Record debug traces (kept 14 days)</label>
@@ -14,17 +14,17 @@
   </section>
   {% endif %}
   {% if can(user, 'logs') %}
-  <section class="panel stack"><h2>Logs</h2><span class="hint">NetGate's own log of errors and events ({{ n_err }} error{{ '' if n_err == 1 else 's' }}).</span><a href="/dev/logs" class="btn btn-outline btn-small" style="align-self:flex-start">Open logs</a>
+  <section class="panel stack"><h2>Logs</h2><span class="hint">NetGate's own log of errors and events ({{ n_err }} error{{ '' if n_err == 1 else 's' }}).</span><a href="/dev/logs" class="btn btn-outline btn-small" style="align-self:flex-start">Open Logs</a>
     <span class="hint">Container logs (browser, database) are in WSL: <span class="mono-sm">cd ~/apps/netgate &amp;&amp; docker compose logs --tail 50 renderer</span></span></section>
   {% endif %}
   {% if can(user, 'tester') %}
-  <section class="panel stack"><h2>Page tester</h2><span class="hint">Try a page with a directory's instructions. Nothing is saved.</span><a href="/dev/tester" class="btn btn-outline btn-small" style="align-self:flex-start">Open tester</a></section>
+  <section class="panel stack"><h2>Page Tester</h2><span class="hint">Try a page with a directory's instructions. Nothing is saved.</span><a href="/dev/tester" class="btn btn-outline btn-small" style="align-self:flex-start">Open Tester</a></section>
   {% endif %}
   {% if can(user, 'training_export') %}
-  <section class="panel stack"><h2>Training data</h2><span class="hint">{{ n_dec }} accept / reject decisions so far, as chat-style examples (JSONL) for fine-tuning a model later.</span><a href="/dev/training.jsonl" class="btn btn-outline btn-small" style="align-self:flex-start">Download decisions</a></section>
+  <section class="panel stack"><h2>Training Data</h2><span class="hint">{{ n_dec }} accept / reject decisions so far, as chat-style examples (JSONL) for fine-tuning a model later.</span><a href="/dev/training.jsonl" class="btn btn-outline btn-small" style="align-self:flex-start">Download Decisions</a></section>
   {% endif %}
   {% if can(user, 'dev_help') %}
-  <section class="panel stack"><h2>Developer help</h2><span class="hint">How NetGate is built, run and released.</span><a href="/help/developer" class="btn btn-outline btn-small" style="align-self:flex-start">Open developer guide</a></section>
+  <section class="panel stack"><h2>Developer Handbook</h2><span class="hint">Everything about how NetGate works: features, technologies, database, prompts, weak points, ideas. Partly written automatically from the code.</span><a href="/dev/handbook" class="btn btn-primary btn-small" style="align-self:flex-start">Open the Handbook</a></section>
   {% endif %}
 </div>
 {% endblock %}

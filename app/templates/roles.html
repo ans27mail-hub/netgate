@@ -4,7 +4,7 @@
 {% include "_people_tabs.html" %}
 <div class="stack">
     <form method="post" action="/settings/roles" class="stack">
-      <div class="shead"><h2 style="font-size:20px;margin:0">Roles &amp; permissions</h2><button type="submit" class="btn btn-primary ml-auto">Save roles</button></div>
+      <div class="shead"><h2 style="font-size:20px;margin:0">Roles &amp; Permissions</h2><button type="submit" class="btn btn-primary ml-auto">Save Roles</button></div>
       <p class="hint" style="margin:0">Tick what each role may do. Changing a role changes everyone who has it. Admin always has everything.</p>
       <section class="panel" style="padding:0">
         <div class="overflow">
@@ -31,9 +31,15 @@
                 {% for r in roles %}<td class="c">
                   {% if r.locked %}<span class="sub">All</span>{% else %}
                   <select name="dirs_{{ r.id }}" aria-label="{{ r.name }} directory access"><option value="all" {% if r.all_groups %}selected{% endif %}>All</option><option value="some" {% if not r.all_groups %}selected{% endif %}>Selected</option></select>
-                  <details class="menu"><summary class="sub" style="cursor:pointer">which?</summary><div class="menu-body">{% for g in all %}<label><input type="checkbox" name="g_{{ r.id }}" value="{{ g.id }}" {% if g.id in (r.group_ids or []) %}checked{% endif %}> {{ g.name }}</label>{% endfor %}</div></details>
+                  <details class="menu"><summary class="sub" style="cursor:pointer">Which?</summary><div class="menu-body">{% for g in all %}<label><input type="checkbox" name="g_{{ r.id }}" value="{{ g.id }}" {% if g.id in (r.group_ids or []) %}checked{% endif %}> {{ g.name }}</label>{% endfor %}</div></details>
                   {% endif %}
                 </td>{% endfor %}
+              </tr>
+              <tr><td><b>Contacts new users see</b><span class="sub dblock">All, or only the ones they found first</span></td>
+                {% for r in roles %}<td class="c">{% if r.locked %}<span class="sub">All</span>{% else %}<select name="cs_{{ r.id }}" aria-label="{{ r.name }} contacts"><option value="all" {% if r.contacts_scope != 'own' %}selected{% endif %}>All</option><option value="own" {% if r.contacts_scope == 'own' %}selected{% endif %}>Own</option></select>{% endif %}</td>{% endfor %}
+              </tr>
+              <tr><td><b>Existing contacts they find</b><span class="sub dblock">Full card, or only chosen fields (set per person)</span></td>
+                {% for r in roles %}<td class="c">{% if r.locked %}<span class="sub">Full</span>{% else %}<select name="ev_{{ r.id }}" aria-label="{{ r.name }} existing contacts"><option value="full" {% if r.existing_view != 'fields' %}selected{% endif %}>Full</option><option value="fields" {% if r.existing_view == 'fields' %}selected{% endif %}>Fields</option></select>{% endif %}</td>{% endfor %}
               </tr>
               <tr><td><b>Description</b></td>{% for r in roles %}<td>{% if r.locked %}<span class="sub">{{ r.description }}</span>{% else %}<textarea name="desc_{{ r.id }}" rows="3" aria-label="{{ r.name }} description" class="roledesc">{{ r.description }}</textarea>{% endif %}</td>{% endfor %}</tr>
             </tbody>
@@ -43,26 +49,26 @@
     </form>
     <div class="layout">
       <form method="post" action="/settings/roles/new" class="panel stack" style="flex:1 1 320px">
-        <h2>New role</h2>
+        <h2>New Role</h2>
         <div class="row">
           <label class="field">Name<input type="text" name="name" required placeholder="e.g. Sales"></label>
           <label class="field">Start from<select name="copy"><option value="0">Nothing (view only)</option>{% for r in roles %}<option value="{{ r.id }}">A copy of {{ r.name }}</option>{% endfor %}</select></label>
         </div>
-        <div><button type="submit" class="btn btn-outline">+ Add role</button></div>
+        <div><button type="submit" class="btn btn-outline">+ Add Role</button></div>
         <span class="hint">Copying a role takes its ticks and directory access; then change what you need. Rename a role by typing in its name at the top of the table.</span>
       </form>
       {% set deletable = roles|rejectattr('locked')|list %}
       {% if deletable %}
       <form method="post" action="/settings/roles/0/delete" class="panel stack" style="flex:1 1 320px" id="roledel"
             onsubmit="this.action='/settings/roles/'+this.role.value+'/delete';return confirm('Delete the role '+this.role.options[this.role.selectedIndex].dataset.name+'?')">
-        <h2>Delete a role</h2>
+        <h2>Delete a Role</h2>
         <div class="row">
           <label class="field">Role
             <select name="role" onchange="roleUsers()">{% for r in deletable %}<option value="{{ r.id }}" data-name="{{ r.name }}" data-users="{{ used.get(r.id, 0) }}">{{ r.name }} ({{ used.get(r.id, 0) }} user{{ '' if used.get(r.id, 0) == 1 else 's' }})</option>{% endfor %}</select></label>
           <label class="field" id="moveto">Give its users this role
             <select name="move_to">{% for r in roles %}<option value="{{ r.id }}" {% if r.name == 'Viewer' %}selected{% endif %}>{{ r.name }}</option>{% endfor %}</select></label>
         </div>
-        <div><button type="submit" class="btn btn-danger">Delete role</button></div>
+        <div><button type="submit" class="btn btn-danger">Delete Role</button></div>
         <span class="hint">People who have the role are moved to the role you choose, so nobody is left without access. The Admin role can't be deleted.</span>
       </form>
       {% endif %}

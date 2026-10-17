@@ -7,18 +7,20 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 
 from .. import ai, control, crawl, ebay, methods
+from .. import themes as TH
 from ..auth import can, can_any
 from ..db import (EMPLOYEE_RANGES, FIELD_TYPES, AIServer, Field, Group, Keyword, Membership, NightRun, PageCache,
                   RejectedKeyword, SessionLocal, User, get_setting, set_setting, slugify)
 from ..jobs import NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, night_settings
-from .common import (DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require)
+from .common import (CARD_STYLES, DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require)
 
 router = APIRouter()
 
 SETTINGS_PAGES = [("manage_dirs", "/settings/directories"), ("ai", "/settings/ai"), ("night", "/settings/night"),
                   ("crawler", "/settings/crawler"), ("connections", "/settings/connections"),
                   ("manage_users", "/settings/users"), ("manage_roles", "/settings/roles"),
-                  ("reject_list", "/settings/reject-list")]
+                  ("reject_list", "/settings/reject-list"), ("manage_tags", "/settings/tags"),
+                  ("display_all", "/settings/themes"), ("backups", "/settings/backups")]
 
 # (key, name, type, stage, filter, card, list, source, choices, words)
 PRESET_FIELDS = [
@@ -131,7 +133,8 @@ async def create_directory(request: Request):
                   instructions=str(form.get("instructions") or "").strip(),
                   enrich_instructions=str(form.get("enrich_instructions") or "").strip(),
                   ignore_instructions=str(form.get("ignore_instructions") or "").strip(),
-                  search_terms=str(form.get("search_terms") or "").strip(), methods=_methods_from_form(form))
+                  search_terms=str(form.get("search_terms") or "").strip(), methods=_methods_from_form(form),
+                  owner_id=user.id, card={})
         picked = set(form.getlist("presets")) or set(DEFAULT_PRESETS)
         g.fields = []
         pos = 0
@@ -158,7 +161,9 @@ async def create_directory(request: Request):
 
 def _dir_page(request, s, user, group, **extra):
     conn = methods.connections(s)
+    owners = s.scalars(select(User).where(User.active).order_by(User.username)).all()
     return render(request, s, user, "dir_edit.html", active_nav="dirs", help="directory-settings", group=group,
+                  owners=owners,
                   count=_settings_ctx(s)["counts"].get(group.id, 0), ebay_sites=ebay.EBAY_SITES, conn=conn,
                   opts={k: methods.options(group, k) for k in ("ebay", "directory")}, **_settings_ctx(s), **extra)
 
@@ -194,7 +199,22 @@ async def directory_save(request: Request, gid: int):
             group.position = _int(form.get("position"), 0, -1000, 1000)
             group.search_terms = str(form.get("search_terms", "")).strip()
             group.methods = _methods_from_form(form, group.methods)
+            oid = str(form.get("owner_id") or "")
+            group.owner_id = int(oid) if oid.isdigit() and s.get(User, int(oid)) else None
             flash(request, "Basics and search methods saved.")
+        elif section == "cards":
+            style = str(form.get("card_style") or "")
+            tint = str(form.get("card_tint") or "")
+            width = str(form.get("card_width") or "").strip()
+            card = {}
+            if style in CARD_STYLES:
+                card["style"] = style
+            if width.isdigit():
+                card["width"] = _int(width, 260, 180, 520)
+            if tint in ("on", "off"):
+                card["tint"] = tint == "on"
+            group.card = card
+            flash(request, "Card look saved for this directory.")
         else:
             group.instructions = str(form.get("instructions", "")).strip()
             group.enrich_instructions = str(form.get("enrich_instructions", "")).strip()
@@ -549,8 +569,11 @@ def display_page(request: Request):
         user = current_user(s, request)
         everyone = {**DISPLAY_DEFAULTS, **(get_setting(s, "display", {}) or {})}
         mine = (user.prefs or {}).get("display") or {}
+        th = get_setting(s, "theme", {}) or {}
         return render(request, s, user, "display.html", active_nav="display", help="settings",
-                      everyone=everyone, mine=mine, current={**everyone, **mine}, **_settings_ctx(s))
+                      everyone=everyone, mine=mine, current={**everyone, **mine}, **_settings_ctx(s),
+                      themes=TH.all_themes(get_setting(s, "themes", [])), my_theme=(user.prefs or {}).get("theme") or "",
+                      allow_personal=th.get("allow_personal", True), default_theme=th.get("default") or "classic")
 
 
 @router.post("/settings/display")
@@ -561,7 +584,14 @@ async def display_save(request: Request):
         d = {"mode": form.get("mode") if form.get("mode") in ("fixed", "pct", "full") else "fixed",
              "px": _int(form.get("px"), 1280, 800, 3000), "pct": _int(form.get("pct"), 90, 50, 100),
              "view": "list" if form.get("view") == "list" else "grid",
-             "per_row": _int(form.get("per_row"), 0, 0, 8)}
+             "per_row": _int(form.get("per_row"), 0, 0, 8),
+             "card_style": form.get("card_style") if form.get("card_style") in CARD_STYLES else "A",
+             "card_width": _int(form.get("card_width"), 260, 180, 520),
+             "card_tint": form.get("card_tint") == "on"}
+        if form.get("theme") is not None:
+            th = get_setting(s, "theme", {}) or {}
+            if th.get("allow_personal", True) or can(user, "display_all"):
+                user.prefs = {**(user.prefs or {}), "theme": str(form.get("theme") or "")}
         if form.get("scope") == "everyone" and can(user, "display_all"):
             set_setting(s, "display", d)
             prefs = dict(user.prefs or {})

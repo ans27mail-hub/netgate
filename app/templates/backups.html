@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Backups · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead"><h1>Backups</h1><span class="sub">A copy of all NetGate data, made automatically every night.</span>
+      <form method="post" action="/settings/backups" class="ml-auto"><input type="hidden" name="action" value="now"><button type="submit" class="btn btn-primary" {% if pending %}disabled{% endif %}>{{ 'Backup Asked For…' if pending else 'Back Up Now' }}</button></form>
+    </div>
+
+    {% if warning %}<div class="flash err" role="status">{{ warning }}.</div>{% endif %}
+    {% if st.last_error %}<div class="flash err" role="status">The last try failed: {{ st.last_error }}</div>{% endif %}
+    {% if not folder_ok %}<div class="flash err" role="status">The backup folder can't be read here. After <code>netgate update</code> it is created automatically.</div>{% endif %}
+
+    <section class="panel row" style="align-items:center">
+      <div class="stack" style="flex:1 1 260px;gap:4px">
+        <span class="caps-sm">Last Backup</span>
+        <b style="font-size:18px">{{ ago(last_ok) if last_ok else 'None yet' }}</b>
+        <span class="sub">{% if st.last_file %}{{ st.last_file }} · {{ size_text(st.last_size or 0) }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="stack" style="flex:1 1 260px;gap:4px">
+        <span class="caps-sm">Next Automatic Backup</span>
+        <b style="font-size:18px">{{ ('Every night at ' ~ cfg.time) if cfg.enabled else 'Switched off' }}</b>
+        <span class="sub">Kept for {{ cfg.keep_days }} days, then deleted</span>
+      </div>
+    </section>
+
+    <form method="post" action="/settings/backups" class="panel stack">
+      <h2>Automatic Backups</h2>
+      <div class="row">
+        <label class="check-inline" style="min-height:40px"><input type="checkbox" name="enabled" {% if cfg.enabled %}checked{% endif %}> Back up every night</label>
+        <label class="field" style="flex:0 1 160px">At (your time)<input type="time" name="time" value="{{ cfg.time }}"></label>
+        <label class="field" style="flex:0 1 160px">Keep for (days)<input type="number" name="keep_days" min="1" max="365" value="{{ cfg.keep_days }}"></label>
+      </div>
+      <div><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+
+    <section class="panel" style="padding:0">
+      <div class="panel-head"><h2>Saved Backups</h2><span class="sub ml-auto">{{ files|length }} file{{ '' if files|length == 1 else 's' }}</span></div>
+      <div class="overflow">
+        <table class="t">
+          <thead><tr><th>File</th><th>Made</th><th>Size</th><th><span class="sr">Download</span></th></tr></thead>
+          <tbody>
+            {% for f in files %}
+            <tr><td class="mono-sm">{{ f.name }}</td><td class="sub">{{ ago(f.at) }}</td><td>{{ size_text(f.size) }}</td>
+              <td class="rowacts"><a href="/settings/backups/file/{{ f.name }}" class="btn btn-outline btn-small">Download</a></td></tr>
+            {% else %}
+            <tr><td colspan="4" class="sub" style="padding:20px">No backups saved yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel stack">
+      <h2>Where They Are and How to Restore</h2>
+      <p style="margin:0">Backups are saved in the folder set as <code>BACKUP_DIR</code> in the <code>.env</code> file of NetGate on the server (normally <code>~/apps/netgate/backups</code>). Put it on another disk or a shared folder — for example <code>BACKUP_DIR=/mnt/d/netgate-backups</code> — so a broken disk doesn't take the backups with it, then run <code>netgate update</code>.</p>
+      <p style="margin:0">To put a backup back, on the server run <code>netgate restore</code> to list them, then <code>netgate restore &lt;file name&gt;</code>. It asks before replacing anything and first saves a safety copy of the data as it is now. Restoring is only possible on the server, never from this page.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

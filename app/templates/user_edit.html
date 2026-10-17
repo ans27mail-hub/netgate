@@ -34,16 +34,40 @@
     </section>
 
     <section class="panel stack">
-      <h2>Directory access</h2>
-      {% set limited = edit and not edit.all_groups and not edit.is_admin %}
-      <div class="gchecks">
-        <label><input type="radio" name="access" value="all" {% if not limited %}checked{% endif %}> All directories</label>
-        <label><input type="radio" name="access" value="some" {% if limited %}checked{% endif %}> Only selected directories</label>
+      <h2>What This Person Sees</h2>
+      {% set scope = (edit.dir_scope if edit and not edit.is_admin else 'all') %}
+      {% set linked = edit.group_links|map(attribute='group_id')|list if edit else [] %}
+      <div class="stack">
+        <span class="caps-sm">Directories</span>
+        <div class="gchecks">
+          <label><input type="radio" name="access" value="all" {% if scope == 'all' %}checked{% endif %}> All directories</label>
+          <label><input type="radio" name="access" value="some" {% if scope == 'some' %}checked{% endif %}> Only selected directories</label>
+          <label><input type="radio" name="access" value="own" {% if scope == 'own' %}checked{% endif %}> Only their own directories</label>
+        </div>
+        <div class="gchecks" id="dirchecks">
+          {% for g in all %}<label><input type="checkbox" name="groups" value="{{ g.id }}" {% if g.id in linked %}checked{% endif %}> {{ g.name }}{% if edit and g.owner_id == edit.id %} <span class="sub">(owner)</span>{% endif %}</label>{% endfor %}
+        </div>
+        <span class="hint">“Own directories” are the ones they created or that have them as Owner (Directory Settings → Basics). With “Selected”, they see the ticked ones plus their own.</span>
       </div>
-      <div class="gchecks" id="dirchecks">
-        {% for g in all %}<label><input type="checkbox" name="groups" value="{{ g.id }}" {% if edit and g.id in edit.group_ids %}checked{% endif %}> {{ g.name }}</label>{% endfor %}
+      <div class="stack">
+        <span class="caps-sm">Contacts</span>
+        <div class="gchecks">
+          <label><input type="radio" name="contacts_scope" value="all" {% if not edit or edit.contacts_scope != 'own' %}checked{% endif %}> All contacts in those directories</label>
+          <label><input type="radio" name="contacts_scope" value="own" {% if edit and edit.contacts_scope == 'own' %}checked{% endif %}> Only their own contacts (the ones they found first or added)</label>
+        </div>
       </div>
-      <span class="hint">With “Only selected directories”, this person only sees and works in the ticked ones (and their Inbox items). New users start with their role's default. Admins always see everything.</span>
+      <div class="stack">
+        <span class="caps-sm">Existing Contacts their searches find</span>
+        <div class="gchecks">
+          <label><input type="radio" name="existing_view" value="full" {% if not edit or edit.existing_view != 'fields' %}checked{% endif %}> Full card</label>
+          <label><input type="radio" name="existing_view" value="fields" {% if edit and edit.existing_view == 'fields' %}checked{% endif %}> Only these fields:</label>
+        </div>
+        <div class="gchecks">
+          {% for f in field_choices %}<label><input type="checkbox" name="existing_fields" value="{{ f.key }}" {% if edit and f.key in (edit.existing_fields or []) %}checked{% endif %}> {{ f.name }}</label>{% endfor %}
+        </div>
+        <span class="hint">Only matters with “Only their own contacts”: when their search finds a company someone else found first, it shows in the directory's <b>Existing Contacts</b> tab with what is allowed here. Name and city always show. Whether they may enrich it is the permission <b>Enrich other people's contacts</b>.</span>
+      </div>
+      <span class="hint">New users start with their role's defaults. Admins always see everything.</span>
     </section>
 
     <section class="panel stack">
@@ -65,15 +89,15 @@
   {% if edit %}
   <aside class="side stack" style="flex:1 1 280px;max-width:380px">
     <form class="panel stack" method="post" action="/settings/users/{{ edit.id }}/password">
-      <h2>Reset password</h2>
+      <h2>Reset Password</h2>
       <label class="field">New password (at least 8 characters)<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
       {% if edit.id != user.id %}<label class="check-inline"><input type="checkbox" name="must_change" checked> They must choose their own at next login</label>{% endif %}
-      <button type="submit" class="btn btn-outline">Set new password</button>
+      <button type="submit" class="btn btn-outline">Set New Password</button>
       <span class="hint">{% if edit.id == user.id %}For your own password you can also use <a href="/account/password">My password</a>.{% else %}Tell them the new password yourself. They are logged out on every computer.{% endif %}</span>
     </form>
 
     <section class="panel stack">
-      <div style="display:flex;align-items:baseline;gap:8px"><h2>Recent logins</h2><a href="/settings/logins?user_id={{ edit.id }}" class="ml-auto">All →</a></div>
+      <div style="display:flex;align-items:baseline;gap:8px"><h2>Recent Logins</h2><a href="/settings/logins?user_id={{ edit.id }}" class="ml-auto">All →</a></div>
       {% for l in logins %}
       <div class="loginrow"><span class="dot-{{ 'green' if l.ok else 'red' }}" aria-hidden="true"></span><span>{{ ago(l.at) }}</span><span class="sub">{{ l.agent or '—' }}{% if l.ip %} · {{ l.ip }}{% endif %}{% if not l.ok %} · {{ l.note or 'failed' }}{% endif %}</span></div>
       {% else %}
@@ -83,7 +107,7 @@
 
     {% if edit.id != user.id %}
     <form class="panel stack dangerzone" method="post" action="/settings/users/{{ edit.id }}/delete">
-      <h2>Delete user</h2>
+      <h2>Delete User</h2>
       <p class="hint" style="margin:0">The account is removed. Everything {{ edit.username }} found, added, accepted or rejected stays in NetGate, marked “(deleted user)”.{% if jobs_n %} Their {{ jobs_n }} request{{ '' if jobs_n == 1 else 's' }} stay too.{% endif %} To only stop them logging in, untick <b>Active</b> instead.</p>
       <label class="field"><span>Type <b>{{ edit.username }}</b> to confirm</span><input type="text" name="confirm" autocomplete="off" required></label>
       <button type="submit" class="btn btn-danger">Delete {{ edit.username }}</button>
@@ -105,6 +129,7 @@
       if (setDirs && dirs[role.value]) {
         var d = dirs[role.value];
         document.querySelector('input[name=access][value=' + (d.all ? 'all' : 'some') + ']').checked = true;
+        var cs = document.querySelector('input[name=contacts_scope][value=' + (d.cs || 'all') + ']'); if (cs) cs.checked = true;
         document.querySelectorAll('#dirchecks input').forEach(function (c) { c.checked = d.ids.indexOf(parseInt(c.value)) !== -1; });
       }
     }

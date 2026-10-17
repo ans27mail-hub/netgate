@@ -1,5 +1,20 @@
 # What's new
 
+## v0.7 — 17 Oct 2026 · Tags, card styles, themes, who sees what, backups
+
+- **Tags** (Settings → Tags): coloured labels like *Customer* or *Sample sent*. They show as small bars on the card and can colour the whole card lightly. Filter and sort by tag, tag many contacts at once, or use **+ Tag** on a contact's big card.
+- **Card styles A, B and C** and a **fixed card width** for each directory (Directory Settings → Cards), so cards don't squeeze when there are many. Display has “at most N per row”.
+- **Short Card Shows…** on the big card: pick which fields the small card shows — for every card in the directory, or only for you.
+- **Themes** (Settings → Themes): choose the look for everyone, let people pick their own, follow the computer's dark mode, or copy a theme and change its colours, font, corners and spacing. A **Dark** theme is included.
+- **Bigger Help window** — the scrollbar is now inside, and Ask is always at the bottom.
+- **Debug page** has the request buttons, **Back to Requests** and **Clear Debug Notes**.
+- **What each person sees** (People → a user): all directories, chosen ones or only their own (directories now have an **Owner**); all contacts or only the ones they found first or added; and whether they may see the **search methods**.
+- **Existing Contacts** tab in each directory: companies a person's search found that someone else had already found. The first finder stays. You choose per person whether they see the full card or only chosen fields, and whether they may enrich them.
+- **Headings, menus and buttons** now use capital letters on each word (Title Case).
+- **Developer Handbook** (Developer Tools): how NetGate is built, one page per feature, and pages made automatically from the code. Admins only, unless you give someone *Developer help*.
+- **Automatic backups** every night (Settings → Backups), **Back Up Now** and download. Restoring is done on the server with `netgate restore`.
+- **Running Jobs** on the Dashboard, beside Quick Actions.
+
 ## v0.6 — 16 Oct 2026 · Dashboard, Directories page, moving contacts, People
 
 - **Dashboard** is the new start page (click **NetGate** or **Dashboard**): the numbers at a glance, what needs attention (with a button for each), quick actions, whether the AI server, browser, search engine and eBay are reachable, all directories, and recent activity.

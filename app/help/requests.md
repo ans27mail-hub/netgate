@@ -11,13 +11,13 @@ Every search and enrich is a **request**. The **Requests** page lists them with 
 |---|---|
 | **Pause** | A running request finishes the page it is reading, saves where it got to and frees the worker. A waiting one simply doesn't start. |
 | **Resume** | Continues from where it paused, not from the start. |
-| **Stop** | Ends the request now. Everything already found stays. It can't be resumed, but **Run again** starts it fresh. |
+| **Stop** | Ends the request now. Everything already found stays. It can't be resumed, but **Run Again** starts it fresh. |
 | **Delete** | Moves the request to the **Deleted** tab for 30 days (restore it there), then it is removed. |
-| **Reject** | Stops it if needed and puts its keyword on the **reject list** with a reason. That keyword is not searched again — by people, keyword clicks or night jobs — until restored. |
+| **Reject** | Stops it if needed and puts its keyword on the **Reject List** with a reason. That keyword is not searched again — by people, keyword clicks or night jobs — until restored. |
 | **Restore** | On a rejected request: takes its keyword off the reject list. |
-| **Run again** | Starts a new request with the same search. |
+| **Run Again** | Starts a new request with the same search. |
 
-**Pause all** pauses every waiting and running request you may control (admins and managers: everyone's, including the night run). **Resume all** brings them back.
+**Pause All** pauses every waiting and running request you may control (admins and managers: everyone's, including the night run). **Resume All** brings them back.
 
 ## Contacts are never touched
 Requests are a separate layer. Deleting or rejecting a request **never** changes the contacts it found: their data, sources and Inbox items stay. Each contact keeps a history note of how it was found. Contacts are only removed in the Inbox or on a contact's card, on purpose.

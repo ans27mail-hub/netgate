@@ -7,7 +7,7 @@ summary: No results, AI not reachable, browser not running …
 ## A search finds nothing or very little
 - Open the request's **Debug** view (Requests → Debug, for people with the Debug permission): see which pages were read and what the AI answered.
 - Make the keyword more specific, and check the directory's *What belongs here* instruction isn't too strict.
-- Test a good list page in Directory settings → **Test the instructions on a page**.
+- Test a good list page in Directory settings → **Test the Instructions on a Page**.
 - The search engine may be limiting you: wait a while, or lower how often you search.
 
 ## “AI not reachable” / AI errors
@@ -26,10 +26,10 @@ and send the last lines to whoever maintains NetGate.
 - Reject the request of a keyword that keeps giving wrong results.
 
 ## eBay search was skipped
-The request says so when the keys are missing or wrong: add or check them in Settings → Connections and press **Save & test eBay keys**.
+The request says so when the keys are missing or wrong: add or check them in Settings → Connections and press **Save & Test eBay Keys**.
 
 ## A request stays “pausing” or “stopping”
-It finishes the page it is reading first (a big page can take a minute). If the worker was restarted in the middle, press **Stop**, then **Run again**.
+It finishes the page it is reading first (a big page can take a minute). If the worker was restarted in the middle, press **Stop**, then **Run Again**.
 
 ## After an update something is wrong
 In WSL: `netgate rollback` goes back to the previous version; `netgate versions` lists them.

@@ -9,20 +9,46 @@
       <span class="badge">{{ count }} contact{{ '' if count == 1 else 's' }}</span>
       <a href="/d/{{ group.id }}" class="ml-auto">Open directory</a>
     </div>
-    <nav class="jumps" aria-label="Sections"><a href="#basics">Basics &amp; methods</a><a href="#fields">Fields</a><a href="#instructions">Instructions</a><a href="#keywords">Keywords</a><a href="#test">Test a page</a></nav>
+    <nav class="jumps" aria-label="Sections"><a href="#basics">Basics &amp; Methods</a><a href="#cards">Cards</a><a href="#fields">Fields</a><a href="#instructions">Instructions</a><a href="#keywords">Keywords</a><a href="#test">Test a Page</a></nav>
 
     <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="basics">
       <input type="hidden" name="section" value="basics">
-      <h2>Basics &amp; search methods</h2>
+      <h2>Basics &amp; Search Methods</h2>
       <div class="row">
         <label class="field">Directory name<input type="text" name="name" value="{{ group.name }}" required></label>
         <label class="field" style="flex:2 1 320px">Short description<input type="text" name="description" value="{{ group.description }}"></label>
         <label class="field" style="flex:0 1 110px">Menu order<input type="number" name="position" value="{{ group.position }}"></label>
         <label class="field">Words added to every web search<input type="text" name="search_terms" value="{{ group.search_terms }}" placeholder="e.g. manufacturer exporter Pakistan"></label>
+        <label class="field" style="flex:0 1 200px">Owner
+          <select name="owner_id"><option value="">Nobody</option>{% for u in owners %}<option value="{{ u.id }}" {% if group.owner_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select></label>
       </div>
+      <span class="hint">People set to “only their own directories” see the directories they own.</span>
       {% set cur = group.methods or {} %}
       {% include "_dir_methods.html" %}
-      <div><button type="submit" class="btn btn-primary">Save basics &amp; methods</button></div>
+      <div><button type="submit" class="btn btn-primary">Save Basics &amp; Methods</button></div>
+    </form>
+
+    <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="cards">
+      <input type="hidden" name="section" value="cards">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Cards</h2><span class="hint">How the short cards look in this directory. Empty = the default from Settings → Display.</span></div>
+      {% set gc = group.card or {} %}
+      <fieldset class="cardstyles">
+        <legend class="sr">Card style</legend>
+        <label class="cstyle"><input type="radio" name="card_style" value="" {% if not gc.get('style') %}checked{% endif %}> <b>Default</b><span class="sub">as in Display</span></label>
+        {% for k, v in CARD_STYLES.items() %}
+        <label class="cstyle"><input type="radio" name="card_style" value="{{ k }}" {% if gc.get('style') == k %}checked{% endif %}> <b>{{ k }}</b>
+          <span class="cprev cprev-{{ k|lower }}" aria-hidden="true"><span class="cp-main"><i></i><i></i></span><span class="cp-side"><i class="cp-e"></i><i class="cp-t" style="background:#c43d3d"></i><i class="cp-t" style="background:#c27a12"></i></span></span>
+          <span class="sub">{{ v }}</span></label>
+        {% endfor %}
+      </fieldset>
+      <div class="row">
+        <label class="field" style="flex:0 1 220px">Card width (px)<input type="number" name="card_width" min="180" max="520" step="10" value="{{ gc.get('width') or '' }}" placeholder="default" list="cardw2"></label>
+        <datalist id="cardw2">{% for k, v in CARD_WIDTHS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</datalist>
+        <label class="field" style="flex:0 1 260px">Card colour from tags
+          <select name="card_tint"><option value="" {% if gc.get('tint') is none %}selected{% endif %}>Default</option><option value="on" {% if gc.get('tint') == true %}selected{% endif %}>On</option><option value="off" {% if gc.get('tint') == false %}selected{% endif %}>Off (marks only)</option></select></label>
+      </div>
+      <span class="hint">Which fields a short card shows (up to 3) is set with “Show on card” below, or from a contact's big card → <b>Short Card Shows…</b></span>
+      <div><button type="submit" class="btn btn-primary">Save Cards</button></div>
     </form>
 
     {% for f in group.fields %}
@@ -31,12 +57,12 @@
     {% endfor %}
     <section class="panel stack" id="fields">
       <div class="row" style="justify-content:space-between;align-items:baseline">
-        <h2>Fields &amp; where they come from</h2>
+        <h2>Fields &amp; Where They Come From</h2>
         <span class="hint">“Filled from” decides who fills a field: the AI and code from pages, a method like eBay, or only people.</span>
       </div>
       <div class="overflow">
         <table class="t" style="min-width:1100px">
-          <thead><tr><th>Field</th><th>Type</th><th>Filled from</th><th>Step</th><th>Search words</th><th>Choices</th><th class="c">Filter</th><th class="c">Sort</th><th class="c">Card</th><th class="c">List</th><th></th></tr></thead>
+          <thead><tr><th>Field</th><th>Type</th><th>Filled from</th><th>Step</th><th>Search Words</th><th>Choices</th><th class="c">Filter</th><th class="c">Sort</th><th class="c">Card</th><th class="c">List</th><th></th></tr></thead>
           <tbody>
           {% for f in group.fields %}
             <tr>
@@ -67,7 +93,7 @@
         <label class="field">Search words<input type="text" name="words" placeholder="e.g. ISO, CE, certified"></label>
         <label class="field">Choices (Choice type only)<input type="text" name="choices" placeholder="e.g. Small, Medium, Large"></label>
         <label class="field" style="flex:0 1 110px">Step<select name="stage"><option value="enrich">Enrich</option><option value="discover">Find</option></select></label>
-        <button type="submit" class="btn btn-outline">+ Add field</button>
+        <button type="submit" class="btn btn-outline">+ Add Field</button>
       </form>
     </section>
 
@@ -80,7 +106,7 @@
         <textarea name="enrich_instructions" rows="3" placeholder="e.g. Prefer the company's own website. Products: list product types, not model names. Email: only addresses on the company's own domain.">{{ group.enrich_instructions }}</textarea></label>
       <label class="field"><span><b class="ink">Ignore</b> · pages and companies to skip</span>
         <textarea name="ignore_instructions" rows="2" placeholder="e.g. Traders and resellers who don't manufacture. Single product listings on marketplaces.">{{ group.ignore_instructions }}</textarea></label>
-      <div><button type="submit" class="btn btn-primary">Save instructions</button></div>
+      <div><button type="submit" class="btn btn-primary">Save Instructions</button></div>
     </form>
 
     <section class="panel stack" id="keywords">
@@ -89,7 +115,7 @@
       {% if group.keywords %}
       <div class="overflow">
         <table class="t" style="min-width:680px">
-          <thead><tr><th>Keyword</th><th>Search with</th><th>Last run</th><th>Found</th><th class="c">Night jobs</th><th></th></tr></thead>
+          <thead><tr><th>Keyword</th><th>Search with</th><th>Last Run</th><th>Found</th><th class="c">Night Jobs</th><th></th></tr></thead>
           <tbody>
           {% for k in group.keywords %}
             <tr>
@@ -128,17 +154,17 @@
     </section>
 
     <section class="panel stack" id="test">
-      <h2>Test the instructions on a page</h2>
+      <h2>Test the Instructions on a Page</h2>
       <form method="post" action="/settings/directories/{{ group.id }}/test" class="row">
         <label class="field">Web address<input type="text" name="url" value="{{ test.url if test else '' }}" placeholder="https://… a list page or a company page" required></label>
         <label class="field">Looking for (optional)<input type="text" name="query" placeholder="e.g. leather gloves"></label>
-        <button type="submit" class="btn btn-outline">Test (saves nothing)</button>
+        <button type="submit" class="btn btn-outline">Test (Saves Nothing)</button>
       </form>
       {% include "_test_result.html" %}
     </section>
 
     <section class="panel row" style="justify-content:space-between;align-items:center">
-      <div><h2>Delete directory</h2><span class="hint">Deletes the directory, its keywords and fields. The {{ count }} contact(s) stay in All contacts and in any other directory.</span></div>
+      <div><h2>Delete Directory</h2><span class="hint">Deletes the directory, its keywords and fields. The {{ count }} contact(s) stay in All contacts and in any other directory.</span></div>
       <form method="post" action="/settings/directories/{{ group.id }}/delete" onsubmit="return confirm('Delete the directory {{ group.name|e }}? Its contacts are kept.')">
         <button type="submit" class="btn btn-danger">Delete {{ group.name }}</button>
       </form>

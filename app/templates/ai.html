@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}AI servers · NetGate{% endblock %}
+{% block title %}AI Servers · NetGate{% endblock %}
 {% block content %}
 <div class="settings">
   {% include "_settings_nav.html" %}
   <div class="scontent">
-    <div class="shead"><h1>AI servers &amp; models</h1></div>
+    <div class="shead"><h1>AI Servers &amp; Models</h1></div>
 
     <section class="panel" style="display:flex;flex-direction:column;gap:12px">
       <h2>Servers</h2>
@@ -31,7 +31,7 @@
       <div class="empty">No AI servers yet. Add your iMac's Ollama below.</div>
       {% endfor %}
       <details class="addbox">
-        <summary class="btn btn-outline btn-small">+ Add Ollama server</summary>
+        <summary class="btn btn-outline btn-small">+ Add Ollama Server</summary>
         <form method="post" action="/settings/ai/servers" class="row" style="margin-top:12px">
           <input type="hidden" name="kind" value="ollama">
           <label class="field">Name<input type="text" name="name" placeholder="e.g. GPU PC" required></label>
@@ -52,7 +52,7 @@
     </section>
 
     <form method="post" action="/settings/ai/jobs" class="panel" style="display:flex;flex-direction:column;gap:12px">
-      <h2>Model for each job</h2>
+      <h2>Model for Each Job</h2>
       <div class="overflow">
         <table class="t" style="min-width:640px">
           <thead><tr><th>Job</th><th>Server</th><th>Model</th></tr></thead>
@@ -92,7 +92,7 @@
         </label>
         <span class="hint" style="flex:2 1 300px">Leave empty to compare companies by their words (works with no extra download). With an embedding model on the Discover server (run <span class="mono-sm">ollama pull nomic-embed-text</span> on the iMac) the “AI suggests …%” in the Inbox understands meaning, not only words.</span>
       </div>
-      <div><button type="submit" class="btn btn-primary">Save AI settings</button></div>
+      <div><button type="submit" class="btn btn-primary">Save AI Settings</button></div>
     </form>
   </div>
 </div>

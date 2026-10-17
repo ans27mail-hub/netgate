@@ -5,6 +5,8 @@ services:
     ports:
       - "8090:8000"            # NetGate UI -> http://localhost:8090
     env_file: .env
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups:ro   # to list and download backups
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -55,6 +57,23 @@ services:
       test: ["CMD-SHELL", "pg_isready -U netgate"]
       interval: 5s
       retries: 10
+    restart: unless-stopped
+
+  backup:                  # nightly database backups (Settings -> Backups); restore with: netgate restore
+    image: postgres:16-alpine
+    entrypoint: ["/bin/sh", "/backup/run.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: netgate
+      PGDATABASE: netgate
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_DIR: /backups
+      TZ: ${TZ:-Asia/Karachi}
+    volumes:
+      - ./backup:/backup:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db: { condition: service_healthy }
     restart: unless-stopped
 
   redis:

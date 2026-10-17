@@ -6,7 +6,7 @@ summary: AI servers, crawler, display and the reject list
 ---
 ## AI servers & models
 - **Servers** — your Ollama servers (the iMac, later a GPU PC) and optionally OpenRouter (paid, with spending limits).
-- **Model for each job** — Discover, Enrich, Night jobs, Help answers, and a Fallback used when OpenRouter is off or over its limit.
+- **Model for Each Job** — Discover, Enrich, Night jobs, Help answers, and a Fallback used when OpenRouter is off or over its limit.
 - **Learning** — an optional embedding model for better Inbox suggestions.
 
 ## Crawler
@@ -22,7 +22,10 @@ summary: AI servers, crawler, display and the reject list
 | Parts per long page | 3 | Long pages are split into at most this many parts |
 
 ## Display
-Page width (fixed, % of the screen, or full), grid or list by default, and cards per row — for you, or for everyone (with *Display for everyone*).
+Page width (fixed, % of the screen, or full), grid or list by default, **Cards** (style A / B / C, card width, colour from tags) and **at most N cards per row** — for you, or for everyone (with *Display & themes for everyone*). **My theme** chooses a [theme](/help/themes) just for you.
+
+## Tags, Themes, Backups
+See [Tags](/help/tags), [Themes](/help/themes) and [Backups](/help/backups).
 
 ## Reject list
 Keywords that are never searched. See [Requests](/help/requests).

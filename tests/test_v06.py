@@ -43,7 +43,7 @@ with SessionLocal() as s:
 # ---------- Dashboard ----------
 r = c.get("/")
 check(r.status_code == 200 and "<h1>Dashboard</h1>" in r.text, "NetGate opens on the Dashboard")
-for part in ("Inbox waiting", "Needs attention", "Quick actions", "Recent activity", "All directories →"):
+for part in ("Inbox Waiting", "Needs Attention", "Quick Actions", "Recent Activity", "All Directories →"):
     check(part in r.text, f"Dashboard shows “{part}”")
 check('href="/" class="nav-item on"' in r.text, "sidebar: Dashboard item is highlighted")
 check('class="nav-item nav-dir' not in r.text and 'href="/directories"' in r.text,
@@ -75,7 +75,7 @@ check("New directory" not in r.text and r.text.count('<a href="/d/') == 1, "view
 
 # ---------- switcher ----------
 r = c.get(f"/d/{man.id}")
-check('class="dirswitch"' in r.text and "← All directories" in r.text and "▾ Jump to…" in r.text, "directory page has the switcher bar")
+check('class="dirswitch"' in r.text and "← All Directories" in r.text and "▾ Jump To…" in r.text, "directory page has the switcher bar")
 check(re.search(rf'href="/d/{man.id}" class="on" aria-current="page">Manufacturers', r.text) is not None,
       "current directory tab is marked")
 check(all(f'href="/d/{g.id}"' in r.text for g in groups.values()), "every directory has a tab")
@@ -89,7 +89,7 @@ with SessionLocal() as s:
     mids = set(s.scalars(select(Membership.group_id).where(Membership.record_id == rid)).all())
 check(mids == {man.id}, "Kappa Leathers is in Manufacturers")
 r = c.get(f"/records/{rid}/open?from={man.id}")
-check("Move here" in r.text and "Also add here" in r.text, "card offers Move here / Also add here")
+check("Move Here" in r.text and "Also Add Here" in r.text, "card offers Move here / Also add here")
 r = v.get(f"/records/{rid}/open")
 check(r.status_code == 403, "viewer can't open a contact outside their directory")
 
@@ -119,7 +119,7 @@ with SessionLocal() as s:
     ids = [r_.id for r_ in s.scalars(select(Record).join(Membership, Membership.record_id == Record.id)
                                       .where(Membership.group_id == man.id).order_by(Record.id).limit(3)).all()]
 r = c.get(f"/d/{man.id}?view=list")
-check('id="movedlg"' in r.text and "Move there" in r.text and "Also add there" in r.text, "list view has Move there with a confirm box")
+check('id="movedlg"' in r.text and "Move There" in r.text and "Also Add There" in r.text, "list view has Move there with a confirm box")
 r = c.post("/records/move", data={"ids": [str(i) for i in ids], "group_id": str(buy.id), "from_id": str(man.id)},
            headers={"referer": f"http://testserver/d/{man.id}"})
 check(r.status_code == 200 and "3 contacts moved to Buyers &amp; brands" in r.text, "bulk move: 3 moved, message shown")
@@ -145,7 +145,7 @@ check(w.post("/records/move", data={"ids": [str(rid)], "group_id": str(buy.id)})
 r = c.get("/people", follow_redirects=False)
 check(r.status_code == 303 and r.headers["location"] == "/settings/users", "People opens the users list")
 r = c.get("/settings/users")
-check(r.status_code == 200 and "Last login" in r.text and "worker1" in r.text and "+ Add user" in r.text, "users list")
+check(r.status_code == 200 and "Last Login" in r.text and "worker1" in r.text and "+ Add User" in r.text, "users list")
 check("viewer1" not in c.get("/settings/users?q=work").text, "users search")
 check('>People</a>' in r.text, "People is in the sidebar")
 check(w.get("/settings/users").status_code == 403 and '>People</a>' not in w.get("/").text, "no People for a Researcher")
@@ -191,7 +191,7 @@ check("disabled" in notes and "wrong password" in notes, "login history records 
 r = c.get(f"/settings/logins?user_id={nid}&failed=1")
 check(r.status_code == 200 and "Wrong password" in r.text, "Login history page with filters")
 r = c.get(f"/settings/users/{nid}")
-check("Recent logins" in r.text and "Delete user" in r.text and "Reset password" in r.text, "user page: reset, logins, delete")
+check("Recent Logins" in r.text and "Delete User" in r.text and "Reset Password" in r.text, "user page: reset, logins, delete")
 
 # delete
 with SessionLocal() as s:
@@ -227,7 +227,7 @@ with SessionLocal() as s:
     s.commit()
 check(c.post("/settings/roles/new", data={"name": "buyers TEAM"}).text.count("unique name") == 1, "role names are unique")
 r = c.get("/settings/roles")
-check("Delete a role" in r.text and "Give its users this role" in r.text and "A copy of Researcher" in r.text,
+check("Delete a Role" in r.text and "Give its users this role" in r.text and "A copy of Researcher" in r.text,
       "roles page: new (copy) and delete with move")
 r = c.post(f"/settings/roles/{sales.id}/delete", data={})
 check("Choose which role they get instead" in r.text, "a role with users needs a replacement role")

@@ -24,7 +24,7 @@
 <section class="panel" style="padding:0">
   <div class="overflow">
     <table class="t dash-dirs">
-      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th><th>Methods</th><th>Keywords</th><th>Last search</th><th><span class="sr">Actions</span></th></tr></thead>
+      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th>{% if sees_methods(user) %}<th>Methods</th>{% endif %}<th>Keywords</th><th>Last Search</th><th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         {% for g in groups %}{% set st = stats[g.id] %}
         <tr>
@@ -32,7 +32,7 @@
           <td>{{ st.contacts }}</td>
           <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>
           <td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>
-          <td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>
+          {% if sees_methods(user) %}<td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>{% endif %}
           <td>{{ st.keywords }}</td>
           <td class="sub">{{ ago(st.last) }}</td>
           <td class="rowacts">{% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="btn btn-outline btn-small">Settings</a>{% endif %}</td>
@@ -42,7 +42,7 @@
     </table>
   </div>
 </section>
-{% if can(user, 'manage_dirs') %}<div><a href="/settings/directories/new" class="btn btn-primary">+ New directory</a></div>{% endif %}
+{% if can(user, 'manage_dirs') %}<div><a href="/settings/directories/new" class="btn btn-primary">+ New Directory</a></div>{% endif %}
 {% else %}
 <div class="dircards">
   {% for g in groups %}{% set st = stats[g.id] %}{% set bg, fg = tiles[g.id] %}
@@ -67,9 +67,11 @@
       <span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>
       <span>{{ st.pct }}% complete</span>
     </div>
+    {% if sees_methods(user) %}
     <div class="mbadges">
       {% for m in st.methods %}<span class="mbadge m-{{ m.kind }}">{{ m.name }}</span>{% else %}<span class="sub">No search methods</span>{% endfor %}
     </div>
+    {% endif %}
     <div class="dircard-foot">
       <span>{{ st.keywords }} keyword{{ '' if st.keywords == 1 else 's' }} · last search {{ ago(st.last) }}</span>
       {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="ml-auto">Settings</a>{% endif %}

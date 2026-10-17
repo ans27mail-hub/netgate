@@ -74,9 +74,12 @@ def _user_page(request: Request, uid: int | None):
         logins = s.scalars(select(Login).where(Login.user_id == uid).order_by(Login.id.desc()).limit(8)).all() \
             if edit else []
         jobs_n = s.scalar(select(func.count(Job.id)).where(Job.user_id == uid)) if edit else 0
+        from .contacts_routes import _all_fields
         return render(request, s, user, "user_edit.html", edit=edit, all=all_groups(s), roles=roles,
+                      field_choices=[f for f in _all_fields(s) if f.key not in ("city", "country")],
                       role_perms={r.id: sorted(r.perm_set) for r in roles},
-                      role_dirs={r.id: {"all": r.all_groups, "ids": r.group_ids or []} for r in roles},
+                      role_dirs={r.id: {"all": r.all_groups, "ids": r.group_ids or [], "cs": r.contacts_scope or "all"}
+                                 for r in roles},
                       logins=logins, jobs_n=jobs_n, active_nav="users", help="people")
 
 
@@ -97,8 +100,12 @@ async def _user_save(request: Request, uid: int | None):
     role_id = int(form.get("role_id") or 0)
     perms = {p for p in form.getlist("perms") if p in PERM_KEYS}
     customise = form.get("customise") == "on"
-    all_grp = form.get("access") != "some"
+    access = form.get("access") if form.get("access") in ("all", "some", "own") else None
+    all_grp = (access or "all") == "all"
     group_ids = {int(g) for g in form.getlist("groups") if str(g).isdigit()}
+    contacts_scope = "own" if form.get("contacts_scope") == "own" else "all"
+    existing_view = "fields" if form.get("existing_view") == "fields" else "full"
+    existing_fields = [k for k in form.getlist("existing_fields") if k][:40]
     active = form.get("active") == "on"
 
     with SessionLocal() as s:
@@ -141,10 +148,18 @@ async def _user_save(request: Request, uid: int | None):
         else:
             target.extra_perms, target.removed_perms = "", ""
         target.perms = legacy_perms(target.perm_set)   # so a rollback to v0.4 keeps working
-        if not uid and form.get("access") is None:   # new user without a choice: the role's default
+        if not uid and access is None:   # new user without a choice: the role's default
             all_grp, group_ids = role.all_groups, set(role.group_ids or [])
+            access = "all" if all_grp else "some"
+        if not uid and form.get("contacts_scope") is None:
+            contacts_scope, existing_view = role.contacts_scope or "all", role.existing_view or "full"
+            existing_fields = list(role.existing_fields or [])
         target.all_groups = target.is_admin or all_grp
-        target.group_links = [] if target.all_groups else [UserGroup(group_id=g) for g in sorted(group_ids)]
+        target.dir_scope = "all" if target.all_groups else (access or "some")
+        keep = [] if target.all_groups or target.dir_scope == "own" else sorted(group_ids)
+        target.group_links = [UserGroup(group_id=g) for g in keep]
+        target.contacts_scope = "all" if target.is_admin else contacts_scope
+        target.existing_view, target.existing_fields = existing_view, existing_fields
         if not uid:
             target.password_hash = hash_password(password)
             target.must_change = form.get("must_change") == "on"
@@ -310,6 +325,8 @@ async def roles_save(request: Request):
             r.perms = join({p for p in PERM_KEYS if form.get(f"p_{r.id}_{p}") == "on"})
             r.all_groups = form.get(f"dirs_{r.id}") != "some"
             r.group_ids = [int(g) for g in form.getlist(f"g_{r.id}") if str(g).isdigit()]
+            r.contacts_scope = "own" if form.get(f"cs_{r.id}") == "own" else "all"
+            r.existing_view = "fields" if form.get(f"ev_{r.id}") == "fields" else "full"
         for u in s.scalars(select(User)).all():   # keep the rollback copy of permissions in step
             u.perms = legacy_perms(u.perm_set)
         s.commit()
@@ -333,7 +350,10 @@ async def role_new(request: Request):
         perms = join(src.perm_set) if src else "view"
         s.add(Role(name=name, description=(f"Copy of {src.name}. " + (src.description or "")).strip()[:300] if src else "",
                    perms=perms, all_groups=src.all_groups if src else True,
-                   group_ids=list(src.group_ids or []) if src else [], position=pos))
+                   group_ids=list(src.group_ids or []) if src else [], position=pos,
+                   contacts_scope=src.contacts_scope if src else "all",
+                   existing_view=src.existing_view if src else "full",
+                   existing_fields=list(src.existing_fields or []) if src else []))
         s.commit()
         flash(request, f"Role “{name}” created" + (f" as a copy of {src.name}" if src else "")
               + ". Tick its permissions below and press Save roles.")

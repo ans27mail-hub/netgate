@@ -8,37 +8,45 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 
 from .. import contacts as C
-from .. import control, crawl, ebay
-from ..auth import can, sees_all_groups
+from .. import backups, control, crawl, ebay
+from ..auth import can, own_contacts_only, sees_all_groups
 from ..contacts import user_name
-from ..db import AIServer, Decision, InboxItem, Job, Membership, NightRun, Record, SessionLocal
+from ..db import AIServer, Decision, InboxItem, Job, Membership, NightRun, Record, SessionLocal, User
 from ..methods import METHODS, connections
-from .common import (current_user, go, inbox_clause, jobs_clause, last_night, render, require, templates,
-                     view_groups, visible_records_clause)
+from .common import (can_control, current_user, go, inbox_clause, jobs_clause, last_night, render, require,
+                     templates, view_groups, visible_records_clause)
 
 router = APIRouter()
 
 # soft colours for the letter tile of each directory card (background, text)
 TILES = [("#eef2fb", "#1e46ab"), ("#fdf0dc", "#7a4a00"), ("#e3f1ea", "#1d5c3d"), ("#f3eefc", "#5b3aa8"),
          ("#fbe9e4", "#8a3216"), ("#e6f3f5", "#155e6b"), ("#f0f2f5", "#3b414c")]
-SORTS = [("menu", "Menu order"), ("name", "Name A–Z"), ("contacts", "Most contacts"),
-         ("inbox", "Most waiting in Inbox"), ("least", "Least complete")]
+SORTS = [("menu", "Menu Order"), ("name", "Name A–Z"), ("contacts", "Most Contacts"),
+         ("inbox", "Most Waiting in Inbox"), ("least", "Least Complete")]
 
 
-def dir_stats(s, groups) -> dict:
-    """Per directory: contacts, waiting in Inbox, % of fields filled, keywords, last search, top missing field."""
+def dir_stats(s, groups, user=None) -> dict:
+    """Per directory: contacts, waiting in Inbox, % of fields filled, keywords, last search, top missing field.
+    For people who only see their own contacts, everything is counted over their own contacts."""
     ids = [g.id for g in groups] or [-1]
-    counts = dict(s.execute(select(Membership.group_id, func.count(Membership.record_id))
-                            .where(Membership.group_id.in_(ids)).group_by(Membership.group_id)).all())
-    waiting = dict(s.execute(select(InboxItem.group_id, func.count(InboxItem.id))
-                             .where(InboxItem.status == "new", InboxItem.group_id.in_(ids))
-                             .group_by(InboxItem.group_id)).all())
+    own = own_contacts_only(user)
+    mine = select(Record.id).where(Record.found_by == user.id) if own else None
+    cq = select(Membership.group_id, func.count(Membership.record_id)).where(Membership.group_id.in_(ids))
+    wq = select(InboxItem.group_id, func.count(InboxItem.id)).where(InboxItem.status == "new",
+                                                                   InboxItem.group_id.in_(ids))
+    if own:
+        cq, wq = cq.where(Membership.record_id.in_(mine)), wq.where(InboxItem.record_id.in_(mine))
+    counts = dict(s.execute(cq.group_by(Membership.group_id)).all())
+    waiting = dict(s.execute(wq.group_by(InboxItem.group_id)).all())
     last = dict(s.execute(select(Job.group_id, func.max(Job.created_at))
                           .where(Job.group_id.in_(ids), Job.kind.in_(["request", "keyword"]))
                           .group_by(Job.group_id)).all())
     datas: dict = {}
-    for gid, data in s.execute(select(Membership.group_id, Record.data).join(Record, Record.id == Membership.record_id)
-                               .where(Membership.group_id.in_(ids))).all():
+    dq = select(Membership.group_id, Record.data).join(Record, Record.id == Membership.record_id) \
+        .where(Membership.group_id.in_(ids))
+    if own:
+        dq = dq.where(Record.found_by == user.id)
+    for gid, data in s.execute(dq).all():
         datas.setdefault(gid, []).append(data or {})
     out = {}
     for g in groups:
@@ -73,6 +81,8 @@ def _activity(s, user, groups, limit=12) -> list[dict]:
     q = select(Decision).order_by(Decision.id.desc()).limit(40)
     if not all_dirs:
         q = q.where(Decision.group_id.in_(list(names) or [-1]))
+    if own_contacts_only(user):
+        q = q.where(Decision.record_id.in_(select(Record.id).where(Record.found_by == user.id)))
     titles = {}
     decs = s.scalars(q).all()
     rids = [d.record_id for d in decs if d.record_id]
@@ -118,17 +128,22 @@ def _activity(s, user, groups, limit=12) -> list[dict]:
 def _attention(s, user, groups, stats) -> list[dict]:
     """Short list of things worth doing now. tone: red / amber / green."""
     out = []
+    if can(user, "backups"):
+        warn = backups.warning(s)
+        if warn:
+            out.append({"tone": "red" if "No backup" in warn or "days old" in warn else "amber", "text": warn,
+                        "label": "Backups", "href": "/settings/backups"})
     day = datetime.utcnow() - timedelta(hours=24)
     failed = s.scalar(select(func.count(Job.id)).where(Job.deleted_at.is_(None), Job.status == "failed",
                                                        Job.updated_at >= day, jobs_clause(user)))
     if failed:
         out.append({"tone": "red", "text": f"{failed} request{'s' if failed != 1 else ''} failed in the last 24 hours",
-                    "label": "See requests", "href": "/requests?tab=failed"})
+                    "label": "See Requests", "href": "/requests?tab=failed"})
     ebay_dirs = [g.name for g in groups if "ebay" in (g.methods or {})]
     if ebay_dirs and not ebay.ready(connections(s)):
         item = {"tone": "amber", "text": f"eBay keys are not set up — eBay search is skipped in {', '.join(ebay_dirs[:2])}"}
         if can(user, "connections"):
-            item.update(label="Add keys", href="/settings/connections")
+            item.update(label="Add Keys", href="/settings/connections")
         out.append(item)
     gaps = sorted(((stats[g.id]["top_missing"][1], g) for g in groups if stats[g.id]["top_missing"]),
                   key=lambda x: -x[0])
@@ -136,13 +151,13 @@ def _attention(s, user, groups, stats) -> list[dict]:
         field = stats[g.id]["top_missing"][0]
         item = {"tone": "amber", "text": f"{g.name}: {n} contact{'s' if n != 1 else ''} without {field}"}
         if can(user, "enrich", g.id):
-            item.update(label="Enrich them", post=f"/groups/{g.id}/enrich-incomplete")
+            item.update(label="Enrich Them", post=f"/groups/{g.id}/enrich-incomplete")
         out.append(item)
     for g in [g for g in groups if stats[g.id]["never_run"]][:2]:
         n = stats[g.id]["never_run"]
         item = {"tone": "amber", "text": f"{g.name}: {n} keyword{'s have' if n != 1 else ' has'} never been run"}
         if can(user, "keywords", g.id):
-            item.update(label="Run now", post=f"/groups/{g.id}/keywords/run-all")
+            item.update(label="Run Now", post=f"/groups/{g.id}/keywords/run-all")
         out.append(item)
     ready = s.scalar(select(func.count(InboxItem.id)).join(Record, Record.id == InboxItem.record_id)
                      .where(InboxItem.status == "new", Record.enrich_runs > 0, inbox_clause(user, groups)))
@@ -162,7 +177,7 @@ def dashboard(request: Request, group: int | None = None):
         user = current_user(s, request)
         require(user, "view")
         groups = view_groups(s, user)
-        stats = dir_stats(s, groups)
+        stats = dir_stats(s, groups, user)
         week = datetime.utcnow() - timedelta(days=7)
         icl = inbox_clause(user, groups)
         inbox_new = s.scalar(select(func.count(InboxItem.id)).where(InboxItem.status == "new", icl)) or 0
@@ -183,26 +198,56 @@ def dashboard(request: Request, group: int | None = None):
                                                            *jc)) or 0
         night = last_night(s) or s.scalar(select(NightRun).order_by(NightRun.id.desc()).limit(1))
         tiles = [
-            {"label": "Inbox waiting", "value": inbox_new, "sub": f"{inbox_new - inbox_enriched} new · {inbox_enriched} enriched",
+            {"label": "Inbox Waiting", "value": inbox_new, "sub": f"{inbox_new - inbox_enriched} new · {inbox_enriched} enriched",
              "href": "/inbox"},
             {"label": "Contacts", "value": contacts, "sub": f"+{added_week} added this week", "href": "/contacts"},
-            {"label": "Decisions this week", "value": dec.get("accept", 0) + dec.get("reject", 0),
+            {"label": "Decisions This Week", "value": dec.get("accept", 0) + dec.get("reject", 0),
              "sub": f"{dec.get('accept', 0)} accepted · {dec.get('reject', 0)} rejected", "href": "/inbox"},
             {"label": "Searches", "value": f"{running} running", "sub": f"{waiting} waiting · {failed} failed today",
              "href": "/requests"},
         ]
         if night:
             st = night.stats or {}
-            tiles.append({"label": "Last night" if night.status != "running" else "Tonight",
+            tiles.append({"label": "Last Night" if night.status != "running" else "Tonight",
                           "value": f"{st.get('saved', 0)} new",
                           "sub": f"{st.get('companies', 0)} enriched · {night.status}",
                           "href": "/settings/night" if can(user, "night") else "/requests"})
         else:
-            tiles.append({"label": "Night run", "value": "not yet", "sub": "runs at night when switched on",
+            tiles.append({"label": "Night Run", "value": "not yet", "sub": "runs at night when switched on",
                           "href": "/settings/night" if can(user, "night") else "/requests"})
         return render(request, s, user, "dashboard.html", active_nav="dashboard", help="dashboard",
                       tiles=tiles, attention=_attention(s, user, groups, stats), groups=groups, stats=stats,
                       activity=_activity(s, user, groups), inbox_new=inbox_new)
+
+
+@router.get("/dashboard/jobs", response_class=HTMLResponse)
+def running_jobs(request: Request):
+    """The Running Jobs panel (reloads itself every few seconds)."""
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "view")
+        base = [Job.deleted_at.is_(None), jobs_clause(user)]
+        running = s.scalars(select(Job).where(Job.status.in_(list(control.RUNNING)), *base)
+                            .order_by(Job.started_at.desc().nulls_last()).limit(6)).all()
+        waiting_q = select(Job).where(Job.status.in_(list(control.WAITING)), *base)
+        waiting_n = s.scalar(select(func.count()).select_from(waiting_q.subquery())) or 0
+        waiting = s.scalars(waiting_q.order_by(Job.id).limit(5)).all()
+        last = s.scalar(select(Job.finished_at).where(Job.finished_at.is_not(None), *base)
+                        .order_by(Job.finished_at.desc()).limit(1))
+        names = {g.id: g.name for g in view_groups(s, user)}
+        users = dict(s.execute(select(User.id, User.username)).all())
+        rows = []
+        for j in running:
+            st = j.stats or {}
+            done, total = int(st.get("page_no") or 0), int(st.get("pages_total") or 0)
+            pct = int(done * 100 / total) if total else (100 if j.status == "stopping" else 8)
+            found = f"{st.get('saved', 0)} new" if j.kind != "enrich" else f"{st.get('fields', 0)} fields filled"
+            rows.append({"j": j, "pct": min(100, pct), "found": found, "dir": names.get(j.group_id, ""),
+                         "who": users.get(j.user_id, "NetGate"), "since": j.started_at or j.created_at,
+                         "control": can_control(user, j)})
+        return templates.TemplateResponse(request, "_runjobs.html", {
+            "user": user, "rows": rows, "waiting": waiting, "waiting_n": waiting_n, "names": names, "last": last,
+            "running_n": len(running), "req_groups": [g for g in view_groups(s, user) if can(user, "request", g.id)]})
 
 
 def _check(name, fn):
@@ -255,7 +300,7 @@ def directories_page(request: Request, sort: str = "menu", view: str = ""):
         user = current_user(s, request)
         require(user, "view")
         groups = view_groups(s, user)
-        stats = dir_stats(s, groups)
+        stats = dir_stats(s, groups, user)
         if view in ("grid", "list"):
             if (user.prefs or {}).get("dir_view") != view:
                 user.prefs = {**(user.prefs or {}), "dir_view": view}

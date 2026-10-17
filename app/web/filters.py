@@ -5,16 +5,16 @@ from urllib.parse import urlencode
 from sqlalchemy import Text, cast, exists, or_, select
 
 from ..contacts import METHOD_LABELS, search_clause
-from ..db import InboxItem, Membership, Record
+from ..db import InboxItem, Membership, Record, RecordTag
 
 HAS = {"email": "email", "phone": "phone", "website": "website", "social": "social links", "whatsapp": "WhatsApp"}
 COMPLETE = {"100": "complete", "50": "≥ 50% complete", "missing": "missing fields"}
 ADDED = {"7": "last 7 days", "30": "last 30 days", "90": "last 90 days"}
-MULTI = ("dir", "country", "city", "has", "method")
+MULTI = ("dir", "country", "city", "has", "method", "tag")
 
 
 class Filters:
-    def __init__(self, request, fields=None, groups=None, keep=("view", "sort")):
+    def __init__(self, request, fields=None, groups=None, keep=("view", "sort"), tags=None):
         qp = request.query_params
         self.raw = [(k, v) for k, v in qp.multi_items() if v != ""]
         self.q = qp.get("q", "").strip()
@@ -25,6 +25,7 @@ class Filters:
         self.fields = {f.key: f for f in (fields or []) if f.filter}
         self.fvals = {k[2:]: v for k, v in self.raw if k.startswith("f_") and k[2:] in self.fields}
         self.groups = {g.id: g for g in (groups or [])}
+        self.tags = {t.id: t for t in (tags or [])}
         self.keep = keep
 
     # ---- SQL ----
@@ -49,6 +50,9 @@ class Filters:
                 stmt = stmt.where(Record.domain.is_not(None))
             elif h == "social":
                 stmt = stmt.where(cast(Record.social, Text) != "{}")
+        tag_ids = [int(x) for x in self.values["tag"] if x.isdigit()]
+        if tag_ids:
+            stmt = stmt.where(Record.id.in_(select(RecordTag.record_id).where(RecordTag.tag_id.in_(tag_ids))))
         methods = self.values["method"]
         if methods:
             conds = [exists().where(InboxItem.record_id == Record.id, InboxItem.method.in_(methods))]
@@ -93,6 +97,9 @@ class Filters:
                 out.append((label, v, self.without(key, v)))
         for h in self.values["has"]:
             out.append(("Has", HAS.get(h, h), self.without("has", h)))
+        for x in self.values["tag"]:
+            tg = self.tags.get(int(x)) if x.isdigit() else None
+            out.append(("Tag", tg.name if tg else x, self.without("tag", x)))
         for m in self.values["method"]:
             out.append(("Found by", METHOD_LABELS.get(m, m), self.without("method", m)))
         if self.kw:

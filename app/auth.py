@@ -21,6 +21,8 @@ PERM_GROUPS = [
         ("request", "Run discovery", "Ask the AI to search for new companies"),
         ("keywords", "Run keywords", "Click a directory's keywords and “Run all”"),
         ("enrich", "Enrich", "Look for missing details of a contact"),
+        ("enrich_others", "Enrich other people's contacts", "Also contacts someone else found first"),
+        ("see_methods", "See search methods", "See and choose a directory's search methods (web, directory site, eBay …)"),
         ("requests_own", "Control own requests", "Pause, stop, delete or reject their own requests"),
         ("requests_all", "Control everyone's requests", "Includes the night run and “Pause all”"),
         ("reject_list", "Manage the reject list", "Restore rejected keywords"),
@@ -30,12 +32,14 @@ PERM_GROUPS = [
     ]),
     ("Directories", [
         ("manage_dirs", "Manage directories", "Create directories; edit search methods, fields, keywords and AI instructions"),
+        ("manage_tags", "Manage tags", "Create, colour, order, merge and delete tags (anyone who may edit contacts can put tags on them)"),
     ]),
     ("System", [
         ("ai", "AI servers & models", "Choose which AI server and model each job uses"),
         ("crawler", "Crawler settings", "Browser, next pages, cache, polite limits"),
         ("night", "Night jobs", "When and what runs at night"),
-        ("display_all", "Display for everyone", "Page width and default view for all users"),
+        ("display_all", "Display & themes for everyone", "Page width, cards, default view and the theme for all users"),
+        ("backups", "Backups", "Automatic database backups, Back Up Now, download backups"),
         ("connections", "Connections (API keys)", "eBay and Etsy keys"),
     ]),
     ("People", [
@@ -53,7 +57,8 @@ PERM_GROUPS = [
 PERMS = [p for _, items in PERM_GROUPS for p in items]
 PERM_KEYS = [p[0] for p in PERMS]
 PERM_LABELS = {k: label for k, label, _ in PERMS}
-DIR_PERMS = {"view", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "review"}
+DIR_PERMS = {"view", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "enrich_others",
+             "review"}
 ALIASES = {"manage_groups": "manage_dirs"}   # names used before v0.5
 
 ADMIN = "Admin"
@@ -61,14 +66,15 @@ DEFAULT_ROLES = [
     # (name, description, perms)
     (ADMIN, "Everything. This role can't be changed or locked out.", PERM_KEYS),
     ("Manager", "Runs the work: directories, keywords, instructions, night jobs and everyone's searches.",
-     ["view", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "requests_own",
-      "requests_all", "reject_list", "review", "manage_dirs", "ai", "crawler", "night", "display_all", "tester",
-      "debug"]),
+     ["view", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "enrich_others",
+      "see_methods", "requests_own", "requests_all", "reject_list", "review", "manage_dirs", "manage_tags", "ai",
+      "crawler", "night", "display_all", "tester", "debug"]),
     ("Researcher", "Uses the site: runs keywords, enriches, reviews the Inbox and adds contacts.",
-     ["view", "export", "edit", "add_contacts", "request", "keywords", "enrich", "requests_own", "review"]),
+     ["view", "export", "edit", "add_contacts", "request", "keywords", "enrich", "enrich_others", "requests_own",
+      "review"]),
     ("Viewer", "Looks only: views and filters contacts, can export.", ["view", "export"]),
     ("Developer", "Helps build NetGate: testing and debugging tools, no users and no API keys.",
-     ["view", "export", "request", "keywords", "enrich", "requests_own", "debug", "logs", "tester",
+     ["view", "export", "request", "keywords", "enrich", "see_methods", "requests_own", "debug", "logs", "tester",
       "training_export", "dev_help"]),
 ]
 
@@ -129,6 +135,15 @@ def can_any(user, perms) -> bool:
 
 def sees_all_groups(user) -> bool:
     return bool(user and (user.is_admin or user.all_groups))
+
+
+def own_contacts_only(user) -> bool:
+    """This person only sees the contacts they found first (or added)."""
+    return bool(user and not user.is_admin and (user.contacts_scope or "all") == "own")
+
+
+def sees_methods(user) -> bool:
+    return can(user, "see_methods") or can(user, "manage_dirs")
 
 
 def best_role(target: set[str], roles: list) -> tuple:

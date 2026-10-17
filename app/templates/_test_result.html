@@ -4,9 +4,9 @@
   {% else %}
   <p class="hint" style="margin:0">Discover would put {{ test.entries|length }} compan{{ 'y' if test.entries|length == 1 else 'ies' }} from this page in the Inbox. {{ test.info }}</p>
   <div class="overflow"><table class="t" style="min-width:680px">
-    <thead><tr><th>Name</th><th>City</th><th>Country</th><th>Website</th><th>Found by code</th><th>Description</th></tr></thead>
+    <thead><tr><th>Name</th><th>City</th><th>Country</th><th>Website</th><th>Found by Code</th><th>Description</th></tr></thead>
     <tbody>{% for e in test.entries[:40] %}<tr><td><b>{{ e.name }}</b></td><td>{{ e.city or '—' }}</td><td>{{ e.country or '—' }}</td><td>{{ e.website or '—' }}</td><td class="sub">{{ e.code or '—' }}</td><td class="sub">{{ (e.description or '')|truncate(120) }}</td></tr>{% endfor %}</tbody>
   </table></div>
   {% endif %}
-  {% if test.text %}<details><summary class="hint">Page text the AI saw (first 3,000 characters)</summary><pre class="pretext">{{ test.text }}</pre></details>{% endif %}
+  {% if test.text %}<details><summary class="hint">Page Text the AI Saw (First 3,000 Characters)</summary><pre class="pretext">{{ test.text }}</pre></details>{% endif %}
 {% endif %}

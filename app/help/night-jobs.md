@@ -5,7 +5,7 @@ order: 20
 needs: night
 summary: Search and enrich while you sleep
 ---
-Settings → **Night jobs**.
+Settings → **Night Jobs**.
 
 - **When** — start and stop time (e.g. 11 pm – 7 am), the time zone and which nights. Jobs stop by themselves when the window ends.
 - **Limits** — how many contacts to enrich per night, and a pause between pages.

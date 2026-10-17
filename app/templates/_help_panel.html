@@ -1,13 +1,22 @@
 <div class="helppanel">
   <div class="hp-head">
-    <span class="caps-sm">Help</span>
-    <button type="button" class="btn btn-outline btn-small" onclick="this.closest('dialog').close()" aria-label="Close help">×</button>
+    {% if page %}<span class="badge blue">{{ page.section }}</span>{% endif %}
+    <h2>{{ page.title if page else 'Help' }}</h2>
+    {% if page %}<a href="/help/{{ page.slug }}" class="hp-full">Open as Full Page ↗</a>{% endif %}
+    <button type="button" class="hp-close" onclick="this.closest('dialog').close()" aria-label="Close help">×</button>
   </div>
-  {% if page %}
-  <h2>{{ page.title }}</h2>
-  <div class="helptext">{{ page.html|safe }}</div>
-  <a href="/help/{{ page.slug }}">Open in the Help Center →</a>
-  {% else %}
-  <p class="hint">No help page for this yet. <a href="/help">Open the Help Center</a>.</p>
-  {% endif %}
+  <div class="hp-body">
+    <div class="hp-scroll">
+      {% if page %}<div class="helptext">{{ page.html|safe }}</div>
+      {% else %}<p class="hint">No help page for this yet. <a href="/help">Open the Help Center</a>.</p>{% endif %}
+    </div>
+  </div>
+  <form class="hp-foot" hx-post="/help/ask" hx-target="#hp-answer" hx-indicator="#hp-asking">
+    <label for="hp-q" class="sr">Ask NetGate</label>
+    <input id="hp-q" type="text" name="question" required placeholder="Ask NetGate a question about this page…">
+    <button type="submit" class="btn btn-primary pill">Ask</button>
+    <a href="/help">All Help Pages</a>
+    <span id="hp-asking" class="htmx-indicator sub">Thinking…</span>
+    <div id="hp-answer" class="hp-answer"></div>
+  </form>
 </div>

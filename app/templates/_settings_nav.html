@@ -4,17 +4,21 @@
   {% for g in all %}
   <a href="/settings/directories/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}"><span>{{ g.name }}</span>{% if counts is defined and counts %}<small>{{ counts.get(g.id, 0) }}</small>{% endif %}</a>
   {% endfor %}
-  <a href="/settings/directories/new" class="{% if active_nav == 'dirs' and not group %}on{% endif %} newlink">+ New directory</a>
+  <a href="/settings/directories/new" class="{% if active_nav == 'dirs' and not group %}on{% endif %} newlink">+ New Directory</a>
   {% endif %}
-  {% if can_any(user, ['ai', 'night', 'crawler', 'connections', 'reject_list']) %}<span class="caps">System</span>{% endif %}
-  {% if can(user, 'ai') %}<a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI servers &amp; models</a>{% endif %}
-  {% if can(user, 'night') %}<a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night jobs</a>{% endif %}
+  {% if can(user, 'manage_tags') %}<span class="caps">Contacts</span>
+  <a href="/settings/tags" class="{% if active_nav == 'tags' %}on{% endif %}">Tags</a>{% endif %}
+  {% if can_any(user, ['ai', 'night', 'crawler', 'connections', 'reject_list', 'display_all', 'backups']) %}<span class="caps">System</span>{% endif %}
+  {% if can(user, 'ai') %}<a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI Servers &amp; Models</a>{% endif %}
+  {% if can(user, 'night') %}<a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night Jobs</a>{% endif %}
   {% if can(user, 'crawler') %}<a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>{% endif %}
-  {% if can(user, 'connections') %}<a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API keys)</a>{% endif %}
-  {% if can(user, 'reject_list') %}<a href="/settings/reject-list" class="{% if active_nav == 'reject' %}on{% endif %}">Reject list</a>{% endif %}
+  {% if can(user, 'connections') %}<a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API Keys)</a>{% endif %}
+  {% if can(user, 'reject_list') %}<a href="/settings/reject-list" class="{% if active_nav == 'reject' %}on{% endif %}">Reject List</a>{% endif %}
+  {% if can(user, 'display_all') %}<a href="/settings/themes" class="{% if active_nav == 'themes' %}on{% endif %}">Themes</a>{% endif %}
+  {% if can(user, 'backups') %}<a href="/settings/backups" class="{% if active_nav == 'backups' %}on{% endif %}">Backups</a>{% endif %}
   <span class="caps">You</span>
   <a href="/settings/display" class="{% if active_nav == 'display' %}on{% endif %}">Display</a>
-  <a href="/account/password" class="{% if active_nav == 'account' %}on{% endif %}">My password</a>
+  <a href="/account/password" class="{% if active_nav == 'account' %}on{% endif %}">My Password</a>
   {% if can_any(user, ['manage_users', 'manage_roles']) %}<span class="caps">People</span>
-  <a href="/people">Users, roles &amp; logins →</a>{% endif %}
+  <a href="/people">Users, Roles &amp; Logins →</a>{% endif %}
 </nav>
