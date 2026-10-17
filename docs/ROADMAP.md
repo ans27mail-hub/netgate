@@ -54,6 +54,14 @@ Headless Chromium renderer container; next-page following; directory profiles; c
 - **Automatic backups**: own `backup` container, every night (time and days kept in Settings → Backups), Back Up Now, download; `netgate backup` / `netgate restore` on the server only.
 - **Running Jobs** panel on the Dashboard beside Quick Actions.
 
+## Next update list (v0.8, agreed 17 Oct 2026 — build only when the owner says “build v0.8”)
+1. **Verify + Company page** (see item 1 below: where each value came from, re-check, short profile, products).
+2. **Delete a directory only when it has no contacts.** Delete is switched off with “still has N contacts — move or remove them first” and a link to the list. Companies still waiting in the Inbox for it are removed with it, after a warning in the confirm box (owner chose B).
+3. *(waiting for the owner's OK)* **Settings → Search Engines**: turn SearXNG engines on / off, see which work or block, results per engine; optional official search keys as backup (Brave, Google, Serper …; check prices first); Debug shows which engine gave each link.
+4. **Browser search** method: the renderer's Chromium opens Bing / DuckDuckGo (Google only if switched on), reads result pages and listing pages, keeps going until the directory's need is met. Stop rule per directory: N new matching companies, max result pages, max time. Pause between searches, max searches per hour; on a CAPTCHA the engine pauses for hours and the Dashboard says so (never solve CAPTCHAs).
+5. **Permanent list of pages read** (link, when, which request, what was found, which company). Enrich reuses what was found and only opens unread pages; discovery skips listing pages read recently unless “read again after N days”; Verify re-reads on purpose; Debug / Company page show the pages. Handed to the Scanner later.
+- Not chosen: “Items, not companies” directories (owner uses a supplier directory with a Materials field instead).
+
 ## Next — agreed plan (build each only when the owner says “build”)
 Agreed order (16 Oct 2026):
 1. **NetGate v0.8 — where each value came from + Verify.** Every value stores page link, saved-page id (Scanner, later), method (auto scan, manual capture, eBay API, by hand, CSV), found date, last checked. **Verify** button on the full card (re-checks those pages, shows same / changed with Accept / Keep old, page gone) + a night setting “re-check contacts not verified for N months”. **Short company profile** (type, product categories, main products, materials, markets, certifications) and a **Company page** (all fields with sources and verify dates, products, saved pages, history, notes, directories). **Products** as their own records (name, category, image link, source page, price / MOQ). One shared **MFI product category list** (draft it when the owner asks).
