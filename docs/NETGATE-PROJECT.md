@@ -113,7 +113,7 @@ Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (
 
 ## Next Update List (v0.8)
 
-Nine points are agreed; nothing is built until the owner says “build v0.8”. Splitting it into v0.8 (points 2, 5–9) and v0.9 (points 1, 3, 4) is offered. Details: `docs/ROADMAP.md`.
+All nine points are agreed and split (18 Oct 2026): **v0.8 = points 2, 9, 6, 3**, built on “build v0.8”; **v0.9 = points 5, 7, 4, 8, 1**, after that. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |

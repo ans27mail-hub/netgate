@@ -54,7 +54,8 @@ Headless Chromium renderer container; next-page following; directory profiles; c
 - **Automatic backups**: own `backup` container, every night (time and days kept in Settings → Backups), Back Up Now, download; `netgate backup` / `netgate restore` on the server only.
 - **Running Jobs** panel on the Dashboard beside Quick Actions.
 
-## Next update list (v0.8, agreed 17 Oct 2026 — build only when the owner says “build v0.8”)
+## Next update list (agreed 17–18 Oct 2026)
+**Split (owner, 18 Oct 2026):** **v0.8 = points 2, 9, 6, 3** (build on “build v0.8”); **v0.9 = points 5, 7, 4, 8, 1** in that order (5 first: 4, 6 and 7 build on it). In v0.8, Edit and Run Again works without skipping already-read pages; that comes with 5 in v0.9.
 1. **Verify + Company page** (see item 1 below: where each value came from, re-check, short profile, products).
 2. **Delete a directory only when it is empty.** Delete is switched off while it has contacts (“still has N contacts — move or remove them first”, with a link to the list) **or companies waiting in the Inbox for it** (“N companies are waiting in the Inbox — accept or reject them first”, with a link to the Inbox filtered to that directory). Accepted ones join the directory and must then be moved or removed too. Only an empty directory with an empty Inbox can be deleted (owner changed from B to A, 18 Oct 2026).
 3. **Settings → Search Engines** (free parts only): turn each SearXNG engine on / off; whether each is working or blocking (and since when); results per engine on recent searches; Debug shows which engine gave each link. *Paid backup search keys (Brave, Google, Serper) left for later (owner, 18 Oct 2026).*
