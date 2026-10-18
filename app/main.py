@@ -9,15 +9,15 @@ from sqlalchemy import func, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from .db import SessionLocal, User, init_db, log
-from .web import (add_routes, auth_routes, backup_routes, contacts_routes, dashboard_routes, help_routes,
-                  inbox_routes, look_routes, people_routes, requests_routes, settings_routes)
+from .web import (add_routes, auth_routes, backup_routes, contacts_routes, dashboard_routes, engine_routes,
+                  help_routes, inbox_routes, look_routes, people_routes, requests_routes, settings_routes)
 from .web.common import BASE, SECRET, VERSION, Forbidden, LoginRequired, MustChangePassword
 
 app = FastAPI(title="NetGate")
 app.add_middleware(SessionMiddleware, secret_key=SECRET, same_site="lax", max_age=14 * 24 * 3600)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
 for module in (auth_routes, dashboard_routes, inbox_routes, add_routes, contacts_routes, requests_routes, settings_routes,
-               people_routes, help_routes, look_routes, backup_routes):
+               people_routes, help_routes, look_routes, backup_routes, engine_routes):
     app.include_router(module.router)
 
 

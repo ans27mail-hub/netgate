@@ -122,6 +122,7 @@ class Ctx:
         self.job_id, self.ai_type, self.stop_rule, self.pause, self.user = job_id, ai_type, stop_rule, pause, user
         self.stats = {"results": 0, "read": 0, "failed": 0, "saved": 0, "updated": 0, "fields": 0,
                       "rendered": 0, "cached": 0, "next_pages": 0, "profiles": 0, "page_no": 0, "pages_total": 0}
+        self.deeper = 0                # "Go deeper" level of an edited request (v0.8): more result pages
         self.state: dict = {}          # saved when paused, given back on Resume
         self.resume_state: dict = {}
         self.notes: list[str] = []
@@ -211,6 +212,13 @@ class Ctx:
     def history(self, method: str, query: str) -> str:
         label = contacts.METHOD_LABELS.get(method, method)
         return f"Found by {label} “{query[:80]}” · {datetime.utcnow():%d %b %Y}" + (f" · {self.user}" if self.user else "")
+
+
+def trace_search(ctx: Ctx, query: str, results: list[dict], **extra):
+    """Debug note for one search: the links and which search engine(s) gave each one (v0.8)."""
+    ctx.trace("search", query, results=[r["url"] for r in results],
+              engines={r["url"]: r.get("engines") or [] for r in results if r.get("engines")},
+              blocked=dict(getattr(crawl.last_search, "errors", {}) or {}), **extra)
 
 
 def ask(ctx: Ctx, prompt: str, url: str = ""):
@@ -309,9 +317,18 @@ Keys for "fields":
 {fields}"""
 
 
-def discover_queries(text: str, group) -> list[tuple[str, int]]:
+def discover_queries(text: str, group, deeper: int = 0) -> list[tuple[str, int]]:
+    """The searches for one request. "Go deeper" (v0.8) adds two more result pages per level."""
     base = f"{text} {group.search_terms}".strip()
-    return [(base, 1), (f"{base} list", 1), (f"top {base} companies", 1), (base, 2)]
+    out = [(base, 1), (f"{base} list", 1), (f"top {base} companies", 1), (base, 2)]
+    for level in range(1, max(0, deeper) + 1):
+        out += [(base, 1 + 2 * level), (f"{base} list", 1 + level), (base, 2 + 2 * level)]
+    return out
+
+
+def page_limit(ctx) -> int:
+    """Search-result pages read per method; each "Go deeper" level adds as many again."""
+    return MAX_PAGES * (1 + max(0, getattr(ctx, "deeper", 0)))
 
 
 def _ask_entries(ctx: Ctx, group, query: str, page) -> list[dict]:
@@ -399,7 +416,7 @@ def _enhance_entries(ctx: Ctx, page, entries: list[dict], directory_mode: bool |
 def crawl_pages(ctx: Ctx, group_id: int, query: str, method: str, queue: list, seen: set, done: int,
                 directory_mode: bool | None = None):
     """Read queued pages; list pages add their next page to the front of the queue."""
-    max_next = int(crawl.settings().get("next_pages") or 0)
+    max_next = int(crawl.settings().get("next_pages") or 0) + 2 * max(0, ctx.deeper)
     with SessionLocal() as s:
         group = s.get(Group, group_id)
         _ = group.fields
@@ -447,19 +464,20 @@ def web_discover(ctx: Ctx, group, query: str, sub: dict | None):
         queue, seen, done = [tuple(x) for x in sub.get("queue", [])], set(sub.get("seen", [])), int(sub.get("done", 0))
     else:
         seen, queue, done = set(), [], 0
-        for q, pageno in discover_queries(query, group):
-            if len(queue) >= MAX_PAGES or ctx.should_stop():
+        limit = page_limit(ctx)
+        for q, pageno in discover_queries(query, group, ctx.deeper):
+            if len(queue) >= limit or ctx.should_stop():
                 break
-            ctx.step("searching", f"Searching: {q}" + (" (page 2)" if pageno > 1 else ""))
+            ctx.step("searching", f"Searching: {q}" + (f" (page {pageno})" if pageno > 1 else ""))
             results = crawl.search(q, pageno)
-            ctx.trace("search", q, page=pageno, results=[r["url"] for r in results])
+            trace_search(ctx, q, results, page=pageno)
             for res in results:
                 ctx.stats["results"] += 1
                 u = res["url"]
                 if u not in seen and not crawl.skip(u):
                     seen.add(u)
                     queue.append((u, 0))
-        queue = queue[:MAX_PAGES]
+        queue = queue[:page_limit(ctx)]
     crawl_pages(ctx, group.id, query, "web", queue, seen, done)
 
 
@@ -482,8 +500,8 @@ def directory_discover(ctx: Ctx, group, query: str, sub: dict | None):
             q = f"{query} site:{site}"
             ctx.step("searching", f"Searching: {q}")
             results = crawl.search(q)
-            ctx.trace("search", q, results=[r["url"] for r in results])
-            for res in results[:8]:
+            trace_search(ctx, q, results)
+            for res in results[:8 * (1 + ctx.deeper)]:
                 ctx.stats["results"] += 1
                 if res["url"] not in seen:
                     seen.add(res["url"])
@@ -491,7 +509,7 @@ def directory_discover(ctx: Ctx, group, query: str, sub: dict | None):
         if not queue:
             ctx.notes.append("Directory site search has no list pages or sites set up (Directory settings).")
             return
-    crawl_pages(ctx, group.id, query, "directory", queue[:MAX_PAGES * 2], seen, done, directory_mode=True)
+    crawl_pages(ctx, group.id, query, "directory", queue[:page_limit(ctx) * 2], seen, done, directory_mode=True)
 
 
 def ebay_discover(ctx: Ctx, group, query: str):
@@ -500,7 +518,10 @@ def ebay_discover(ctx: Ctx, group, query: str):
     if not ebay.ready(conn):
         ctx.notes.append("eBay keys are not set up yet (Settings → Connections), so eBay search was skipped.")
         return
-    opts = methods.options(group, "ebay")
+    opts = dict(methods.options(group, "ebay"))
+    if ctx.deeper:   # Go deeper: look at more listings and sellers
+        for k, default in (("per_keyword", 200), ("max_sellers", 60)):
+            opts[k] = int(opts.get(k) or default) * (1 + ctx.deeper)
     ctx.step("searching", f"eBay: searching “{query}”")
     for info in ebay.find_sellers(conn, opts, query, check=ctx.check, note=ctx.trace):
         if ctx.should_stop():
@@ -728,7 +749,7 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
             break
         ctx.step("searching", f"Enrich {name}: {q}")
         results = crawl.search(q)[:8]
-        ctx.trace("search", q, results=[r["url"] for r in results])
+        trace_search(ctx, q, results)
         for res in results:
             ctx.stats["results"] += 1
             head = f"{res['title']} {res['content']}"
@@ -1002,6 +1023,12 @@ def run_job(job_id: int, keyword_id: int | None = None, run_id: int | None = Non
     run_id = run_id or params.get("run_id")
     ctx = Ctx(job_id, "night" if kind == "night" else ("enrich" if kind == "enrich" else "discover"), user=uname)
     ctx.resume_state = state
+    ctx.deeper = max(0, min(control.MAX_DEEPER, int(params.get("deeper") or 0)))
+    crawl.set_search_job(job_id)
+    if params.get("try") and not state:   # an edited request: mark where this try starts in the Debug view
+        ctx.trace("note", "", text=f"Try {params['try']}: “{query}”"
+                  + (f" · Go deeper {ctx.deeper}" if ctx.deeper else "")
+                  + (f" · methods: {', '.join(params['methods'])}" if params.get("methods") else ""))
     ctx.stats.update({k: v for k, v in (state.get("stats") or {}).items() if k in ctx.stats or k == "companies"})
     try:
         if rejected:

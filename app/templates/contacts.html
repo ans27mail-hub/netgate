@@ -231,8 +231,8 @@
 {% elif view == 'list' %}
 {% include "_table.html" %}
 {% else %}
-{% set maxw = (card.per_row * card.width + (card.per_row - 1) * 12) if card.per_row else 0 %}
-<div class="grid cards style-{{ card.style|lower }}" id="cards" style="--cardw:{{ card.width }}px{% if maxw %};max-width:{{ maxw }}px{% endif %}">
+{% set maxw = (card.per_row * card.width + (card.per_row - 1) * 12) if card.per_row and not card.fill else 0 %}
+<div class="grid cards style-{{ card.style|lower }}{{ ' fill' if card.fill }}{{ ' rowcap' if card.fill and card.per_row }}" id="cards" style="--cardw:{{ card.width }}px{% if card.fill and card.per_row %};--perrow:{{ card.per_row }}{% endif %}{% if maxw %};max-width:{{ maxw }}px{% endif %}">
   {% for r in records %}
   {% set rf, filled, total = fmap.get(r.id, ([], 0, 0)) %}
   {% set pct = (filled * 100 / total)|int if total else 100 %}

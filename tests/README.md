@@ -49,3 +49,13 @@ NO_PROXY=.test,127.0.0.1 python3 tests/test_v07.py
 ```
 `tests/test_v06.py` also runs with the current code (v0.5 → v0.7). The v0.7 test also checks that every feature
 in `app/handbook.py` has a Handbook page.
+
+## Run (v0.8 test, upgrading from v0.7)
+Make a v0.7 database (run `tests/test_v07.py` with the v0.7 code), start the fake SearXNG, then with the current code:
+```
+python3 tests/fake_searx.py            # port 3997
+DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up7 REDIS_URL=redis://x SEARXNG_URL=http://127.0.0.1:3997 \
+OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 BACKUP_DIR=/tmp/ngbackups \
+NO_PROXY=.test,127.0.0.1 python3 tests/test_v08.py
+```
+`tests/test_v05.py`, `test_v06.py` and `test_v07.py` also pass with the v0.8 code.

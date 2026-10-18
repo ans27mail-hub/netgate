@@ -1,4 +1,6 @@
 """Requests: start searches, and pause / resume / stop / delete / reject / run them again."""
+from datetime import datetime
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, or_, select
@@ -78,6 +80,119 @@ def _do(s, user, job, action: str, reason: str = "") -> bool:
         control.run_again(s, job, user)
         return True
     return False
+
+
+# ---------- Edit and Run Again (v0.8) ----------
+
+def _edit_ctx(s, user, job):
+    groups = [g for g in all_groups(s) if can(user, "request", g.id)]
+    if job.group_id and job.group_id not in {g.id for g in groups}:
+        g = s.get(Group, job.group_id)
+        groups = ([g] if g else []) + groups
+    by_id = {g.id: g for g in all_groups(s)}
+    history = control.tries(job)
+    for t in history:
+        g = by_id.get(t.get("group_id"))
+        t["group"] = g.name if g else "—"
+        t["can_save"] = bool(g and t.get("query") and (t.get("saved") or t.get("updated"))   # a try that found something
+                             and (can(user, "keywords", g.id) or can(user, "manage_dirs"))
+                             and t["query"].strip().lower() not in {k.text.lower() for k in g.keywords})
+        stamp = t.get("finished") or t.get("started") or ""
+        try:
+            t["when"] = datetime.fromisoformat(stamp).strftime("%d %b %H:%M") if stamp else ""
+        except ValueError:
+            t["when"] = ""
+    users = dict(s.execute(select(User.id, User.username)).all())
+    group = by_id.get(job.group_id)
+    return {"job": job, "groups": groups, "history": history, "users": users, "group": group,
+            "dir_methods": {g.id: methods.enabled_find_methods(g) for g in groups},
+            "chosen": (job.params or {}).get("methods") or [], "deeper": int((job.params or {}).get("deeper") or 0),
+            "editable": control.can_edit(job), "max_deeper": control.MAX_DEEPER}
+
+
+@router.get("/requests/{jid}/edit", response_class=HTMLResponse)
+def edit_page(request: Request, jid: int):
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        job = s.get(Job, jid)
+        if not job or job.kind not in control.DISCOVER_KINDS:
+            return go("/requests")
+        if not can_control(user, job):
+            raise Forbidden
+        return render(request, s, user, "request_edit.html", active_nav="requests", help="requests",
+                      **_edit_ctx(s, user, job))
+
+
+@router.post("/requests/{jid}/edit")
+async def edit_run(request: Request, jid: int):
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        job = s.get(Job, jid)
+        if not job or job.kind not in control.DISCOVER_KINDS:
+            return go("/requests")
+        if not can_control(user, job):
+            raise Forbidden
+        if not control.can_edit(job):
+            flash(request, f"“{job.query}” can be changed when it has finished, failed or been stopped "
+                           f"(now: {job.status}).", True)
+            return go(f"/requests/{jid}/edit")
+        query = str(form.get("query") or "").strip()
+        gid = int(form.get("group_id") or 0) if str(form.get("group_id") or "").isdigit() else 0
+        group = s.get(Group, gid)
+        if not query or not group:
+            flash(request, "Write what to look for and choose a directory.", True)
+            return go(f"/requests/{jid}/edit")
+        require(user, "request", gid)
+        if _blocked_message(request, s, query, gid):
+            return go(f"/requests/{jid}/edit")
+        use = None
+        if sees_methods(user):
+            use = [m for m in form.getlist("methods") if m in methods.enabled_find_methods(group)] or None
+        else:
+            use = (job.params or {}).get("methods") if gid == job.group_id else None
+        current = int((job.params or {}).get("deeper") or 0)
+        depth = str(form.get("depth") or "")
+        deeper = int(depth) if depth.isdigit() else current
+        if form.get("go_deeper"):   # the “Go Deeper” button: one level more than the last try
+            deeper = current + 1
+        deeper = max(0, min(control.MAX_DEEPER, deeper))
+        n = len(control.tries(job)) + 1
+        control.edit_and_run(s, job, user, query, gid, use, deeper)
+        if not request.session.get("flash"):
+            flash(request, f"Try {n} of this request started: “{query}” in {group.name}"
+                           + (f", Go Deeper level {deeper}" if deeper else "") + ". Earlier finds stay in the Inbox.")
+    return go("/requests")
+
+
+@router.post("/requests/{jid}/save-keyword")
+def save_keyword(request: Request, jid: int, n: int = Form(0)):
+    """Save the search text of one try as a keyword of that try's directory."""
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        job = s.get(Job, jid)
+        if not job or not can_control(user, job):
+            raise Forbidden
+        history = control.tries(job)
+        t = next((x for x in history if x.get("n") == n), history[-1])
+        group = s.get(Group, t.get("group_id") or 0)
+        text = str(t.get("query") or "").strip()
+        if not group or not text:
+            return go(f"/requests/{jid}/edit")
+        if not (can(user, "keywords", group.id) or can(user, "manage_dirs")):
+            raise Forbidden
+        if not (t.get("saved") or t.get("updated")):
+            flash(request, f"Try {t.get('n')} found nothing, so it isn't saved as a keyword.", True)
+        elif text.lower() in {k.text.lower() for k in group.keywords}:
+            flash(request, f"“{text}” is already a keyword of {group.name}.")
+        elif control.rejected_entry(s, text, group.id):
+            flash(request, f"“{text}” is on the reject list, so it can't be a keyword.", True)
+        else:
+            group.keywords.append(Keyword(text=text[:300], night=True, method="all", found_count=int(t.get("saved") or 0),
+                                          last_run_at=job.finished_at))
+            s.commit()
+            flash(request, f"Saved “{text}” as a keyword of {group.name}. It also runs at night when night jobs are on.")
+    return back(request, f"/requests/{jid}/edit")
 
 
 @router.post("/requests/{jid}/{action}")

@@ -21,8 +21,11 @@ summary: AI servers, crawler, display and the reject list
 | robots.txt | on | Follow each site's rules for crawlers |
 | Parts per long page | 3 | Long pages are split into at most this many parts |
 
+## Search Engines
+Which engines web searches use, whether each one works or is blocking (and since when), and how many links each gave. See [Search engines](/help/search-engines).
+
 ## Display
-Page width (fixed, % of the screen, or full), grid or list by default, **Cards** (style A / B / C, card width, colour from tags) and **at most N cards per row** — for you, or for everyone (with *Display & themes for everyone*). **My theme** chooses a [theme](/help/themes) just for you.
+Page width (fixed, % of the screen, or full), grid or list by default, **Cards** (style A / B / C, card width, **Fill the row**, colour from tags) and **at most N cards per row** — for you, or for everyone (with *Display & themes for everyone*). **My theme** chooses a [theme](/help/themes) just for you.
 
 ## Tags, Themes, Backups
 See [Tags](/help/tags), [Themes](/help/themes) and [Backups](/help/backups).

@@ -9,7 +9,9 @@
     {% if control %}
     {% set labels = {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'reject': 'Reject…', 'restore': 'Take Off Reject List', 'again': 'Run Again'} %}
     {% for a in job_actions(job) %}
-    {% if a == 'reject' %}
+    {% if a == 'edit' %}
+    <a href="/requests/{{ job.id }}/edit" class="btn btn-outline btn-small">Edit and Run Again</a>
+    {% elif a == 'reject' %}
     <form method="post" action="/requests/{{ job.id }}/reject" class="inline" onsubmit="var r=prompt('Why reject this keyword? (it goes on the reject list)');if(r===null)return false;this.reason.value=r"><input type="hidden" name="reason"><button type="submit" class="btn btn-outline btn-small">Reject…</button></form>
     {% else %}
     <form method="post" action="/requests/{{ job.id }}/{{ a }}" class="inline"><button type="submit" class="btn {{ 'btn-danger' if a in ('delete', 'stop') else 'btn-outline' }} btn-small">{{ labels.get(a, a) }}</button></form>
@@ -38,10 +40,15 @@
       <span class="tu">{{ t.url|truncate(110) }}</span>
       {% if t.kind == 'page' %}<span class="sub">{{ 'read' if t.data.get('ok') else 'failed' }}{% if t.data.get('rendered') %} · browser{% endif %}{% if t.data.get('cached') %} · cache{% endif %} · {{ t.data.get('chars', 0) }} chars{% if t.data.get('note') %} · {{ t.data.note }}{% endif %}</span>{% endif %}
       {% if t.kind == 'ai' %}<span class="sub">{{ ((t.data.get('answer') or {}).get('entries') or [])|length }} entries{% if (t.data.get('answer') or {}).get('fields') %} · {{ (t.data.answer.fields or {}).keys()|list|join(', ') }}{% endif %}</span>{% endif %}
-      {% if t.kind == 'search' %}<span class="sub">{{ (t.data.get('results') or [])|length }} results</span>{% endif %}
+      {% if t.kind == 'search' %}<span class="sub">{{ (t.data.get('results') or [])|length }} results{% if t.data.get('page') and t.data.page > 1 %} · page {{ t.data.page }}{% endif %}{% if t.data.get('blocked') %} · <span class="warn">failed: {{ t.data.blocked.keys()|map('engine_label')|join(', ') }}</span>{% endif %}</span>{% endif %}
+      {% if t.kind == 'note' %}<span class="sub">{{ t.data.get('text', '') }}</span>{% endif %}
     </summary>
     <div class="trbody">
       {% if t.kind == 'page' %}<pre>{{ t.data.get('text', '') }}</pre>
+      {% elif t.kind == 'search' %}
+        {% set engs = t.data.get('engines') or {} %}
+        <ul class="reslist">{% for u in t.data.get('results') or [] %}<li><span>{{ u }}</span>{% for e in engs.get(u, []) %}<span class="engb">{{ e|engine_label }}</span>{% endfor %}</li>{% else %}<li class="sub">No links.</li>{% endfor %}</ul>
+        {% if t.data.get('blocked') %}<p class="sub">Engines that failed: {% for n, why in t.data.blocked.items() %}{{ n|engine_label }} ({{ why }}){{ ', ' if not loop.last }}{% endfor %}{% if can(user, 'crawler') %} · <a href="/settings/search-engines">Search Engines</a>{% endif %}</p>{% endif %}
       {% elif t.kind == 'ai' %}<b>Asked</b><pre>{{ t.data.get('prompt', '') }}</pre><b>Answered</b><pre>{{ t.data.get('answer')|tojson(indent=2) }}</pre>
       {% else %}<pre>{{ t.data|tojson(indent=2) }}</pre>{% endif %}
     </div>

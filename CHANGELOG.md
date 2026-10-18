@@ -1,5 +1,12 @@
 # What's new
 
+## v0.8 — 18 Oct 2026 · Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines
+
+- **Deleting a directory** is only possible when it is empty. The Delete button stays off while it still has contacts (“move or remove them first”, with a link to the list) or companies waiting in the Inbox for it (“accept or reject them first”, with a link to the Inbox for that directory).
+- **Contact cards fill the row.** The card width is now the smallest a card may be: with **Fill the row** (on by default) cards stretch evenly to the full width, like the directory cards. Untick it for the exact width as before. “At most N per row” still works — the N cards share the width. In Settings → Display and in each directory's Settings → Cards.
+- **Edit and Run Again** (Requests → **Edit**, for finished, failed or stopped searches): change the words, the directory, the search methods or **Go Deeper** (more result pages) and run it again **inside the same request**. The request keeps a list of its **Tries**; nothing found earlier is removed. **Save as Keyword** keeps a good try. A search that found nothing says “Nothing found — try different words or Go Deeper”. **Run Again** still makes a new request, and now keeps its search methods.
+- **Settings → Search Engines:** switch each search engine (Google, Bing, DuckDuckGo, Brave …) on or off; see which ones work and which are blocking, since when and why; how many links each gave in the last 7 days; **Test Each Engine**; and the recent searches. The Dashboard warns when an engine is blocking, and a request's **Debug** page shows which engine gave each link.
+
 ## v0.7 — 17 Oct 2026 · Tags, card styles, themes, who sees what, backups
 
 - **Tags** (Settings → Tags): coloured labels like *Customer* or *Sample sent*. They show as small bars on the card and can colour the whole card lightly. Filter and sort by tag, tag many contacts at once, or use **+ Tag** on a contact's big card.

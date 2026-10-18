@@ -9,8 +9,8 @@ from sqlalchemy import func, select
 from .. import ai, control, crawl, ebay, methods
 from .. import themes as TH
 from ..auth import can, can_any
-from ..db import (EMPLOYEE_RANGES, FIELD_TYPES, AIServer, Field, Group, Keyword, Membership, NightRun, PageCache,
-                  RejectedKeyword, SessionLocal, User, get_setting, set_setting, slugify)
+from ..db import (EMPLOYEE_RANGES, FIELD_TYPES, AIServer, Field, Group, InboxItem, Keyword, Membership, NightRun,
+                  PageCache, RejectedKeyword, SessionLocal, User, get_setting, log, set_setting, slugify)
 from ..jobs import NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, night_settings
 from .common import (CARD_STYLES, DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require)
 
@@ -163,7 +163,7 @@ def _dir_page(request, s, user, group, **extra):
     conn = methods.connections(s)
     owners = s.scalars(select(User).where(User.active).order_by(User.username)).all()
     return render(request, s, user, "dir_edit.html", active_nav="dirs", help="directory-settings", group=group,
-                  owners=owners,
+                  owners=owners, block=delete_blockers(s, group.id),
                   count=_settings_ctx(s)["counts"].get(group.id, 0), ebay_sites=ebay.EBAY_SITES, conn=conn,
                   opts={k: methods.options(group, k) for k in ("ebay", "directory")}, **_settings_ctx(s), **extra)
 
@@ -213,6 +213,9 @@ async def directory_save(request: Request, gid: int):
                 card["width"] = _int(width, 260, 180, 520)
             if tint in ("on", "off"):
                 card["tint"] = tint == "on"
+            fill = str(form.get("card_fill") or "")
+            if fill in ("on", "off"):
+                card["fill"] = fill == "on"
             group.card = card
             flash(request, "Card look saved for this directory.")
         else:
@@ -224,16 +227,39 @@ async def directory_save(request: Request, gid: int):
     return go(f"/settings/directories/{gid}#{section}")
 
 
+def delete_blockers(s, gid: int) -> dict:
+    """What stops a directory from being deleted: its contacts and the companies waiting for it in the Inbox.
+    A directory can only be deleted when both are 0 (owner, 18 Oct 2026)."""
+    contacts = s.scalar(select(func.count(Membership.record_id)).where(Membership.group_id == gid)) or 0
+    waiting = s.scalar(select(func.count(InboxItem.id)).where(InboxItem.group_id == gid,
+                                                              InboxItem.status == "new")) or 0
+    return {"contacts": contacts, "waiting": waiting, "empty": not contacts and not waiting}
+
+
 @router.post("/settings/directories/{gid}/delete")
 def directory_delete(request: Request, gid: int):
     with SessionLocal() as s:
         user = current_user(s, request)
         require(user, "manage_dirs")
         group = s.get(Group, gid)
-        if group:
-            s.delete(group)
-            s.commit()
-            flash(request, f"Directory “{group.name}” deleted. Its contacts are kept in All contacts.")
+        if not group:
+            return go("/settings/directories")
+        block = delete_blockers(s, gid)
+        if not block["empty"]:
+            why = []
+            if block["contacts"]:
+                why.append(f"still has {block['contacts']} contact{'s' if block['contacts'] != 1 else ''}")
+            if block["waiting"]:
+                why.append(f"{block['waiting']} compan{'ies are' if block['waiting'] != 1 else 'y is'} "
+                           "waiting in the Inbox for it")
+            flash(request, f"“{group.name}” can't be deleted: it {' and '.join(why)}. Move or remove the contacts "
+                           "and accept or reject the Inbox items first.", True)
+            return go(f"/settings/directories/{gid}#delete")
+        name = group.name
+        s.delete(group)
+        s.commit()
+        log("info", "web", f"Directory “{name}” deleted by {user.username}")
+        flash(request, f"Directory “{name}” deleted.")
     return go("/settings/directories")
 
 
@@ -587,7 +613,7 @@ async def display_save(request: Request):
              "per_row": _int(form.get("per_row"), 0, 0, 8),
              "card_style": form.get("card_style") if form.get("card_style") in CARD_STYLES else "A",
              "card_width": _int(form.get("card_width"), 260, 180, 520),
-             "card_tint": form.get("card_tint") == "on"}
+             "card_tint": form.get("card_tint") == "on", "card_fill": form.get("card_fill") == "on"}
         if form.get("theme") is not None:
             th = get_setting(s, "theme", {}) or {}
             if th.get("allow_personal", True) or can(user, "display_all"):

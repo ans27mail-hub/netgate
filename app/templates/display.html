@@ -41,9 +41,10 @@
           <label class="field">Card width (px)
             <input type="number" name="card_width" min="180" max="520" step="10" value="{{ current.card_width }}" list="cardw"></label>
           <datalist id="cardw">{% for k, v in CARD_WIDTHS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</datalist>
+          <label class="check-inline" style="min-height:40px"><input type="checkbox" name="card_fill" {% if current.get('card_fill', true) %}checked{% endif %}> Fill the row</label>
           <label class="check-inline" style="min-height:40px"><input type="checkbox" name="card_tint" {% if current.card_tint %}checked{% endif %}> Colour cards from their tag</label>
         </div>
-        <span class="hint">Cards keep this width; as many fit in a row as there is room for, and the rest start a new row. Each directory can have its own style and width (Directory Settings → Cards).</span>
+        <span class="hint"><b>Fill the row</b> (on): cards are never narrower than this width and stretch evenly to fill the whole row. Off: cards keep exactly this width. Each directory can have its own style and width (Directory Settings → Cards).</span>
       </section>
 
       {% if allow_personal or can(user, 'display_all') %}

@@ -29,6 +29,19 @@ The D4 mockups are on the owner's design canvas (claude.ai artifact *NetGate lay
 | A user: What This Person Sees | `design/v07-user-sees.png` |
 | Help window | `design/v07-help-window.png` |
 
+## v0.8 additions
+- Contact cards: **Fill the row** — width is a minimum, cards stretch evenly (like the directory cards).
+- Search Engines: switches per engine, status badges (Working green, Blocking red, Not Answering amber), links per engine as chips.
+
+| Page | Screenshot |
+|---|---|
+| Settings → Search Engines | `design/v08-search-engines.png` (phone: `design/v08-phone-engines.png`) |
+| Edit and Run Again | `design/v08-edit-run-again.png` |
+| Cards filling the row | `design/v08-cards-fill.png` |
+| Delete Directory, blocked | `design/v08-delete-blocked.png` |
+| Dashboard with an engine warning | `design/v08-dashboard.png` |
+| Debug: engine of each link | `design/v08-debug-engines.png` |
+
 ## Pages (v0.6 screenshots)
 | Page | Screenshot |
 |---|---|

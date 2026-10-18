@@ -16,13 +16,13 @@ from ..contacts import METHOD_LABELS, REJECT_REASONS, completeness_of, empty
 from ..db import FIELD_TYPES, Group, InboxItem, Job, Membership, NightRun, Record, User, get_setting
 from ..methods import ENRICH_STEPS, FIELD_SOURCES, METHODS, SOURCE_LABELS
 
-VERSION = "v0.7"
+VERSION = "v0.8"
 BASE = os.path.dirname(os.path.dirname(__file__))
 SECRET = os.environ.get("APP_SECRET_KEY") or hashlib.sha256(os.environ["DATABASE_URL"].encode()).hexdigest()
 templates = Jinja2Templates(directory=os.path.join(BASE, "templates"))
 
 DISPLAY_DEFAULTS = {"mode": "fixed", "px": 1280, "pct": 90, "view": "grid", "per_row": 0,
-                    "card_style": "A", "card_width": 260, "card_tint": True}
+                    "card_style": "A", "card_width": 260, "card_tint": True, "card_fill": True}
 CARD_STYLES = {"A": "Right side, under the Enrich button", "B": "Left side, under the Enrich button",
                "C": "In one line with the name"}
 CARD_WIDTHS = {"220": "Small (220 px)", "260": "Medium (260 px)", "320": "Large (320 px)"}
@@ -85,6 +85,12 @@ def pct_class(filled, total) -> str:
     return "good" if p >= 80 else ("low" if p < 50 else "")
 
 
+def _engine_label(name) -> str:
+    from ..engines import label
+    return label(str(name))
+
+
+templates.env.filters["engine_label"] = _engine_label
 templates.env.globals.update(
     can=can, can_any=can_any, fmt=fmt_value, fresh=is_fresh, domain=domain, ago=ago, empty=empty,
     pct_class=pct_class, PERMS=PERMS, PERM_GROUPS=PERM_GROUPS, PERM_KEYS=PERM_KEYS, DIR_PERMS=DIR_PERMS,
@@ -207,10 +213,12 @@ def display_for(s, user) -> dict:
 
 
 def card_cfg(s, user, group=None) -> dict:
-    """How short cards look: style A/B/C, fixed width, colour from tags, at most N per row."""
+    """How short cards look: style A/B/C, width, colour from tags, at most N per row, fill the row.
+    With "fill" (default) the width is a minimum and cards stretch evenly to the full width (v0.8)."""
     d = display_for(s, user)
     cfg = {"style": d.get("card_style") or "A", "width": int(d.get("card_width") or 260),
-           "tint": bool(d.get("card_tint", True)), "per_row": int(d.get("per_row") or 0)}
+           "tint": bool(d.get("card_tint", True)), "per_row": int(d.get("per_row") or 0),
+           "fill": bool(d.get("card_fill", True))}
     for k, v in ((group.card or {}) if group is not None else {}).items():
         if v not in (None, ""):
             cfg[k] = v

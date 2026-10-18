@@ -347,6 +347,22 @@ class Login(Base):
     note: Mapped[str] = mapped_column(Text, default="")           # e.g. "wrong password", "disabled"
 
 
+class SearchLog(Base):
+    """One web search sent to SearXNG (v0.8): which engines gave how many results and which failed or blocked.
+    Settings → Search Engines builds each engine's status from these rows. Kept 30 days."""
+    __tablename__ = "search_log"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, index=True)   # no link: the log outlives requests
+    query: Mapped[str] = mapped_column(Text, default="")
+    pageno: Mapped[int] = mapped_column(Integer, default=1)
+    asked: Mapped[list] = mapped_column(JSONB, default=list)        # engines asked (empty = SearXNG's own choice)
+    results: Mapped[dict] = mapped_column(JSONB, default=dict)      # engine -> number of links it gave
+    errors: Mapped[dict] = mapped_column(JSONB, default=dict)       # engine -> reason (CAPTCHA, timeout …)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    test: Mapped[bool] = mapped_column(Boolean, default=False)      # from “Test Now”
+
+
 class AIServer(Base):
     __tablename__ = "ai_servers"
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -43,6 +43,8 @@
       </fieldset>
       <div class="row">
         <label class="field" style="flex:0 1 220px">Card width (px)<input type="number" name="card_width" min="180" max="520" step="10" value="{{ gc.get('width') or '' }}" placeholder="default" list="cardw2"></label>
+        <label class="field" style="flex:0 1 260px">Fill the row
+          <select name="card_fill"><option value="" {% if gc.get('fill') is none %}selected{% endif %}>Default</option><option value="on" {% if gc.get('fill') == true %}selected{% endif %}>On (width is the smallest size)</option><option value="off" {% if gc.get('fill') == false %}selected{% endif %}>Off (exact width)</option></select></label>
         <datalist id="cardw2">{% for k, v in CARD_WIDTHS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</datalist>
         <label class="field" style="flex:0 1 260px">Card colour from tags
           <select name="card_tint"><option value="" {% if gc.get('tint') is none %}selected{% endif %}>Default</option><option value="on" {% if gc.get('tint') == true %}selected{% endif %}>On</option><option value="off" {% if gc.get('tint') == false %}selected{% endif %}>Off (marks only)</option></select></label>
@@ -163,11 +165,24 @@
       {% include "_test_result.html" %}
     </section>
 
-    <section class="panel row" style="justify-content:space-between;align-items:center">
-      <div><h2>Delete Directory</h2><span class="hint">Deletes the directory, its keywords and fields. The {{ count }} contact(s) stay in All contacts and in any other directory.</span></div>
-      <form method="post" action="/settings/directories/{{ group.id }}/delete" onsubmit="return confirm('Delete the directory {{ group.name|e }}? Its contacts are kept.')">
-        <button type="submit" class="btn btn-danger">Delete {{ group.name }}</button>
-      </form>
+    <section class="panel stack" id="delete">
+      <h2>Delete Directory</h2>
+      {% if block.empty %}
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <span class="hint">This directory is empty: no contacts and nothing waiting in the Inbox. Deleting it removes its keywords, fields and settings.</span>
+        <form method="post" action="/settings/directories/{{ group.id }}/delete" onsubmit="return confirm('Delete the directory {{ group.name|e }}? This can\'t be undone.')">
+          <button type="submit" class="btn btn-danger">Delete {{ group.name }}</button>
+        </form>
+      </div>
+      {% else %}
+      <span class="hint">A directory can only be deleted when it is empty. First:</span>
+      <ul class="tight blockers">
+        {% if block.contacts %}<li>It still has <b>{{ block.contacts }} contact{{ 's' if block.contacts != 1 }}</b> — move or remove them first. <a href="/d/{{ group.id }}?view=list">Open the list</a></li>{% endif %}
+        {% if block.waiting %}<li><b>{{ block.waiting }} compan{{ 'ies are' if block.waiting != 1 else 'y is' }}</b> waiting in the Inbox — accept or reject them first. <a href="/inbox?dir={{ group.id }}">Open the Inbox for this directory</a></li>{% endif %}
+      </ul>
+      {% if block.waiting %}<span class="hint">Companies you accept join this directory, so they then need to be moved or removed too.</span>{% endif %}
+      <div><button type="button" class="btn btn-danger" disabled aria-disabled="true" title="Empty the directory first">Delete {{ group.name }}</button></div>
+      {% endif %}
     </section>
   </div>
 </div>

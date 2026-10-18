@@ -54,7 +54,7 @@
         {% set st = j.stats or {} %}
         <tr>
           <td>{% if can_control(j) %}<input type="checkbox" name="ids" value="{{ j.id }}" form="rq" aria-label="Select request {{ j.id }}">{% endif %}</td>
-          <td><span class="badge {{ 'blue' if j.kind in ('keyword', 'request') else ('amber' if j.kind == 'enrich' else '') }}">{{ KIND_LABELS.get(j.kind, j.kind) }}</span> <b>{{ j.query }}</b>
+          <td><span class="badge {{ 'blue' if j.kind in ('keyword', 'request') else ('amber' if j.kind == 'enrich' else '') }}">{{ KIND_LABELS.get(j.kind, j.kind) }}</span> <b>{{ j.query }}</b>{% if (j.params or {}).get('try') %} <a href="/requests/{{ j.id }}/edit" class="trybadge" title="This request was edited and run again — see its tries">Try {{ j.params.try }}</a>{% endif %}
             <span class="sub dblock">#{{ j.id }} · {{ users.get(j.user_id, 'NetGate') }}{% if (j.params or {}).get('methods') and sees_methods(user) %} · {% for m in j.params.methods %}{{ METHODS[m].name if m in METHODS else m }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</span></td>
           <td>{{ group_names.get(j.group_id, '—') }}</td>
           <td><span class="badge st-{{ job_tab(j) }}">{{ j.status }}</span></td>
@@ -63,6 +63,9 @@
             <span class="bar" aria-hidden="true"><span style="width:{{ (st.page_no * 100 / st.pages_total)|int }}%"></span></span>
             {% endif %}
             <span class="sub">{{ (j.message or '')|truncate(140) }}</span>
+            {% if j.kind in ('request', 'keyword') and j.status == 'done' and not j.saved and not j.updated and not j.deleted_at %}
+            <span class="nothing-hint">Nothing found — try different words or Go Deeper.{% if can_control(j) %} <a href="/requests/{{ j.id }}/edit">Edit and Run Again</a>{% endif %}</span>
+            {% endif %}
           </td>
           <td class="sub mono-sm" style="white-space:nowrap">{{ j.created_at.strftime('%d %b %H:%M') if j.created_at else '' }}</td>
           <td class="rowacts">
@@ -75,8 +78,10 @@
                   {% for x in ['Wrong results', 'Off-topic', 'Duplicate keyword', 'Too broad'] %}<button type="submit" name="reason" value="{{ x }}" class="reason">{{ x }}</button>{% endfor %}
                 </form>
               </details>
+              {% elif a == 'edit' %}
+              <a href="/requests/{{ j.id }}/edit" class="btn btn-outline btn-xs" title="Change the search and run it again inside this request">Edit</a>
               {% else %}
-              <form method="post" action="/requests/{{ j.id }}/{{ a }}" class="inline"><button type="submit" class="btn {{ 'btn-outline' }} btn-xs">{{ {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'restore': 'Restore', 'again': 'Run Again'}[a] }}</button></form>
+              <form method="post" action="/requests/{{ j.id }}/{{ a }}" class="inline"><button type="submit" class="btn {{ 'btn-outline' }} btn-xs" {% if a == 'again' %}title="A new request with the same search"{% endif %}>{{ {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'restore': 'Restore', 'again': 'Run Again'}[a] }}</button></form>
               {% endif %}
             {% endfor %}
             {% endif %}

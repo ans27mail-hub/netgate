@@ -5,6 +5,7 @@ Everything here is plain code. The AI only sees the text this module returns.
 import gzip
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -83,17 +84,47 @@ def social_kind(url: str) -> str | None:
 
 # ---------- search ----------
 
-def search(query: str, pageno: int = 1) -> list[dict]:
-    """[{url, title, content}] from SearXNG."""
+_search_ctx = threading.local()
+last_search = threading.local()   # .errors: engines that failed in this thread's last search (for Debug)
+
+
+def set_search_job(job_id: int | None):
+    """Searches made from now on in this worker belong to this request (Settings → Search Engines log)."""
+    _search_ctx.job_id = job_id
+
+
+def search(query: str, pageno: int = 1, engines: list[str] | None = None, test: bool = False) -> list[dict]:
+    """[{url, title, content, engines}] from SearXNG, with the engines chosen in Settings → Search Engines
+    (or `engines` given here, e.g. by Test Now). Every search is logged: links per engine and failed engines."""
+    from . import engines as EN
+    use = engines or EN.chosen()
+    params = {"q": query, "format": "json", "pageno": pageno}
+    if use:
+        params["engines"] = ",".join(use)
+    last_search.errors = {}
+    job_id = getattr(_search_ctx, "job_id", None)
     try:
-        r = httpx.get(f"{SEARXNG_URL}/search", params={"q": query, "format": "json", "pageno": pageno}, timeout=30)
+        r = httpx.get(f"{SEARXNG_URL}/search", params=params, timeout=30)
         r.raise_for_status()
-    except httpx.HTTPError:
+        data = r.json()
+    except (httpx.HTTPError, ValueError) as e:
+        last_search.errors = {"searxng": f"search engine not reachable ({type(e).__name__})"}
+        EN.record(query, pageno, use, {}, last_search.errors, job_id, test)
         return []
-    out = []
-    for res in r.json().get("results", []):
+    out, counts = [], {}
+    for res in data.get("results", []):
         if res.get("url"):
-            out.append({"url": res["url"], "title": res.get("title") or "", "content": res.get("content") or ""})
+            engs = [str(x) for x in (res.get("engines") or ([res["engine"]] if res.get("engine") else []))]
+            for e in engs:
+                counts[e] = counts.get(e, 0) + 1
+            out.append({"url": res["url"], "title": res.get("title") or "", "content": res.get("content") or "",
+                        "engines": engs})
+    errors = {}
+    for item in data.get("unresponsive_engines") or []:
+        if isinstance(item, (list, tuple)) and item:
+            errors[str(item[0])] = str(item[1] if len(item) > 1 else "no answer")
+    last_search.errors = errors
+    EN.record(query, pageno, use, counts, errors, job_id, test)
     return out
 
 

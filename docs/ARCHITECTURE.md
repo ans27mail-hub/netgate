@@ -42,9 +42,10 @@ Ollama (the AI) runs outside Docker, on the iMac. `.env` holds passwords and `OL
 | `backups.py` | Backup settings, status, files, “Back Up Now” request (the `backup` container does the work) |
 | `handbook.py` + `docs/dev/` | Developer Handbook: written pages, feature list (test enforced), automatic pages from the code |
 | `web/look_routes.py`, `web/backup_routes.py` | Settings → Tags, Themes, Backups |
+| `engines.py`, `web/engine_routes.py` | v0.8: Settings → Search Engines — chosen SearXNG engines, `search_log`, status per engine |
 
 ## Main tables
-`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `tags`, `record_tags`, `existing_hits` (v0.7: a person's search found a contact someone else found first), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`.
+`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `tags`, `record_tags`, `existing_hits` (v0.7: a person's search found a contact someone else found first), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`, `search_log` (v0.8: one row per web search, links / failures per engine).
 
 ## How a search runs
 1. A page calls `start_job()` → a `jobs` row + an RQ job → the worker runs `jobs.run_job(id)`.
@@ -52,7 +53,8 @@ Ollama (the AI) runs outside Docker, on the iMac. `.env` holds passwords and `OL
    - **web**: search variations → page queue → `crawl_pages()`; **directory**: list pages / `site:` searches → `crawl_pages()` with profiles on; **ebay**: `ebay.find_sellers()`.
    - `crawl_pages()`: download (cache, robots, delay, renderer) → AI lists entries (chunks) → code-first details from the page or profile pages → `save_entry()` → `contacts.upsert()` + `contacts.to_inbox()` → suggestions scored (`learn.score_items`). List pages put their next page at the front of the queue.
 3. `Ctx.check()` reads `jobs.control` (every 2 s at most). *pause* → the current page is put back in the queue, state saved in `jobs.state`, status `paused`; Resume re-queues it and `discover()` continues from the state. *stop* → status `stopped` (or `rejected`).
-4. Every search, page, code find and AI question / answer is written to `job_traces` (Debug view).
+4. Every search (with the engine of each link), page, code find and AI question / answer is written to `job_traces` (Debug view). Every web search also goes to `search_log`.
+5. **Edit and Run Again** (v0.8): `control.edit_and_run()` stores the finished try in `jobs.params.tries`, changes query / directory / methods / `deeper` and re-queues the same job.
 
 ## Enrich
 `enrich(record_id, steps)` uses the fields of all directories the contact is in (or is waiting for): eBay store lookup → own website (home + Contact / About / Impressum / sitemap; code first, then AI on missing fields only) → searches → other pages → search snippets. Only empty fields are filled; sources recorded per field.
@@ -70,6 +72,7 @@ There is no pip access in the AI's build environment, so libraries were cloned f
 - `tests/test_v05.py` — the full flow: v0.4 → v0.5 upgrade, Discover → Inbox, accept / reject / restore, multiple directories, suggestions, eBay, pause / resume / stop / reject / delete, add contact (one / list / CSV), roles, help, night run.
 - `tests/test_v06.py` — v0.5 → v0.6 upgrade: Dashboard, Directories page, switcher, moving contacts (one / many / from all), People (add with must-change, reset logs out, disable, login history, delete keeps data, roles copy / delete with move).
 - `tests/test_v07.py` — v0.6 → v0.7 upgrade: tags, card styles, short-card fields, themes, debug clear, own / selected / own-directory scopes, search methods hidden, Existing Contacts (limited view, enrich permission), Handbook (every feature has a page), backups settings and files, Running Jobs.
+- `tests/test_v08.py` — v0.7 → v0.8: delete only empty directories, Fill the row, Edit and Run Again (tries, Go Deeper, Save as Keyword, permissions), Search Engines with a fake SearXNG (`tests/fake_searx.py`).
 - After a change, also open the main pages in a browser (the test does GET requests; screenshots catch layout problems).
 
 

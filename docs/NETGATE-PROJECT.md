@@ -1,6 +1,6 @@
 # NetGate — Complete Project Document
 
-As of 18 Oct 2026 · Owner: Abdul Moeez (Motofast International, Sialkot)
+As of 18 Oct 2026 (v0.8) · Owner: Abdul Moeez (Motofast International, Sialkot)
 
 Same content as the owner's "NetGate — Complete Project Document" in Claude. Keep both up to date when the project changes.
 
@@ -17,10 +17,11 @@ NetGate is Motofast's own business-directory builder: it searches the web with a
 
 ## Current Status
 
-NetGate is at **v0.7** (released 17 Oct 2026). v0.8 is agreed as a list and waits for “build v0.8”.
+NetGate is at **v0.8** (released 18 Oct 2026). v0.9 (points 5, 7, 4, 8, 1) is agreed and waits for “build v0.9”.
 
 | Version | Date | What it brought |
 | --- | --- | --- |
+| v0.8 | 18 Oct 2026 | Delete only empty directories, contact cards fill the row, Edit and Run Again inside a request (tries, Go Deeper, Save as Keyword), Settings → Search Engines (on / off, working or blocking since when, links per engine, test, engine per link in Debug) |
 | v0.7 | 17 Oct 2026 | Tags, card styles A/B/C and fixed card width, Short Card Shows, themes (incl. Dark), bigger Help window, Debug actions, what each person sees (own contacts, own/selected directories, search methods hidden), Existing Contacts tab, Title Case, Developer Handbook, automatic backups, Running Jobs on the Dashboard |
 | v0.6 | 16 Oct 2026 | Dashboard start page, Directories page, directory switcher, moving contacts, People (users, reset password, login history, roles copy / rename / delete) |
 | v0.5 | 16 Oct 2026 | Left-sidebar layout, Discovery Inbox, one contact in many directories, search methods per directory incl. eBay API, add contacts by hand, request controls, roles and permissions, Help Center, AI suggestions from decisions |
@@ -37,13 +38,13 @@ Every page has a **?** button that opens its help.
 | --- | --- |
 | Dashboard | Numbers at a glance, Needs Attention (with a button each), Running Jobs, Quick Actions, System status (AI server, browser, search engine, eBay), Directories table, recent activity |
 | Directories | One card per directory; tabs and Jump To to switch; Contacts and Existing Contacts tabs; complete bar; Find New, Run All Keywords, Enrich All Incomplete |
-| Directory Settings | Name, owner, search words, search methods, Cards (style A/B/C, width, tint), fields (type, Filled from, Find / Enrich step, search words), AI instructions, keywords with night runs, Test a Page, Delete |
+| Directory Settings | Name, owner, search words, search methods, Cards (style A/B/C, width, Fill the row, tint), fields (type, Filled from, Find / Enrich step, search words), AI instructions, keywords with night runs, Test a Page, Delete (only when empty) |
 | Contacts | Grid or list, filters and saved views, sort, tags, Export CSV; big card with Edit, Enrich Now, Short Card Shows, + Tag, Move Here / Also Add Here, Delete |
 | Inbox | New / Enriched / Rejected tabs, AI suggestions, accept into any directory, reject with a reason, restore |
 | Add Contact | One contact, a pasted list or a CSV; duplicate check; choose Enrich steps; now, tonight or Inbox only |
-| Requests | Every search and enrich job; Pause, Resume, Stop, Delete (30-day bin), Reject keyword, Run Again; Debug page per request |
+| Requests | Every search and enrich job; Pause, Resume, Stop, Delete (30-day bin), Reject keyword, Run Again; **Edit and Run Again** in the same request (tries, Go Deeper, Save as Keyword); Debug page per request (with the engine of each link) |
 | People | Users, roles and permissions, what each person sees, reset password, login history |
-| Settings | Tags, Themes, Backups, AI Servers & Models, Night Jobs, Crawler, Connections (API keys), Reject List, Display, My Password |
+| Settings | Tags, Themes, Backups, AI Servers & Models, Night Jobs, Crawler, **Search Engines**, Connections (API keys), Reject List, Display, My Password |
 | Help & Developer Tools | Help Center with Ask NetGate, What's New; Debug, Logs, Page Tester, Training Data, Developer Handbook |
 
 ## How It Works
@@ -60,7 +61,7 @@ Nothing reaches a directory until a person accepts it in the Inbox.
    →  8. Ready to use (filter, tag, export CSV; night jobs keep it growing)
 ```
 
-A search turns a keyword into Inbox suggestions; only what a person accepts enters a directory, where Enrich fills the gaps. Plain code finds emails, phones and links; the local AI only judges what code can't, such as which company a page is about and whether it fits the directory's instructions. SearXNG is the weak point today (search engines block automated searches), which v0.8 points 3, 4, 5 and 7 address.
+A search turns a keyword into Inbox suggestions; only what a person accepts enters a directory, where Enrich fills the gaps. Plain code finds emails, phones and links; the local AI only judges what code can't, such as which company a page is about and whether it fits the directory's instructions. SearXNG is the weak point (search engines block automated searches). Since v0.8, Settings → Search Engines shows which engines work or block and lets you switch them; v0.9 adds Browser search, the list of pages read and stronger Enrich searching.
 
 ## People, Roles and What Each Person Sees
 
@@ -111,25 +112,22 @@ Important `.env` lines: `POSTGRES_PASSWORD`, `DATABASE_URL`, `OLLAMA_URL` (the i
 
 Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (night runs and clean-up), `db` (Postgres), `redis` (job queue), `renderer` (Chromium for JavaScript pages), `searxng` (search engine), `backup` (nightly backups). If the repository is private, the PC needs a read-only GitHub token saved once with `git config credential.helper store`.
 
-## Next Update List (v0.8)
+## Next Update List (v0.9)
 
-All nine points are agreed and split (18 Oct 2026): **v0.8 = points 2, 9, 6, 3**, built on “build v0.8”; **v0.9 = points 5, 7, 4, 8, 1**, after that. Details: `docs/ROADMAP.md`.
+v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 5, 7, 4, 8, 1**, in that order, built on “build v0.9”. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
-| 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
-| 2 | Delete only empty directories | Delete is off while a directory has contacts or companies waiting in the Inbox for it; first accept or reject them in the Inbox and move or remove the contacts, then it can be deleted | Agreed |
-| 3 | Search Engines settings | Turn engines on or off, see which work or block and how many results each gives, engine shown in Debug (paid backup keys left for later) | Agreed |
-| 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit, stops on a CAPTCHA | Agreed |
-| 5 | List of pages read | Permanent record of every page read; Enrich and discovery don't read the same pages again; start of Saved Pages | Agreed |
-| 6 | Edit and Run Again | Change a finished request and run it again in the same request; history of tries, Go Deeper, Save as Keyword | Agreed |
+| 5 | List of pages read | Permanent record of every page read; Enrich and discovery don't read the same pages again (also for Edit and Run Again); start of Saved Pages | Agreed |
 | 7 | Stronger Enrich searching | Searches built from what is known; own Enrich search words per directory and per contact; steps and depth per directory; each search in Debug | Agreed |
+| 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit, stops on a CAPTCHA | Agreed |
 | 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
-| 9 | Contact cards fill the row | Card width becomes a minimum; with Fill the row (on by default) cards stretch evenly to the full width, never narrower than the set width | Agreed |
+| 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
+| 2, 9, 6, 3 | Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines | — | Done in v0.8 |
 
 ## Longer-Term Plan
 
-After v0.8 the agreed order is below; each step is explained first and built only on “build”.
+After v0.9 the agreed order is below; each step is explained first and built only on “build”.
 
 1. **Saved Pages & Scans, inside NetGate.** Save single pages and whole sites (manual and automatic), keep versions, recipes per site, a page library and storage rules. Heavy scans run in their own worker container in the same setup; pages are stored in a folder set in `.env`.
 2. **Chrome extension.** Connects to NetGate with a key from Settings → Connections: Save Page, auto-capture on chosen sites, a never-capture list.
@@ -179,4 +177,4 @@ Full list with reasons: `docs/DECISIONS.md`.
 | `docs/dev/` | The Developer Handbook (also in the app under Developer Tools) |
 | `tests/` | The end-to-end tests run before each release |
 
-To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v0.8.”
+To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v0.9.”

@@ -11,7 +11,8 @@
   {% if can_any(user, ['ai', 'night', 'crawler', 'connections', 'reject_list', 'display_all', 'backups']) %}<span class="caps">System</span>{% endif %}
   {% if can(user, 'ai') %}<a href="/settings/ai" class="{% if active_nav == 'ai' %}on{% endif %}">AI Servers &amp; Models</a>{% endif %}
   {% if can(user, 'night') %}<a href="/settings/night" class="{% if active_nav == 'night' %}on{% endif %}">Night Jobs</a>{% endif %}
-  {% if can(user, 'crawler') %}<a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>{% endif %}
+  {% if can(user, 'crawler') %}<a href="/settings/crawler" class="{% if active_nav == 'crawler' %}on{% endif %}">Crawler</a>
+  <a href="/settings/search-engines" class="{% if active_nav == 'engines' %}on{% endif %}">Search Engines</a>{% endif %}
   {% if can(user, 'connections') %}<a href="/settings/connections" class="{% if active_nav == 'connections' %}on{% endif %}">Connections (API Keys)</a>{% endif %}
   {% if can(user, 'reject_list') %}<a href="/settings/reject-list" class="{% if active_nav == 'reject' %}on{% endif %}">Reject List</a>{% endif %}
   {% if can(user, 'display_all') %}<a href="/settings/themes" class="{% if active_nav == 'themes' %}on{% endif %}">Themes</a>{% endif %}

@@ -18,6 +18,7 @@ updated: v0.7
 | `app/ebay.py` | eBay Browse API client |
 | `app/control.py` | Request actions (pause, resume, stop, delete, reject, run again), reject list, queues, clean-up |
 | `app/tags.py` | Tags: list, map per contact, card tint, set / add / remove |
+| `app/engines.py` | Search engines (v0.8): chosen engines, `search_log`, status per engine (working / blocking since …) |
 | `app/themes.py` | Built-in themes, colour maths, CSS variables, readability warnings |
 | `app/backups.py` | Backup settings / status / files (the `backup` container does the work) |
 | `app/help.py` + `app/help/*.md` | Help Center for users |
@@ -31,6 +32,7 @@ updated: v0.7
 | `app/web/requests_routes.py` | Requests page, actions, debug view, starting searches |
 | `app/web/settings_routes.py` | Directory settings (incl. Cards, Owner), AI, night, display, crawler, connections, reject list |
 | `app/web/look_routes.py` | Settings → Tags and Settings → Themes |
+| `app/web/engine_routes.py` | Settings → Search Engines (on / off, status, Test Now, recent searches) |
 | `app/web/backup_routes.py` | Settings → Backups |
 | `app/web/people_routes.py` | People: users, roles, login history, My Password |
 | `app/web/help_routes.py` | Help Center, Developer Tools, Handbook |
@@ -40,6 +42,6 @@ updated: v0.7
 | `backup/run.sh` | The backup loop (runs in the `backup` container) |
 | `renderer/` | The Chromium renderer container |
 | `netgate` | The server command (`update`, `rollback`, `versions`, `backup`, `restore` …) |
-| `tests/` | End-to-end tests (`test_v05.py`, `test_v06.py`, `test_v07.py`) and fake websites |
+| `tests/` | End-to-end tests (`test_v05.py` … `test_v08.py`) and fake websites |
 
 **Adding a page:** route in a `*_routes.py` with `render(..., help="slug")`, a template, a help page in `app/help/`, a Handbook feature page if it is a new feature, and a line in the test.

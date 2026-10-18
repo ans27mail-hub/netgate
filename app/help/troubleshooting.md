@@ -8,7 +8,8 @@ summary: No results, AI not reachable, browser not running …
 - Open the request's **Debug** view (Requests → Debug, for people with the Debug permission): see which pages were read and what the AI answered.
 - Make the keyword more specific, and check the directory's *What belongs here* instruction isn't too strict.
 - Test a good list page in Directory settings → **Test the Instructions on a Page**.
-- The search engine may be limiting you: wait a while, or lower how often you search.
+- A search engine may be blocking: **Settings → Search Engines** shows which engines work and which block, and since when. Switch a blocking one off, or press **Test Each Engine**.
+- On the Requests page, use **Edit** to change the words, or **Go Deeper** to read more result pages, inside the same request.
 
 ## “AI not reachable” / AI errors
 - Is the iMac on and awake? Is Ollama running?

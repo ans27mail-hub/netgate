@@ -8,12 +8,12 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 
 from .. import contacts as C
-from .. import backups, control, crawl, ebay
+from .. import backups, control, crawl, ebay, engines
 from ..auth import can, own_contacts_only, sees_all_groups
 from ..contacts import user_name
 from ..db import AIServer, Decision, InboxItem, Job, Membership, NightRun, Record, SessionLocal, User
 from ..methods import METHODS, connections
-from .common import (can_control, current_user, go, inbox_clause, jobs_clause, last_night, render, require,
+from .common import (ago, can_control, current_user, go, inbox_clause, jobs_clause, last_night, render, require,
                      templates, view_groups, visible_records_clause)
 
 router = APIRouter()
@@ -139,6 +139,13 @@ def _attention(s, user, groups, stats) -> list[dict]:
     if failed:
         out.append({"tone": "red", "text": f"{failed} request{'s' if failed != 1 else ''} failed in the last 24 hours",
                     "label": "See Requests", "href": "/requests?tab=failed"})
+    for name, st in engines.problems(s)[:3]:   # v0.8: a search engine that blocks or doesn't answer
+        what = "is blocking searches" if st["state"] == "blocking" else "isn't answering"
+        item = {"tone": "red" if st["state"] == "blocking" else "amber",
+                "text": f"{engines.label(name)} {what} ({st['reason'][:40]}) — started {ago(st['since'])}"}
+        if can(user, "crawler"):
+            item.update(label="Search Engines", href="/settings/search-engines")
+        out.append(item)
     ebay_dirs = [g.name for g in groups if "ebay" in (g.methods or {})]
     if ebay_dirs and not ebay.ready(connections(s)):
         item = {"tone": "amber", "text": f"eBay keys are not set up — eBay search is skipped in {', '.join(ebay_dirs[:2])}"}
@@ -262,9 +269,13 @@ def _ollama(url):
     return ("online", "green") if r.status_code == 200 else ("not answering", "red")
 
 
-def _searx():
+def _searx(problems: int = 0):
     r = httpx.get(f"{crawl.SEARXNG_URL}/healthz", timeout=3)
-    return ("online", "green") if r.status_code < 500 else ("not answering", "red")
+    if r.status_code >= 500:
+        return ("not answering", "red")
+    if problems:
+        return (f"online · {problems} engine{'s' if problems != 1 else ''} blocking", "amber")
+    return ("online", "green")
 
 
 @router.get("/dashboard/system", response_class=HTMLResponse)
@@ -285,7 +296,8 @@ def system_status(request: Request):
         if not servers:
             checks.append(("AI server", lambda: ("not set up", "amber")))
         checks.append(("Browser (renderer)", lambda: ("running", "green") if crawl.renderer_status() else ("offline", "red")))
-        checks.append(("Search engine", _searx))
+        blocked = len(engines.problems(s))
+        checks.append(("Search engine", lambda: _searx(blocked)))
         checks.append(("eBay API", lambda: ("set up", "green") if ebay.ready(conn) else ("not set up", "amber")))
     with ThreadPoolExecutor(max_workers=6) as pool:
         rows = list(pool.map(lambda c: _check(*c), checks))

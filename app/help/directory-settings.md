@@ -13,7 +13,8 @@ Name, description, menu order, words added to every web search, **Owner** (peopl
 ## Cards
 How the short cards look in this directory (empty = the default from Settings → Display):
 - **Style A** — tag bars under the Enrich button on the right; **B** — the same on the left; **C** — tags and Enrich on the name line (shortest cards).
-- **Card width** — cards keep this width (Small 220, Medium 260, Large 320 px or your own); as many fit in a row as there is room for.
+- **Card width** — the smallest a card may be (Small 220, Medium 260, Large 320 px or your own).
+- **Fill the row** — *On* (the default): cards are never narrower than the width and stretch evenly to fill the whole row, like the directory cards. *Off*: cards keep exactly the width. *Default* follows Settings → Display.
 - **Card colour from tags** — on, off (only the small marks), or default.
 
 Which fields a short card shows (up to 3) is the “Card” tick in Fields below, or a contact's big card → **Short Card Shows…**
@@ -44,4 +45,8 @@ Each keyword has **Search with** (all methods, or one) and **Night Jobs** on / o
 Paste a list page or a company page and press **Test**. You see exactly what Discover would find there — names, what code found (email, phone, social), and whether a next page was found. Nothing is saved.
 
 ## Delete directory
-Deletes the directory, its keywords and fields. **Its contacts are kept** in All contacts and in any other directory they are in.
+A directory can only be deleted when it is **empty**. The Delete button stays switched off while:
+- it **still has contacts** — move them to another directory or remove them first (the link opens the list, where you can tick them and use **Move there**);
+- **companies are waiting in the Inbox** for it — accept or reject them first (the link opens the Inbox filtered to this directory). Companies you accept join the directory, so they then need to be moved or removed too.
+
+When both are 0, **Delete** removes the directory with its keywords, fields and settings.

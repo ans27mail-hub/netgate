@@ -2,6 +2,15 @@
 
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
+## 2026-10-18 (v0.8)
+- **Delete only empty directories** is checked on the page and on the server. “Waiting” = Inbox items with status *new*; accepted / rejected Inbox items, existing hits, keywords and fields go with the directory; decisions and requests keep a cleared link (training data stays).
+- **Fill the row is on by default** for everyone (also for saved v0.7 display settings, which had no such key). Directory setting: Default / On / Off.
+- **Edit and Run Again changes the same request** (`jobs` row): the finished try goes into `params.tries`; counters show the current try; Inbox items of every try keep the request's id. Only Discover requests that are done / failed / stopped. The request stays its starter's (they stay the first finder); who edited is kept per try. A changed text or directory drops the keyword link (a keyword run becomes a normal request), so keyword counts stay right. *(Defaults chosen; owner didn't decide.)*
+- **Go Deeper** = levels 1–3: per level two more search-result pages and one more “list” page, the page limit grows by `MAX_PAGES` per level, two more “next” pages per list; eBay looks at more listings / sellers. *(Default chosen.)*
+- **Save as Keyword** needs *Run keywords* for that try's directory (or *Manage directories*), only for a try that found something; the keyword runs at night like the others. *(Default chosen.)*
+- **Plain Run Again** now keeps the request's search methods (before, it dropped them by mistake).
+- **Search engines are chosen per search** with SearXNG's `engines=` parameter, so no SearXNG config change and nothing to set up on the server; until the owner saves a choice, SearXNG's own defaults are used. The page needs *Crawler settings*. Every web search is logged (`search_log`, 30 days). “Blocking” = CAPTCHA / denied / too many / suspended / 403 / 429; other failures = “Not answering”. The Dashboard warns only about engines that are switched on.
+
 ## 2026-10-18 (planning v0.8)
 - **Deleting a directory** needs it empty: no contacts and nothing waiting in its Inbox (the owner first chose to remove waiting Inbox items with it, then changed to blocking until they are accepted or rejected).
 - **Everything stays in one app** — no separate Scanner (see v0.7 note).

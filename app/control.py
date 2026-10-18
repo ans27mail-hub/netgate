@@ -40,9 +40,9 @@ def actions(job) -> list[str]:
         "waiting": ["pause", "stop", "delete"] + (["reject"] if discover else []),
         "running": ([] if job.control else ["pause", "stop"]) + (["reject"] if discover and not job.control else []),
         "paused": ["resume", "stop", "delete"] + (["reject"] if discover else []),
-        "done": ["again", "delete"] + (["reject"] if discover else []),
-        "failed": ["again", "delete"] + (["reject"] if discover else []),
-        "stopped": ["again", "delete"] + (["reject"] if discover else []),
+        "done": (["edit"] if discover else []) + ["again", "delete"] + (["reject"] if discover else []),
+        "failed": (["edit"] if discover else []) + ["again", "delete"] + (["reject"] if discover else []),
+        "stopped": (["edit"] if discover else []) + ["again", "delete"] + (["reject"] if discover else []),
         "rejected": ["restore", "delete"],
         "deleted": ["undelete"],
     }.get(tab, [])
@@ -202,19 +202,73 @@ def undelete(s, job) -> bool:
 
 
 def run_again(s, job, user):
+    """Plain Run Again: a new request with the same search (and the same methods and depth)."""
     new = Job(query=job.query, group_id=job.group_id, kind=job.kind if job.kind != "night" else "request",
               user_id=user.id if user else job.user_id, record_id=job.record_id, stats={},
-              params={k: v for k, v in (job.params or {}).items() if k in ("keyword_id", "method", "steps")})
+              params={k: v for k, v in (job.params or {}).items()
+                      if k in ("keyword_id", "method", "methods", "steps", "deeper")})
     s.add(new)
     s.commit()
     enqueue_job(new)
     return new
 
 
+# ---------- Edit and Run Again (v0.8): new tries inside the same request ----------
+
+MAX_DEEPER = 3   # "Go deeper" levels: each one reads more result pages
+
+
+def can_edit(job) -> bool:
+    """Only a finished, failed or stopped Discover request can be changed and run again in place."""
+    return job.kind in DISCOVER_KINDS and not job.deleted_at and job.status in {"done", "failed", "stopped"}
+
+
+def tries(job) -> list[dict]:
+    """Earlier tries of this request (oldest first), plus the current one as the last item."""
+    p = job.params or {}
+    st = job.stats or {}
+    current = {"n": len(p.get("tries") or []) + 1, "query": job.query, "group_id": job.group_id,
+               "methods": p.get("methods"), "deeper": int(p.get("deeper") or 0), "status": job.status,
+               "saved": job.saved or 0, "updated": job.updated or 0, "read": st.get("read", 0),
+               "results": st.get("results", 0), "message": job.message or "", "current": True,
+               "started": job.started_at.isoformat() if job.started_at else "",
+               "finished": job.finished_at.isoformat() if job.finished_at else "",
+               "by": p.get("edited_by") or job.user_id}
+    return list(p.get("tries") or []) + [current]
+
+
+def edit_and_run(s, job, user, query: str, group_id: int, use_methods: list | None, deeper: int) -> bool:
+    """Keep this try in the request's history, change the search and run it again in the same request.
+    Nothing found by earlier tries is removed: their Inbox items and contacts stay."""
+    if not can_edit(job):
+        return False
+    history = tries(job)
+    last = {k: v for k, v in history[-1].items() if k != "current"}
+    params = {k: v for k, v in (job.params or {}).items()
+              if k not in ("reject", "reject_reason", "methods", "deeper", "tries", "try", "edited_by")}
+    if norm_keyword(query) != norm_keyword(job.query) or group_id != job.group_id:
+        params.pop("keyword_id", None)   # a changed search is no longer that keyword's run
+        if job.kind == "keyword":
+            job.kind = "request"
+    params.update({"tries": history[:-1] + [last], "try": len(history) + 1, "edited_by": user.id if user else None,
+                   "deeper": max(0, min(MAX_DEEPER, int(deeper or 0)))})
+    if use_methods:
+        params["methods"] = use_methods
+    job.query, job.group_id, job.params = query[:500], group_id, params
+    job.status, job.control, job.state, job.stats = "queued", "", {}, {}
+    job.saved, job.updated = 0, 0
+    job.message = f"Waiting to run try {len(history) + 1}"
+    job.started_at, job.finished_at = None, None
+    s.commit()
+    enqueue_job(job)
+    return True
+
+
 def purge_deleted(s, days: int = 30, trace_days: int = 14) -> int:
     """Deleted requests leave the bin after 30 days (contacts keep their data; their link is cleared).
-    Debug traces are kept 14 days, the app log 60 days, login history 180 days."""
+    Debug traces are kept 14 days, the search-engine log 30 days, the app log 60 days, login history 180 days."""
     from .db import AppLog, JobTrace, Login
+    from .engines import purge as purge_searches
     old = s.scalars(select(Job).where(Job.deleted_at.is_not(None),
                                       Job.deleted_at < datetime.utcnow() - timedelta(days=days))).all()
     for j in old:
@@ -222,5 +276,6 @@ def purge_deleted(s, days: int = 30, trace_days: int = 14) -> int:
     s.query(JobTrace).filter(JobTrace.at < datetime.utcnow() - timedelta(days=trace_days)).delete(
         synchronize_session=False)
     s.query(AppLog).filter(AppLog.at < datetime.utcnow() - timedelta(days=60)).delete(synchronize_session=False)
+    purge_searches(s)
     s.query(Login).filter(Login.at < datetime.utcnow() - timedelta(days=180)).delete(synchronize_session=False)
     return len(old)

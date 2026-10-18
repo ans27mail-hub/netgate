@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Edit and Run Again · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/requests" class="btn btn-outline btn-small">← Back to Requests</a></p>
+<div class="pagehead">
+  <h1>Edit and Run Again</h1>
+  <span class="badge st-{{ job_tab(job) }}">{{ job.status }}</span>
+  {% if history|length > 1 %}<span class="trybadge">Try {{ history|length }}</span>{% endif %}
+  {% if can(user, 'debug') %}<span class="ml-auto"><a href="/requests/{{ job.id }}/debug" class="btn btn-outline btn-small">Debug</a></span>{% endif %}
+</div>
+<p class="hint" style="margin:0">Request #{{ job.id }} · {{ users.get(job.user_id, 'NetGate') }}. Change the search and run it again <b>inside this request</b>. Everything found by earlier tries stays in the Inbox, and the request keeps a list of its tries.</p>
+
+{% set cur = history[-1] %}
+{% if editable and job.status == 'done' and not cur.saved and not cur.updated %}
+<div class="notice warn">Nothing found — try different words or <b>Go Deeper</b> (reads more result pages).</div>
+{% endif %}
+
+{% if editable %}
+<form method="post" action="/requests/{{ job.id }}/edit" class="panel stack editform">
+  <div class="row">
+    <label class="field" style="flex:3 1 320px">Search for<input type="text" name="query" value="{{ job.query }}" required maxlength="500"></label>
+    <label class="field" style="flex:1 1 200px">Directory
+      <select name="group_id" id="edit-dir">{% for g in groups %}<option value="{{ g.id }}" {% if g.id == job.group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+    <label class="field" style="flex:1 1 200px">How deep
+      <select name="depth">
+        {% for lvl, txt in [(0, 'Normal'), (1, 'Deeper (level 1)'), (2, 'Deeper (level 2)'), (3, 'Deepest (level 3)')] %}<option value="{{ lvl }}" {% if lvl == deeper %}selected{% endif %}>{{ txt }}</option>{% endfor %}
+      </select></label>
+  </div>
+  {% if sees_methods(user) %}
+  {% for g in groups %}
+  <fieldset class="stack" data-dir="{{ g.id }}" {% if g.id != job.group_id %}hidden disabled{% endif %}>
+    <legend class="caps-sm">Search methods ({{ g.name }})</legend>
+    <div class="gchecks">
+      {% for m in dir_methods[g.id] %}<label><input type="checkbox" name="methods" value="{{ m }}" {% if (not chosen and g.id == job.group_id) or m in chosen or g.id != job.group_id %}checked{% endif %}> {{ METHODS[m].name }}</label>{% else %}<span class="sub">This directory has no search methods switched on.</span>{% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  {% endif %}
+  <div class="btnrow">
+    <button type="submit" class="btn btn-primary">Run Again in This Request</button>
+    {% if deeper < max_deeper %}<button type="submit" name="go_deeper" value="1" class="btn btn-outline" title="Reads more search-result pages than the last try">Go Deeper and Run (Level {{ deeper + 1 }})</button>{% endif %}
+  </div>
+  <span class="hint">Go Deeper reads more pages of search results (and more “next” pages of lists), so it takes longer. Pages read in earlier tries may be read again for now.</span>
+</form>
+{% else %}
+<div class="notice">This request is <b>{{ job.status }}</b>. It can be changed and run again once it has finished, failed or been stopped.</div>
+{% endif %}
+
+<section class="panel stack">
+  <h2>Tries</h2>
+  <div class="overflow">
+    <table class="t trytable">
+      <thead><tr><th>#</th><th>Search</th><th>Directory</th><th>Depth</th><th>Found</th><th>Pages Read</th><th>When</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for t in history|reverse %}
+      <tr class="{{ 'cur' if t.current }}">
+        <td>{{ t.n }}{% if t.current %} <span class="sub">(now)</span>{% endif %}</td>
+        <td><b>{{ t.query }}</b>{% if t.methods and sees_methods(user) %}<span class="sub dblock">{% for m in t.methods %}{{ METHODS[m].name if m in METHODS else m }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}</td>
+        <td>{{ t.group }}</td>
+        <td>{{ 'Normal' if not t.deeper else 'Level ' ~ t.deeper }}</td>
+        <td class="nowrap">{% if t.status in ('queued', 'running', 'searching', 'crawling', 'extracting', 'pausing', 'stopping', 'paused') %}<span class="sub">{{ t.status }}</span>{% else %}<b>{{ t.saved }}</b> new{% if t.updated %} · {{ t.updated }} updated{% endif %}{% if t.status != 'done' %}<span class="sub dblock">{{ t.status }}</span>{% endif %}{% endif %}</td>
+        <td>{{ t.read }}</td>
+        <td class="sub nowrap">{{ t.when }}{% if t.by %}<span class="dblock">{{ users.get(t.by, '') }}</span>{% endif %}</td>
+        <td>{% if t.can_save %}<form method="post" action="/requests/{{ job.id }}/save-keyword" class="inline"><input type="hidden" name="n" value="{{ t.n }}"><button type="submit" class="btn btn-outline btn-xs" title="Add “{{ t.query }}” to the keywords of {{ t.group }}">Save as Keyword</button></form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <span class="hint"><b>Save as Keyword</b> (on tries that found something) adds the search to its directory's keywords (it then also runs at night, when night jobs are on).</span>
+</section>
+
+<script>
+(function () {
+  var sel = document.getElementById('edit-dir');
+  if (!sel) return;
+  sel.addEventListener('change', function () {
+    document.querySelectorAll('fieldset[data-dir]').forEach(function (fs) {
+      var on = fs.getAttribute('data-dir') === sel.value;
+      fs.hidden = !on; fs.disabled = !on;
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -25,6 +25,7 @@ FEATURES = {
     "requests": "Requests (pause, stop, delete, reject)", "night-run": "Night run", "people": "People: users, roles, logins, passwords",
     "visibility": "What each person sees (own contacts, directories, methods)", "themes": "Themes", "backups": "Backups",
     "help-center": "Help Center", "developer-tools": "Developer Tools and this Handbook", "crawler": "Crawler and renderer",
+    "search-engines": "Search engines (SearXNG engines, status, log)",
 }
 AUTO = {
     "auto-routes": "Pages and addresses (automatic)", "auto-database": "Database tables (automatic)",
@@ -81,9 +82,19 @@ def html(text: str) -> str:
 
 # ---------- automatic pages ----------
 
+def _flat_routes(routes):
+    """Routes, also inside included routers (newer FastAPI versions wrap them)."""
+    for r in routes:
+        inner = getattr(getattr(r, "original_router", None), "routes", None)
+        if inner is not None and not getattr(r, "path", ""):
+            yield from _flat_routes(inner)
+        else:
+            yield r
+
+
 def auto_routes(app) -> str:
     rows = []
-    for r in app.routes:
+    for r in _flat_routes(app.routes):
         path = getattr(r, "path", "")
         if not path or path.startswith(("/openapi", "/docs", "/redoc", "/static")):
             continue

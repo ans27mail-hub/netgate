@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Search Engines · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent stack">
+    <form method="post" action="/settings/search-engines" class="stack" id="engform">
+      <div class="shead"><h1>Search Engines</h1><button type="submit" class="btn btn-primary ml-auto">Save</button></div>
+      <p class="hint" style="margin:0">Web searches go through NetGate's own search box (SearXNG), which asks the engines switched on here. Some engines block automated searches now and then (a CAPTCHA); the list shows which ones work, which block and since when, so you can switch a blocking one off. Free engines only for now — paid backup keys come later.</p>
+      {% if not reachable %}<div class="notice warn">The search engine (SearXNG) isn't answering right now, so its own list of engines couldn't be read. The usual engines are shown.</div>{% endif %}
+
+      <section class="panel" style="padding:0">
+        <div class="overflow">
+          <table class="t engtable">
+            <thead><tr><th style="width:64px">On</th><th>Engine</th><th>Status</th><th>Last 7 Days</th><th class="lastw">Last Worked</th></tr></thead>
+            <tbody>
+            {% for e in rows %}
+            <tr class="{{ 'off' if not e.on }}">
+              <td><label class="switch"><input type="checkbox" name="on" value="{{ e.name }}" {% if e.on %}checked{% endif %} aria-label="Use {{ e.label }}"><span aria-hidden="true"></span></label></td>
+              <td><b>{{ e.label }}</b>{% if e.default %} <span class="badge" title="SearXNG uses it when NetGate doesn't choose">default</span>{% endif %}<span class="sub dblock engnote">{{ e.note }}</span></td>
+              <td>
+                {% if e.state == 'working' %}<span class="badge green">Working</span>
+                {% elif e.state == 'blocking' %}<span class="badge red">Blocking</span><span class="sub dblock" title="{{ e.since.strftime('%d %b %Y %H:%M') if e.since }} UTC">started {{ ago(e.since) }} · {{ e.reason|truncate(60) }}</span>
+                {% elif e.state == 'error' %}<span class="badge amber">Not Answering</span><span class="sub dblock" title="{{ e.since.strftime('%d %b %Y %H:%M') if e.since }} UTC">started {{ ago(e.since) }} · {{ e.reason|truncate(60) }}</span>
+                {% else %}<span class="badge">Not Used Yet</span>{% endif %}
+                {% if tested and e.name in tested %}{% set tr = tested[e.name] %}
+                <span class="dblock testres {{ 'bad' if tr[1] else ('ok' if tr[0] else 'warn') }}">Test: {{ tr[1] if tr[1] else (tr[0] ~ ' result' ~ ('s' if tr[0] != 1 else '')) }}</span>{% endif %}
+              </td>
+              <td class="nowrap">{% if e.searches %}<b>{{ e.results }}</b> link{{ 's' if e.results != 1 }} in {{ e.searches }} search{{ 'es' if e.searches != 1 }}<span class="sub dblock">{{ e.avg }} per search{% if e.errors %} · {{ e.errors }} failed{% endif %}</span>{% else %}<span class="sub">—</span>{% endif %}</td>
+              <td class="sub nowrap lastw">{{ ago(e.last_ok) if e.last_ok else '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <div class="row" style="align-items:center">
+        <span class="hint">{% if custom %}NetGate chooses the engines (the ones switched on above).{% else %}Now: SearXNG's own choice (the ones marked <i>default</i>). Saving makes it NetGate's choice.{% endif %} At least one must stay on.</span>
+        {% if custom %}<button type="submit" name="action" value="reset" class="btn btn-outline btn-small ml-auto" form="engform" formnovalidate>Use SearXNG's Defaults</button>{% endif %}
+      </div>
+    </form>
+
+    <form method="post" action="/settings/search-engines/test" class="panel stack">
+      <h2>Test Now</h2>
+      <div class="row" style="align-items:flex-end">
+        <label class="field" style="flex:1 1 280px">Test search<input type="text" name="query" value="{{ test_query }}"></label>
+        <button type="submit" class="btn btn-outline">Test Each Engine</button>
+      </div>
+      <span class="hint">Asks every engine that is switched on, one by one, with this search. Takes up to half a minute. The results show above, next to each engine.</span>
+    </form>
+
+    <section class="panel stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Recent Searches</h2><span class="hint">{{ total7 }} in the last 7 days · kept 30 days</span></div>
+      {% if recent %}
+      <div class="overflow">
+        <table class="t">
+          <thead><tr><th>When</th><th>Search</th><th>Links per Engine</th><th>Failed</th></tr></thead>
+          <tbody>
+          {% for r in recent %}
+          <tr>
+            <td class="sub nowrap">{{ ago(r.at) }}</td>
+            <td>{{ r.query|truncate(70) }}{% if r.pageno > 1 %} <span class="sub">(page {{ r.pageno }})</span>{% endif %}{% if r.test %} <span class="badge">test</span>{% elif r.job_id %} <a class="sub" href="/requests/{{ r.job_id }}/debug">#{{ r.job_id }}</a>{% endif %}</td>
+            <td>{% for n, c in (r.results or {}).items()|sort(attribute='1', reverse=true) %}<span class="chip chip-sm chip-static">{{ label(n) }} {{ c }}</span> {% else %}<span class="sub">no links</span>{% endfor %}</td>
+            <td>{% for n, why in (r.errors or {}).items() %}<span class="chip chip-sm chip-static chip-bad" title="{{ why }}">{{ label(n) }}: {{ why|truncate(30) }}</span> {% else %}<span class="sub">—</span>{% endfor %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<span class="sub">No searches yet. They appear here after the first Discover or Enrich, or after Test Now.</span>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
