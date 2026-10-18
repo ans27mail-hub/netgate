@@ -1,5 +1,6 @@
 # NetGate releases, newest first:  version  commit  date  description
 # 'netgate versions', 'netgate version' and 'netgate rollback' read this file.
+v0.8  2759317  2026-10-18  Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines settings
 v0.7  992e9b8  2026-10-17  Tags, card styles, themes, who sees what, Existing Contacts, Developer Handbook, automatic backups, Running Jobs
 v0.6  059632b  2026-10-16  Dashboard, Directories page, move contacts, People (users, roles, login history)
 v0.5  4adf233  2026-10-16  Discovery Inbox, directories, eBay search, add contacts, request controls, roles, help center
