@@ -113,7 +113,7 @@ Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (
 
 ## Next Update List (v0.8)
 
-Eight points are agreed; nothing is built until the owner says “build v0.8”. Splitting it into v0.8 (points 2, 5–8) and v0.9 (points 1, 3, 4) is offered. Details: `docs/ROADMAP.md`.
+Nine points are agreed; nothing is built until the owner says “build v0.8”. Splitting it into v0.8 (points 2, 5–9) and v0.9 (points 1, 3, 4) is offered. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
@@ -125,6 +125,7 @@ Eight points are agreed; nothing is built until the owner says “build v0.8”.
 | 6 | Edit and Run Again | Change a finished request and run it again in the same request; history of tries, Go Deeper, Save as Keyword | Agreed |
 | 7 | Stronger Enrich searching | Searches built from what is known; own Enrich search words per directory and per contact; steps and depth per directory; each search in Debug | Agreed |
 | 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
+| 9 | Contact cards fill the row | Card width becomes a minimum; with Fill the row (on by default) cards stretch evenly to the full width, never narrower than the set width | Agreed |
 
 ## Longer-Term Plan
 
