@@ -2,6 +2,10 @@
 
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
+## 2026-10-18 (planning v0.8)
+- **Deleting a directory** needs it empty: no contacts and nothing waiting in its Inbox (the owner first chose to remove waiting Inbox items with it, then changed to blocking until they are accepted or rejected).
+- **Everything stays in one app** — no separate Scanner (see v0.7 note).
+
 ## 2026-10-17 (v0.7)
 - **Tags belong to all directories or chosen ones** (owner: OK). Shown as small bars under the Enrich button (owner chose this over circles at the top-left); one tag may tint the card (mixed into the theme's card colour so it works in Dark too). Anyone who may edit contacts can tag; *Manage tags* is needed to create / change / merge / delete tags.
 - **Card style and width are per directory** (Directory Settings → Cards), default from Display. “Short card shows” can be saved for every card in the directory or only for me.

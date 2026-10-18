@@ -118,7 +118,7 @@ Nine points are agreed; nothing is built until the owner says “build v0.8”. 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
 | 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
-| 2 | Delete only empty directories | Delete is off while a directory has contacts; Inbox items waiting for it are removed with it after a warning | Agreed |
+| 2 | Delete only empty directories | Delete is off while a directory has contacts or companies waiting in the Inbox for it; first accept or reject them in the Inbox and move or remove the contacts, then it can be deleted | Agreed |
 | 3 | Search Engines settings | Turn engines on or off, see which work or block, backup search keys (Brave, Google, Serper — prices checked first), engine shown in Debug | Waiting for OK |
 | 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit, stops on a CAPTCHA | Agreed |
 | 5 | List of pages read | Permanent record of every page read; Enrich and discovery don't read the same pages again; start of Saved Pages | Agreed |
