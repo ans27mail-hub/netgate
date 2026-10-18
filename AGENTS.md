@@ -4,6 +4,7 @@ You are continuing **NetGate**, a self-hosted web app that builds business direc
 This file is for any AI assistant or developer picking up the project. Read it fully, then the files it points to.
 
 ## Read first (in this order)
+0. `docs/NETGATE-PROJECT.md` — the whole project on one page (status, features, commands, plan, rules). Update it with every release.
 1. `docs/PROJECT.md` — what NetGate is for, who uses it, the owner's setup.
 2. `docs/ROADMAP.md` — what is done (per version) and what comes next.
 3. `docs/DECISIONS.md` — choices already made and why. **Don't undo a decision without asking the owner.**
@@ -30,7 +31,7 @@ This file is for any AI assistant or developer picking up the project. Read it f
 
 ## Releasing a version
 1. Test (see “Testing” in `docs/ARCHITECTURE.md`). The end-to-end tests in `tests/` must pass.
-2. Update **`docs/ROADMAP.md`, `docs/DECISIONS.md` and `CHANGELOG.md`** — every work session, before pushing. This is what keeps this handover current.
+2. Update **`docs/ROADMAP.md`, `docs/DECISIONS.md`, `CHANGELOG.md` and `docs/NETGATE-PROJECT.md`** — every work session, before pushing. This is what keeps this handover current.
 3. Commit, then add a line at the top of `releases.txt`: `v0.x  <commit>  <YYYY-MM-DD>  <short description>`, commit and push to `main`.
 4. Tell the owner to run `netgate update` (and anything special, e.g. a longer first build).
    `netgate rollback` goes back one version; `netgate versions` lists them.
