@@ -12,7 +12,7 @@ A dated log of choices and why. Newest first within each date. Don't undo one wi
 - **Title Case** for headings, menus, tabs and buttons; normal sentences stay normal.
 - **Developer Handbook**: admin-only by default, grantable with *Developer help*. Written pages in `docs/dev/` (one per feature, test enforced) + automatic pages from the code. Never contains passwords or keys.
 - **Backups** run in their own small container (`backup`, postgres:16-alpine) with `pg_dump`, into `BACKUP_DIR` (default `./backups`; better on another disk). The web app only reads the folder. **Restore only on the server** (`netgate restore`, which first saves a safety copy), never from the web page.
-- **NetGate Scanner** will be a separate app with its own Docker stack on a shared network (owner: OK).
+- ~~NetGate Scanner as a separate app~~ — **changed 18 Oct 2026 by the owner: everything stays inside NetGate** (separate apps would be more complicated). Page saving and scans become part of NetGate, with their own worker container in the same stack; the Chrome extension connects to NetGate.
 
 ## 2026-10-16 (v0.6)
 - **Start page = Dashboard** (was the Inbox). `/?group=` still redirects to the directory (v0.4 links).
@@ -23,7 +23,7 @@ A dated log of choices and why. Newest first within each date. Don't undo one wi
 - **Password reset** by an admin logs the person out everywhere and (by default) makes them choose their own password at the next login. New users get “must choose own password” by default.
 - **Login history** keeps every attempt (also failed, with the reason) for 180 days; not tied to the user row so it survives deletion.
 - **Deleting a role** asks which role its users get instead; the Admin role can't be deleted. Copying a role copies its permissions and default directory access.
-- **Planning decisions (not built yet):** see `docs/ROADMAP.md` → *Next — agreed plan* (Scanner as a separate app and repo, extension talks to the Scanner, Authentik + per-app Login method switch, Vaultwarden, screenshots manual only, page-keeping rules editable, Verify single + automatic, product images cached on view and deleted after X days).
+- **Planning decisions (not built yet):** see `docs/ROADMAP.md` → *Next — agreed plan* (Saved Pages & Scans inside NetGate — not a separate app, extension talks to NetGate, Authentik + per-app Login method switch, Vaultwarden, screenshots manual only, page-keeping rules editable, Verify single + automatic, product images cached on view and deleted after X days).
 
 ## 2026-10-16 (v0.5)
 - **Requests are a separate layer.** Deleting or rejecting a request never changes contacts, their data, sources or Inbox items. Each contact keeps a plain-text history note (“Found by Web search ‘glove makers’ · 16 Oct 2026 · admin”), so it still makes sense after the request is gone. The database link from a contact to its request is cleared, never cascaded. *(Owner's request.)*
