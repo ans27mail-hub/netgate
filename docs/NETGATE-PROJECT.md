@@ -114,7 +114,7 @@ Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (
 
 ## Next Update List (v0.9)
 
-v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 5, 7, 4, 8, 1**, in that order, built on “build v0.9”. Details: `docs/ROADMAP.md`.
+v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 10, 5, 7 + 11, 4, 8, 12, 13, 1**, built on “build v0.9”. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
@@ -123,6 +123,10 @@ v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 5, 7, 4, 8, 1**, 
 | 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
 | 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
 | 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
+| 10 | Stuck requests clean-up | After a restart, running requests become “Interrupted” with Run Again / Delete; no progress for 30 min → same; admins get Force Stop | Agreed |
+| 11 | Enrich Now with a choice of steps | Tick the Enrich steps each time; impossible steps greyed with the reason; Only Missing Fields / Check All Again | Agreed |
+| 12 | Permissions for every action | Every button and page tied to a permission; a “Cards Only” role that only sees cards, nothing about searching | Agreed (details to show first) |
+| 13 | Font and colour scheme in Display | Each person picks a colour scheme and font (like BrandPartners), with a live preview | Agreed (details to show first) |
 | 2, 9, 6, 3 | Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines | — | Done in v0.8 |
 
 ## Longer-Term Plan
