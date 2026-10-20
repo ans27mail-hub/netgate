@@ -3,7 +3,9 @@
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
 ## 2026-10-20 (planning v0.9)
-- **v0.9 also gets** points 10 (stuck requests clean-up) and 11 (Enrich Now with a choice of steps) — owner said yes to both; and the owner's new asks 12 (permissions for every action, incl. a “cards only” level) and 13 (personal font and colour scheme in Display, like BrandPartners). Suggested order: 10 first (small, makes updates safe), then 5, 7 + 11, 4, 8, 12, 13, 1.
+- **v0.9 also gets** points 10 (stuck requests clean-up) and 11 (Enrich Now with a choice of steps) — owner said yes to both; and the owner's new asks 12 (permissions for every action, incl. a “cards only” level) and 13 (personal font and colour scheme in Display, like BrandPartners). Split by the owner: **v0.9 = 10, 5, 7 + 11, 12, 13, 14; v1.0 = 4, 8, 1.**
+- **Point 13 follows BrandPartners' Appearance settings** (same GitHub account, `ans27mail-hub/brandpartner`): colour presets A–D, every colour editable, separate heading and body fonts from a bundled list, upload your own fonts. In NetGate it is also available per person in Display.
+- **Point 14: every pop-up closes on a click outside it or Esc**, one menu open at a time (owner's request).
 - **Solve CAPTCHA yourself** joins v0.9 point 4 (Browser search): a person may solve a CAPTCHA in a live pop-up of NetGate's browser, then the search continues. “Never solve CAPTCHAs” now means NetGate never solves them automatically (no AI, no solving service). Only for Browser search; SearXNG searches can't show their CAPTCHA. Limits per engine stay.
 
 ## 2026-10-18 (v0.8)
