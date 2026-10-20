@@ -116,13 +116,14 @@ Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (
 
 ## Next Update List (v1.0)
 
-v0.9 built points 10, 5, 7, 11, 12, 13 and 14 (20 Oct 2026). **v1.0 = points 4, 8, 1**, built on “build v1.0”. Details: `docs/ROADMAP.md`.
+v0.9 built points 10, 5, 7, 11, 12, 13 and 14 (20 Oct 2026). **v1.0 = points 4, 8, 1, 15**, built on “build v1.0”. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
 | 4 | Browser search (with Solve CAPTCHA Yourself) | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
 | 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
 | 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
+| 15 | Dashboard layout | Number tiles spread evenly over the full width; Needs Attention and Running Jobs the same width; Quick Actions unchanged | Agreed |
 
 ## Longer-Term Plan
 
