@@ -125,6 +125,13 @@ v0.9 built points 10, 5, 7, 11, 12, 13 and 14 (20 Oct 2026). **v1.0 = points 4, 
 | 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
 | 15 | Dashboard layout | Number tiles spread evenly over the full width; Needs Attention and Running Jobs the same width; Quick Actions unchanged | Agreed |
 
+### Agreed for v1.1
+
+| # | Point | What it means | Status |
+| --- | --- | --- | --- |
+| 16 | Testing Guide | Step-by-step test checklists for every feature in Developer Tools, saved test runs, Quick Health Check, a hidden Test Directory; Admins and *Testing Guide* permission | Agreed |
+| 17 | Keyword Library + Search Builder | Keyword categories and keywords with full management and results per keyword; pick keywords to build searches (all combinations, run now or add to a directory); languages: tick languages and the local AI translates each keyword once, saved and correctable | Agreed |
+
 ## Longer-Term Plan
 
 After v1.0 the agreed order is below; each step is explained first and built only on “build”.

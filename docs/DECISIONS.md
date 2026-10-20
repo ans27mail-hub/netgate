@@ -2,6 +2,10 @@
 
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
+## 2026-10-20 (planning v1.1)
+- **Testing Guide and Keyword Library go into v1.1**, after v1.0 (owner: “do it your way”).
+- **Keyword translations:** keywords are kept in English; people tick the languages to search in; the local AI translates a keyword the first time it is needed and the translation is **saved** (marked AI-translated, editable, can be marked checked) and reused — not translated anew for every search, so results stay comparable and mistakes can be fixed once.
+
 ## 2026-10-20 (v0.9)
 - **Interrupted, not failed:** a request cut off by a restart or 30 minutes without progress gets its own status *interrupted*, shown in the Failed tab with the same buttons. Workers start through `python -m app.worker` (docker-compose), which tidies their own queue first — there is one worker per queue, so whatever that queue was running can't be running any more. Waiting requests are queued again because Redis keeps no data across an update. *(Defaults chosen.)*
 - **Force Stop** only for *Control everyone's requests*, only for Pausing / Stopping.
