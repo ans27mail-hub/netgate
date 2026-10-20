@@ -2,6 +2,9 @@
 
 A dated log of choices and why. Newest first within each date. Don't undo one without asking the owner.
 
+## 2026-10-20 (planning v0.9)
+- **Solve CAPTCHA yourself** joins v0.9 point 4 (Browser search): a person may solve a CAPTCHA in a live pop-up of NetGate's browser, then the search continues. “Never solve CAPTCHAs” now means NetGate never solves them automatically (no AI, no solving service). Only for Browser search; SearXNG searches can't show their CAPTCHA. Limits per engine stay.
+
 ## 2026-10-18 (v0.8)
 - **Delete only empty directories** is checked on the page and on the server. “Waiting” = Inbox items with status *new*; accepted / rejected Inbox items, existing hits, keywords and fields go with the directory; decisions and requests keep a cleared link (training data stays).
 - **Fill the row is on by default** for everyone (also for saved v0.7 display settings, which had no such key). Directory setting: Default / On / Off.

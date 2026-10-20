@@ -120,7 +120,7 @@ v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 5, 7, 4, 8, 1**, 
 | --- | --- | --- | --- |
 | 5 | List of pages read | Permanent record of every page read; Enrich and discovery don't read the same pages again (also for Edit and Run Again); start of Saved Pages | Agreed |
 | 7 | Stronger Enrich searching | Searches built from what is known; own Enrich search words per directory and per contact; steps and depth per directory; each search in Debug | Agreed |
-| 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit, stops on a CAPTCHA | Agreed |
+| 4 | Browser search | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
 | 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
 | 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
 | 2, 9, 6, 3 | Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines | — | Done in v0.8 |
