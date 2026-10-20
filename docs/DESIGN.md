@@ -29,6 +29,22 @@ The D4 mockups are on the owner's design canvas (claude.ai artifact *NetGate lay
 | A user: What This Person Sees | `design/v07-user-sees.png` |
 | Help window | `design/v07-help-window.png` |
 
+## v0.9 additions
+- **Enrich Now ▾**: a split button; the menu lists the steps with a grey reason when one can't work. On phones it opens as a sheet at the bottom of the screen.
+- **My Look** (Display): colour sets as cards with three swatches (menu, accent, page) and the fonts; a font sample line.
+- Colour sets A–D come from BrandPartners; headings may use their own font (`--display`); button text follows the accent (`--accent-fg`).
+- Pop-ups close on an outside click or Esc.
+
+| Page | Screenshot |
+|---|---|
+| Enrich Now ▾ | `design/v09-enrich-menu.png` (phone: `design/v09-phone-enrich.png`) |
+| Pages Read on the open card | `design/v09-bigcard-pages.png` |
+| Directory Settings → Enrich | `design/v09-dir-enrich.png` |
+| Interrupted requests | `design/v09-interrupted.png` |
+| Settings → Themes (colour sets, Fonts) | `design/v09-themes.png` |
+| My Look / with a personal look | `design/v09-my-look.png`, `design/v09-my-look-cards.png` |
+| Cards Only | `design/v09-cards-only.png` |
+
 ## v0.8 additions
 - Contact cards: **Fill the row** — width is a minimum, cards stretch evenly (like the directory cards).
 - Search Engines: switches per engine, status badges (Working green, Blocking red, Not Answering amber), links per engine as chips.

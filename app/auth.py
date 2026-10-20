@@ -12,6 +12,7 @@ import os
 PERM_GROUPS = [
     ("Contacts", [
         ("view", "View contacts", "See contacts in their directories"),
+        ("see_dashboard", "See the Dashboard", "The start page with numbers, things to do and system status (without it the start page is Directories)"),
         ("export", "Export", "Download contacts as CSV"),
         ("edit", "Edit contacts", "Change fields, add a contact to a directory"),
         ("delete", "Delete contacts", "Remove contacts permanently"),
@@ -23,11 +24,13 @@ PERM_GROUPS = [
         ("enrich", "Enrich", "Look for missing details of a contact"),
         ("enrich_others", "Enrich other people's contacts", "Also contacts someone else found first"),
         ("see_methods", "See search methods", "See and choose a directory's search methods (web, directory site, eBay …)"),
+        ("see_requests", "See requests and AI jobs", "The Requests page and the “AI Jobs Running” list in the top bar"),
         ("requests_own", "Control own requests", "Pause, stop, delete or reject their own requests"),
         ("requests_all", "Control everyone's requests", "Includes the night run and “Pause all”"),
         ("reject_list", "Manage the reject list", "Restore rejected keywords"),
     ]),
     ("Inbox", [
+        ("see_inbox", "See the Inbox", "Open the Inbox of new companies (needed for reviewing too)"),
         ("review", "Review the Inbox", "Accept or reject new companies"),
     ]),
     ("Directories", [
@@ -66,15 +69,17 @@ DEFAULT_ROLES = [
     # (name, description, perms)
     (ADMIN, "Everything. This role can't be changed or locked out.", PERM_KEYS),
     ("Manager", "Runs the work: directories, keywords, instructions, night jobs and everyone's searches.",
-     ["view", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "enrich_others",
+     ["view", "see_dashboard", "see_inbox", "see_requests", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "enrich_others",
       "see_methods", "requests_own", "requests_all", "reject_list", "review", "manage_dirs", "manage_tags", "ai",
       "crawler", "night", "display_all", "tester", "debug"]),
     ("Researcher", "Uses the site: runs keywords, enriches, reviews the Inbox and adds contacts.",
-     ["view", "export", "edit", "add_contacts", "request", "keywords", "enrich", "enrich_others", "requests_own",
-      "review"]),
-    ("Viewer", "Looks only: views and filters contacts, can export.", ["view", "export"]),
+     ["view", "see_dashboard", "see_inbox", "see_requests", "export", "edit", "add_contacts", "request", "keywords",
+      "enrich", "enrich_others", "requests_own", "review"]),
+    ("Viewer", "Looks only: views and filters contacts, can export.",
+     ["view", "see_dashboard", "see_inbox", "see_requests", "export"]),
     ("Developer", "Helps build NetGate: testing and debugging tools, no users and no API keys.",
-     ["view", "export", "request", "keywords", "enrich", "see_methods", "requests_own", "debug", "logs", "tester",
+     ["view", "see_dashboard", "see_inbox", "see_requests", "export", "request", "keywords", "enrich", "see_methods",
+      "requests_own", "debug", "logs", "tester",
       "training_export", "dev_help"]),
 ]
 

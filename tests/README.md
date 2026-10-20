@@ -59,3 +59,14 @@ OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 BA
 NO_PROXY=.test,127.0.0.1 python3 tests/test_v08.py
 ```
 `tests/test_v05.py`, `test_v06.py` and `test_v07.py` also pass with the v0.8 code.
+
+## Run (v0.9 test, upgrading from v0.8)
+Make a v0.8 database (run `tests/test_v08.py` with the v0.8 code), keep the fake SearXNG running, then with the current code:
+```
+DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up8 REDIS_URL=redis://x SEARXNG_URL=http://127.0.0.1:3997 \
+OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 BACKUP_DIR=/tmp/ngbackups \
+NO_PROXY=.test,127.0.0.1 python3 tests/test_v09.py
+```
+v0.9 changes to the older tests: `test_v05.py` sets *read list pages again after* to 0 (it reads the same lists on purpose)
+and expects the new role Cards Only and the new Viewer permissions; `test_v08.py` accepts any later version and looks
+for the “Try 2” note among several notes.

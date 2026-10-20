@@ -18,6 +18,8 @@ updated: v0.7
 | `app/ebay.py` | eBay Browse API client |
 | `app/control.py` | Request actions (pause, resume, stop, delete, reject, run again), reject list, queues, clean-up |
 | `app/tags.py` | Tags: list, map per contact, card tint, set / add / remove |
+| `app/pages.py` | List of pages read (v0.9): record, skip, reuse, summaries |
+| `app/worker.py` | Worker start-up (v0.9): marks leftover requests Interrupted, re-queues waiting ones, then runs `rq worker` |
 | `app/engines.py` | Search engines (v0.8): chosen engines, `search_log`, status per engine (working / blocking since …) |
 | `app/themes.py` | Built-in themes, colour maths, CSS variables, readability warnings |
 | `app/backups.py` | Backup settings / status / files (the `backup` container does the work) |
@@ -42,6 +44,6 @@ updated: v0.7
 | `backup/run.sh` | The backup loop (runs in the `backup` container) |
 | `renderer/` | The Chromium renderer container |
 | `netgate` | The server command (`update`, `rollback`, `versions`, `backup`, `restore` …) |
-| `tests/` | End-to-end tests (`test_v05.py` … `test_v08.py`) and fake websites |
+| `tests/` | End-to-end tests (`test_v05.py` … `test_v09.py`) and fake websites |
 
 **Adding a page:** route in a `*_routes.py` with `render(..., help="slug")`, a template, a help page in `app/help/`, a Handbook feature page if it is a new feature, and a line in the test.

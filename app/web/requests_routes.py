@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, or_, select
 
-from .. import control, methods
+from .. import control, methods, pages
 from ..auth import can, sees_methods
 from ..db import Group, InboxItem, Job, JobTrace, Keyword, Record, RejectedKeyword, SessionLocal, User
 from .common import (Forbidden, all_groups, back, can_control, current_user, flash, go, jobs_clause,
@@ -19,7 +19,7 @@ def _tab_clause(tab: str):
         return Job.deleted_at.is_not(None)
     base = Job.deleted_at.is_(None)
     states = {"waiting": control.WAITING, "running": control.RUNNING, "paused": {"paused"}, "done": {"done"},
-              "failed": {"failed"}, "stopped": {"stopped"}, "rejected": {"rejected"}}
+              "failed": {"failed", "interrupted"}, "stopped": {"stopped"}, "rejected": {"rejected"}}
     if tab in states:
         return base & Job.status.in_(list(states[tab]))
     return base
@@ -29,6 +29,7 @@ def _tab_clause(tab: str):
 def requests_page(request: Request, tab: str = "all", dir: str = "", kind: str = "", who: str = "", q: str = ""):
     with SessionLocal() as s:
         user = current_user(s, request)
+        require(user, "see_requests")
         tab = tab if tab in dict(control.STATUS_TABS) else "all"
         visible = jobs_clause(user)
         counts = {t: s.scalar(select(func.count(Job.id)).where(visible, _tab_clause(t))) for t, _ in control.STATUS_TABS}
@@ -52,12 +53,14 @@ def requests_page(request: Request, tab: str = "all", dir: str = "", kind: str =
                       groups=all_groups(s))
 
 
-ACTIONS = {"pause", "resume", "stop", "delete", "undelete", "reject", "restore", "again"}
+ACTIONS = {"pause", "resume", "stop", "delete", "undelete", "reject", "restore", "again", "force"}
 
 
 def _do(s, user, job, action: str, reason: str = "") -> bool:
     if action == "restore" and not can(user, "reject_list") and job.user_id != user.id:
         return False
+    if action == "force":
+        return can(user, "requests_all") and control.force_stop(s, job, user)
     if action == "pause":
         return control.pause(s, job)
     if action == "resume":
@@ -208,7 +211,7 @@ def job_action(request: Request, jid: int, action: str, reason: str = Form("")):
         s.commit()
         labels = {"pause": "Pausing", "resume": "Resumed", "stop": "Stopping", "delete": "Moved to Deleted",
                   "undelete": "Restored", "reject": "Rejected — the keyword is on the reject list",
-                  "restore": "Keyword taken off the reject list", "again": "Started again"}
+                  "restore": "Keyword taken off the reject list", "again": "Started again", "force": "Force-stopped"}
         flash(request, f"{labels[action]}: {job.query}" if ok else
               f"Couldn't {action} “{job.query}” right now (status: {job.status}).", not ok)
     return back(request, "/requests")
@@ -277,6 +280,7 @@ def debug(request: Request, jid: int, kind: str = ""):
         new_items = s.scalars(select(InboxItem).where(InboxItem.job_id == jid).limit(200)).all()
         recs = {r.id: r for r in s.scalars(select(Record).where(Record.id.in_([i.record_id for i in new_items] or [-1])))}
         return render(request, s, user, "debug.html", active_nav="requests", help="developer", job=job, rows=rows,
+                      read_rows=pages.for_job(s, jid), page_summary=pages.summary, PURPOSES=pages.PURPOSES,
                       kinds=kinds, f_kind=kind, new_items=new_items, recs=recs, control=can_control(user, job),
                       group_names={g.id: g.name for g in all_groups(s)})
 
@@ -297,6 +301,7 @@ def debug_clear(request: Request, jid: int):
 def activity(request: Request):
     with SessionLocal() as s:
         user = current_user(s, request)
+        require(user, "see_requests")
         jobs = s.scalars(select(Job).where(jobs_clause(user), Job.deleted_at.is_(None))
                          .order_by(Job.id.desc()).limit(8)).all()
         running = sum(1 for j in jobs if j.status in control.RUNNING | control.WAITING)

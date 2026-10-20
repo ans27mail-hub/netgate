@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
-from . import ai, contacts, control, crawl, ebay, extract, learn, methods
+from . import ai, contacts, control, crawl, ebay, extract, learn, methods, pages
 from .db import (DISCOVER_KEYS, Group, InboxItem, Job, JobTrace, Keyword, Membership, NightRun, Record,
                  SessionLocal, User, get_setting, log, name_key, url_domain)
 
@@ -121,8 +121,10 @@ class Ctx:
     def __init__(self, job_id: int | None, ai_type: str, stop_rule=None, pause: float = 0.0, user: str = ""):
         self.job_id, self.ai_type, self.stop_rule, self.pause, self.user = job_id, ai_type, stop_rule, pause, user
         self.stats = {"results": 0, "read": 0, "failed": 0, "saved": 0, "updated": 0, "fields": 0,
-                      "rendered": 0, "cached": 0, "next_pages": 0, "profiles": 0, "page_no": 0, "pages_total": 0}
+                      "rendered": 0, "cached": 0, "next_pages": 0, "profiles": 0, "page_no": 0, "pages_total": 0,
+                      "skipped": 0}
         self.deeper = 0                # "Go deeper" level of an edited request (v0.8): more result pages
+        self.group_id: int | None = None   # the directory this job works for (pages-read list, v0.9)
         self.state: dict = {}          # saved when paused, given back on Resume
         self.resume_state: dict = {}
         self.notes: list[str] = []
@@ -187,6 +189,14 @@ class Ctx:
         self.stats["rendered"] += int(page.rendered)
         self.stats["cached"] += int(page.cached)
         return True
+
+    def read(self, url: str, purpose: str, record_id: int | None = None):
+        """Download a page, count it, and (in a real request) add it to the list of pages read (v0.9)."""
+        page = crawl.get_page(url)
+        ok = self.count_page(page)
+        page.read_id = pages.record(page, self.job_id, purpose, self.group_id, record_id) \
+            if self.job_id is not None else None
+        return page, ok
 
     def trace(self, kind: str, url: str = "", **data):
         if not self.tracing or self._traces >= TRACE_LIMIT:
@@ -401,9 +411,9 @@ def _enhance_entries(ctx: Ctx, page, entries: list[dict], directory_mode: bool |
             continue
         budget -= 1
         ctx.step("crawling", f"Profile of {e['name']}: {link}")
-        prof = crawl.get_page(link)
+        prof, ok = ctx.read(link, "profile")
         ctx.stats["profiles"] += 1
-        if not ctx.count_page(prof):
+        if not ok:
             continue
         site = extract.external_website(prof.html, prof.final_url or link, e["name"])
         if site and not e.get("website"):
@@ -411,12 +421,25 @@ def _enhance_entries(ctx: Ctx, page, entries: list[dict], directory_mode: bool |
         e["_found"] = extract.analyze(prof.html, prof.text, prof.final_url or link)
         e["_found_url"] = prof.final_url or link
         ctx.trace("code", prof.final_url or link, company=e["name"], website=e.get("website"), found=e["_found"])
+        pages.add_found(getattr(prof, "read_id", None), companies=[str(e["name"])[:120]], code=_compact(e["_found"]))
+
+
+def _compact(info: dict) -> dict:
+    """What code found on a page, small enough to keep in the pages-read list."""
+    info = info or {}
+    out = {k: list(info.get(k) or [])[:10] for k in ("emails", "phones", "whatsapp") if info.get(k)}
+    if info.get("social"):
+        out["social"] = dict(info["social"])
+    if info.get("org"):
+        out["org"] = {k: v for k, v in dict(info["org"]).items() if isinstance(v, (str, int, float, list))}
+    return json.loads(json.dumps(out, default=str))
 
 
 def crawl_pages(ctx: Ctx, group_id: int, query: str, method: str, queue: list, seen: set, done: int,
                 directory_mode: bool | None = None):
     """Read queued pages; list pages add their next page to the front of the queue."""
     max_next = int(crawl.settings().get("next_pages") or 0) + 2 * max(0, ctx.deeper)
+    reread = int(crawl.settings().get("reread_days", pages.DEFAULT_REREAD_DAYS) or 0)
     with SessionLocal() as s:
         group = s.get(Group, group_id)
         _ = group.fields
@@ -428,9 +451,17 @@ def crawl_pages(ctx: Ctx, group_id: int, query: str, method: str, queue: list, s
             done += 1
             ctx.stats["page_no"], ctx.stats["pages_total"] = done, done + len(queue)
             label = f"Page {done} of {done + len(queue)}" + (f" (next page {depth})" if depth else "")
+            prev = pages.read_before_for_list(url, group_id, ctx.job_id, reread) if ctx.job_id else None
+            if prev:   # v0.9: read before — by an earlier try of this request, or recently for this directory
+                ctx.stats["skipped"] += 1
+                why = "an earlier try of this request" if prev.job_id == ctx.job_id else \
+                    (f"request #{prev.job_id}" if prev.job_id else "another request")
+                ctx.trace("note", url, text=f"Skipped: already read {prev.at:%d %b %Y %H:%M} by {why}",
+                          skipped=True)
+                continue
             ctx.step("crawling", f"{label}: {url}")
-            page = crawl.get_page(url)
-            if not ctx.count_page(page):
+            page, ok = ctx.read(url, "list")
+            if not ok:
                 continue
             ctx.step("extracting", f"{label}: {url}")
             entries = _ask_entries(ctx, group, query, page)
@@ -450,6 +481,7 @@ def crawl_pages(ctx: Ctx, group_id: int, query: str, method: str, queue: list, s
                         ctx.stats[result] += 1
                     s.flush()
                 s.commit()
+            pages.add_found(getattr(page, "read_id", None), companies=[str(e.get("name"))[:120] for e in entries])
             _score_new(ctx)
         except Paused:
             queue.insert(0, (url, depth))   # read this page again after Resume
@@ -551,6 +583,7 @@ def discover(ctx: Ctx, group_id: int, query: str, use_methods: list[str] | None 
         group = s.get(Group, group_id)
         _ = group.fields
     use = [m for m in (use_methods or methods.enabled_find_methods(group)) if m in methods.FIND_METHODS]
+    ctx.group_id = group_id
     state = ctx.resume_state or {}
     done_methods = list(state.get("done_methods") or [])
     for m in use:
@@ -607,10 +640,29 @@ def _ask_enrich(ctx, group_name, guidance, rec_info, missing, source, text):
         return None
 
 
-def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | None = None) -> list[str]:
-    """Look for this company's missing fields. Returns the names of the fields that were found."""
+ENRICH_DEFAULTS = {"words": "", "steps": None, "results": 8, "searches": 8}
+
+
+def enrich_config(group) -> dict:
+    """A directory's Enrich settings (v0.9): own search words, steps, results read per search, searches per contact."""
+    cfg = {**ENRICH_DEFAULTS, **((getattr(group, "enrich", None) or {}) if group else {})}
+    cfg["steps"] = [k for k in (cfg.get("steps") or methods.ENRICH_STEP_KEYS) if k in methods.ENRICH_STEP_KEYS]
+    cfg["results"] = max(1, min(30, int(cfg.get("results") or 8)))
+    cfg["searches"] = max(1, min(30, int(cfg.get("searches") or 8)))
+    return cfg
+
+
+def _words(text: str) -> list[str]:
+    return [w.strip() for w in re.split(r"[,\n]+", text or "") if w.strip()]
+
+
+def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | None = None,
+           words: str = "") -> list[str]:
+    """Look for this company's missing fields. Returns the names of the fields that were found.
+    v0.9: pages already read for this company are not opened again (what code found there is reused) unless
+    `refresh` (“Check all again”); searches are built from what is known; the directory's Enrich settings and
+    the person's extra `words` are used; Debug shows each search and which page filled which field."""
     cfg = crawl.settings()
-    steps = set(steps or methods.ENRICH_STEP_KEYS)
     with SessionLocal() as s:
         rec = s.get(Record, record_id)
         if not rec:
@@ -619,13 +671,20 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
         gids = contacts.member_ids(s, rec.id) + contacts.open_item_group_ids(s, rec.id)
         group = s.get(Group, gids[0]) if gids else None
         group_name = group.name if group else "contacts"
+        ecfg = enrich_config(group)
+        b2b_sites = crawl._lines(methods.options(group, "directory").get("sites") or "")[:3] \
+            if group and "directory" in (group.methods or {}) else []
         guidance = " ".join(dict.fromkeys(g.enrich_instructions for g in (s.get(Group, x) for x in gids)
                                           if g and g.enrich_instructions))
         keywords = [k.text for x in gids for k in (s.get(Group, x).keywords if s.get(Group, x) else [])][:6]
+        found_by = [kw for kw in s.scalars(select(InboxItem.keyword).where(InboxItem.record_id == rec.id)
+                                           .order_by(InboxItem.id.desc())).all() if kw][:2]
         data, social = dict(rec.data or {}), dict(rec.social or {})
         links, ext = dict(rec.links or {}), dict(rec.ext or {})
         name, summary, notes = rec.title, rec.summary, rec.notes or ""
         conn = methods.connections(s)
+    ctx.group_id = ctx.group_id or (group.id if group else None)
+    steps = set(steps or ecfg["steps"])
     by_key = {f.key: f for f in fields}
     wanted = [f for f in fields if f.source != "manual"]
     missing = [f for f in wanted if refresh or empty(data.get(f.key))]
@@ -637,11 +696,16 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
     found_src: dict = {}
     description = None
     read_sites: set = set()
+    before = {} if refresh else pages.read_for_record(record_id)   # v0.9: pages already read for this company
+    rows: dict = {}                                                   # url -> pages_read id (this run)
     if notes:
         guidance = (guidance + " Notes from the team: " + notes).strip()
 
     def still_missing(ai_only=True):
         return [f for f in missing if f.key not in found and (searchable(f) or not ai_only)]
+
+    def social_missing():
+        return "social" in steps and [k for k in crawl.SOCIAL if not social.get(k)]
 
     def known():
         return {k: v for k, v in {**data, **found}.items() if not empty(v)}
@@ -658,9 +722,7 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
         if not description and result.get("description") and (not summary or refresh):
             description = str(result["description"])[:1000]
 
-    def merge_code(page, own_site: bool):
-        info = extract.analyze(page.html, page.text, page.final_url or page.url)
-        ctx.trace("code", page.final_url or page.url, found=info, own_site=own_site)
+    def merge_info(info, url, own_site: bool):
         website = found.get("website") or data.get("website")
         base = {**data, **found}
         if refresh:
@@ -673,33 +735,57 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
                 own = url_domain(website) if website else None
                 if not (f and f.type == "email" and own and v.split("@")[-1].endswith(own)):
                     continue
-            found[k], found_src[k] = v, page.final_url or page.url
+            found[k], found_src[k] = v, url
         if own_site:
-            for kind, url in info["social"].items():
-                social.setdefault(kind, url)
+            for kind, u in (info.get("social") or {}).items():
+                social.setdefault(kind, u)
+
+    def merge_code(page, own_site: bool):
+        info = extract.analyze(page.html, page.text, page.final_url or page.url)
+        ctx.trace("code", page.final_url or page.url, found=info, own_site=own_site)
+        pages.add_found(getattr(page, "read_id", None), code=_compact(info))
+        merge_info(info, page.final_url or page.url, own_site)
+
+    def open_page(url: str, purpose: str):
+        """Read a page for this company, unless it was read before: then reuse what code found there."""
+        prev = before.get(pages.norm(url))
+        if prev:
+            ctx.stats["skipped"] += 1
+            ctx.trace("note", url, text=f"Already read for this company on {prev.at:%d %b %Y} — reusing what "
+                                        "was found there, not opening it again", skipped=True)
+            if (prev.found or {}).get("code"):
+                merge_info(prev.found["code"], url, own_site=(purpose == "site"))
+            return None
+        ctx.step("crawling", f"Enrich {name}: reading {url}")
+        page, ok = ctx.read(url, purpose, record_id)
+        if getattr(page, "read_id", None):
+            rows[page.final_url or url] = rows[url] = page.read_id
+        return page if ok else None
 
     def read_own_site(website: str):
         home_url = homepage(website)
         if home_url in read_sites:
             return
         read_sites.add(home_url)
-        ctx.step("crawling", f"Enrich {name}: reading {home_url}")
-        home = crawl.get_page(home_url)
-        if not ctx.count_page(home):
-            return
-        pages = [home]
+        home = open_page(home_url, "site")
+        if home is None:   # read before: open it quietly (usually from the cache) only to find its other pages
+            home = crawl.get_page(home_url)
+            fresh = []
+            if not home.ok:
+                return
+        else:
+            fresh = [home]
         for u in crawl.site_pages(home, int(cfg.get("site_pages") or 8)):
             if ctx.should_stop() or not still_missing():
                 break
-            ctx.step("crawling", f"Enrich {name}: reading {u}")
-            p = crawl.get_page(u)
-            if ctx.count_page(p):
-                pages.append(p)
-        for p in pages:   # code first
+            p = open_page(u, "site")
+            if p is not None:
+                fresh.append(p)
+        for p in fresh:   # code first
             merge_code(p, own_site=True)
         if still_missing():   # then the AI, on the most useful pages, for whatever code couldn't find
             info = {"name": name, "place": place, "known": known()}
-            for p in pages[:4]:
+            for p in fresh[:4]:
                 if not still_missing() or ctx.should_stop():
                     break
                 ctx.step("extracting", f"Enrich {name}: {p.final_url or p.url}")
@@ -730,32 +816,54 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
     if "website" in steps and data.get("website"):
         read_own_site(data["website"])
 
-    # 2. search for what is still missing
-    queries = []
+    # 2. search for what is still missing — searches built from what is known (v0.9)
+    queries: list[tuple[str, str]] = []   # (search, why)
+    q_name = f'"{name}"'
     if steps & {"find_site", "web"}:
-        queries.append(f'"{name}" {place}'.strip())
+        queries.append((f"{q_name} {place}".strip(), "name and place"))
+    if "web" in steps:   # the person's own words first: they asked for them
+        for w in _words(words)[:4]:
+            queries.append((f"{q_name} {w}", "your words for this contact"))
     if "web" in steps:
+        site = url_domain(data.get("website"))
+        if site:
+            queries.append((f'"{site}"', "its website address"))
+        for kw in found_by:
+            queries.append((f"{q_name} {kw}", "the search that found it"))
+        products = data.get("products") if isinstance(data.get("products"), list) else []
+        for prod in products[:2]:
+            queries.append((f"{q_name} {prod}", "its products"))
         for f in still_missing()[:4]:
-            words = " ".join(f.word_list()[:2]) or f.name
-            queries.append(f'"{name}" {city} {words}'.strip())
+            fw = " ".join(f.word_list()[:2]) or f.name
+            queries.append((f"{q_name} {city} {fw}".strip(), f"missing {f.name}"))
+        for w in _words(ecfg.get("words"))[:4]:
+            queries.append((f"{q_name} {w}", "the directory's Enrich words"))
+        for b2b in b2b_sites:
+            queries.append((f"{q_name} site:{b2b.replace('https://', '').replace('http://', '').strip('/')}",
+                            "the directory's B2B sites"))
     if "social" in steps:
         for kind in [k for k in crawl.SOCIAL if not social.get(k)]:
-            queries.append(f'"{name}" {city} site:{crawl.SOCIAL[kind]}'.strip())
+            queries.append((f"{q_name} {city} site:{crawl.SOCIAL[kind]}".strip(), f"{kind.capitalize()} page"))
+    queries = list(dict.fromkeys(queries))
+    seen_q: set = set()
+    queries = [q for q in queries if not (q[0] in seen_q or seen_q.add(q[0]))][:ecfg["searches"]]
 
     other_pages: list[str] = []
     snippets = []
-    for q in queries:
-        if ctx.should_stop() or (not still_missing() and not [k for k in crawl.SOCIAL if not social.get(k)]):
+    for q, why in queries:
+        if ctx.should_stop() or (not still_missing() and not social_missing()):
+            ctx.trace("note", "", text="Stopped searching: every field is filled")
             break
         ctx.step("searching", f"Enrich {name}: {q}")
-        results = crawl.search(q)[:8]
-        trace_search(ctx, q, results)
+        results = crawl.search(q)[:ecfg["results"]]
+        trace_search(ctx, q, results, why=why)
         for res in results:
             ctx.stats["results"] += 1
             head = f"{res['title']} {res['content']}"
             kind = crawl.social_kind(res["url"])
             if kind and not social.get(kind) and mentions(res["title"], tokens) and "social" in steps:
                 social[kind] = res["url"]
+                ctx.trace("fill", res["url"], field=kind.capitalize(), value=res["url"], search=q)
             if mentions(head, tokens):
                 snippets.append(f"- {res['title']}: {res['content']} ({res['url']})")
                 if not crawl.skip(res["url"]) and res["url"] not in other_pages:
@@ -781,9 +889,8 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
             break
         if website and url_domain(url) == url_domain(website):
             continue
-        ctx.step("crawling", f"Enrich {name}: reading {url}")
-        p = crawl.get_page(url)
-        if not ctx.count_page(p):
+        p = open_page(url, "other")
+        if p is None:
             continue
         read += 1
         if not mentions(p.text, tokens):
@@ -801,6 +908,13 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
         info = {"name": name, "place": place, "known": known()}
         merge(_ask_enrich(ctx, group_name, guidance, info, still_missing(), "search engine results",
                           "\n".join(snippets)[:8000]), "search results")
+
+    # which page filled which field (Debug, and the pages-read list)
+    for k, src in found_src.items():
+        label = by_key[k].name if k in by_key else k
+        ctx.trace("fill", src if str(src).startswith("http") else "", field=label, value=found.get(k), source=src)
+        if src in rows:
+            pages.add_found(rows[src], filled=[label])
 
     # 6. save
     new_social = [k for k in crawl.SOCIAL if social.get(k) and k not in social_before]
@@ -979,6 +1093,8 @@ def summary(stats: dict) -> str:
         extra.append(f"{stats['rendered']} via browser")
     if stats.get("cached"):
         extra.append(f"{stats['cached']} from cache")
+    if stats.get("skipped"):
+        extra.append(f"{stats['skipped']} skipped (read before)")
     return (f"{stats.get('results', 0)} results · {stats.get('read', 0)} pages read"
             + (f" ({', '.join(extra)})" if extra else "")
             + f" · {stats.get('failed', 0)} failed · {stats.get('saved', 0)} new in Inbox, "
@@ -1035,7 +1151,8 @@ def run_job(job_id: int, keyword_id: int | None = None, run_id: int | None = Non
             _finish(job_id, "rejected", "This keyword is on the reject list, so it was not searched.", ctx.stats)
             return
         if kind == "enrich":
-            names = enrich(ctx, record_id, steps=params.get("steps"))
+            names = enrich(ctx, record_id, refresh=bool(params.get("refresh")), steps=params.get("steps"),
+                           words=str(params.get("words") or ""))
             msg = ("Found: " + ", ".join(names)) if names else "No new information found"
             message = f"{msg} · {ctx.stats['read']} pages read"
         elif kind == "night":

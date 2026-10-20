@@ -4,9 +4,9 @@
 | Service | Image / command | Role |
 |---|---|---|
 | `web` | `uvicorn app.main:app` (port 8090 → 8000) | All pages. Runs database upgrades at start-up. |
-| `worker` | `rq worker netgate` | Discover and Enrich requests |
-| `night-worker` | `rq worker netgate-night` | The night run (so daytime jobs don't wait) |
-| `scheduler` | `python -m app.scheduler` | Starts the night run in its window; hourly: purge page cache, deleted requests (30 d), traces (14 d), log (60 d) |
+| `worker` | `python -m app.worker netgate` → `rq worker netgate` | Discover and Enrich requests (v0.9: at start, marks its leftover running requests Interrupted and re-queues waiting ones) |
+| `night-worker` | `python -m app.worker netgate-night` | The night run (so daytime jobs don't wait) |
+| `scheduler` | `python -m app.scheduler` | Starts the night run in its window; every minute: requests with no progress for 30 min → Interrupted; hourly: purge page cache, deleted requests (30 d), traces (14 d), log (60 d) |
 | `db` | postgres:16-alpine | Data (volume `pgdata`) |
 | `redis` | redis:7-alpine | Job queue |
 | `renderer` | `renderer/` Playwright Chromium, `GET /render?url=` | Pages that need JavaScript |
@@ -42,10 +42,12 @@ Ollama (the AI) runs outside Docker, on the iMac. `.env` holds passwords and `OL
 | `backups.py` | Backup settings, status, files, “Back Up Now” request (the `backup` container does the work) |
 | `handbook.py` + `docs/dev/` | Developer Handbook: written pages, feature list (test enforced), automatic pages from the code |
 | `web/look_routes.py`, `web/backup_routes.py` | Settings → Tags, Themes, Backups |
+| `pages.py` | v0.9: the list of pages read — record, skip list pages read before, reuse a company's pages |
+| `worker.py` | v0.9: worker start-up (tidy leftover requests), then `rq worker` |
 | `engines.py`, `web/engine_routes.py` | v0.8: Settings → Search Engines — chosen SearXNG engines, `search_log`, status per engine |
 
 ## Main tables
-`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `tags`, `record_tags`, `existing_hits` (v0.7: a person's search found a contact someone else found first), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`, `search_log` (v0.8: one row per web search, links / failures per engine).
+`groups` (= directories, with `methods` JSON), `fields` (`source` = Filled from), `keywords` (`method`), `records` (contacts: `data`, `sources`, `social`, `links`, `ext`, `history`, `notes`, `accepted_at`, `vec`), `memberships` (contact ↔ directory), `inbox` (InboxItem: per contact + directory, status new / accepted / rejected, suggestion), `tags`, `record_tags`, `existing_hits` (v0.7: a person's search found a contact someone else found first), `decisions` (every accept / reject with a snapshot), `jobs` (requests: `control`, `state`, `params`, `deleted_at`), `job_traces` (debug), `rejected_keywords`, `roles`, `users` (`role_id`, `extra_perms`, `removed_perms`, `must_change`, `last_login_at`), `logins` (login history, not linked by FK so it survives deleting a user), `user_groups`, `ai_servers`, `ai_usage`, `night_runs`, `page_cache`, `app_settings` (JSON settings + upgrade flags), `app_log`, `search_log` (v0.8: one row per web search, links / failures per engine), `pages_read` (v0.9: every page read and what was found), `font_files` (v0.9: uploaded fonts).
 
 ## How a search runs
 1. A page calls `start_job()` → a `jobs` row + an RQ job → the worker runs `jobs.run_job(id)`.
@@ -72,6 +74,7 @@ There is no pip access in the AI's build environment, so libraries were cloned f
 - `tests/test_v05.py` — the full flow: v0.4 → v0.5 upgrade, Discover → Inbox, accept / reject / restore, multiple directories, suggestions, eBay, pause / resume / stop / reject / delete, add contact (one / list / CSV), roles, help, night run.
 - `tests/test_v06.py` — v0.5 → v0.6 upgrade: Dashboard, Directories page, switcher, moving contacts (one / many / from all), People (add with must-change, reset logs out, disable, login history, delete keeps data, roles copy / delete with move).
 - `tests/test_v07.py` — v0.6 → v0.7 upgrade: tags, card styles, short-card fields, themes, debug clear, own / selected / own-directory scopes, search methods hidden, Existing Contacts (limited view, enrich permission), Handbook (every feature has a page), backups settings and files, Running Jobs.
+- `tests/test_v09.py` — v0.8 → v0.9: stuck requests, pages read (Discover skip, earlier tries, Enrich reuse, Check All Again), stronger Enrich + Directory Settings → Enrich, Enrich Now ▾, new permissions + Cards Only, colour sets / fonts / uploaded fonts / My Look, pop-up script.
 - `tests/test_v08.py` — v0.7 → v0.8: delete only empty directories, Fill the row, Edit and Run Again (tries, Go Deeper, Save as Keyword, permissions), Search Engines with a fake SearXNG (`tests/fake_searx.py`).
 - After a change, also open the main pages in a browser (the test does GET requests; screenshots catch layout problems).
 

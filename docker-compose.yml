@@ -16,7 +16,7 @@ services:
 
   worker:
     build: .
-    command: rq worker netgate --url redis://redis:6379/0
+    command: python -m app.worker netgate
     env_file: .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -27,7 +27,7 @@ services:
 
   night-worker:            # runs the night batch, so daytime jobs never wait behind it
     build: .
-    command: rq worker netgate-night --url redis://redis:6379/0
+    command: python -m app.worker netgate-night
     env_file: .env
     extra_hosts:
       - "host.docker.internal:host-gateway"

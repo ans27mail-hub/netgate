@@ -38,6 +38,6 @@ This file is for any AI assistant or developer picking up the project. Read it f
 
 ## Starting a new session
 The owner will paste something like:
-> “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v0.9.”
+> “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v1.0.”
 
 Then: read the files above, check `docs/ROADMAP.md` → *Next*, explain the plan in plain words, and wait for “build”.

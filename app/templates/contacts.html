@@ -2,7 +2,7 @@
 {% block title %}{{ sel_group.name if sel_group else 'All Contacts' }} · NetGate{% endblock %}
 {% block content %}
 {% set base_path = '/d/' ~ sel_group.id if sel_group else '/contacts' %}
-{% if night and night.stats and not sel_group %}
+{% if night and night.stats and not sel_group and can(user, 'see_requests') %}
 <div class="banner">
   <strong>{{ 'Tonight' if night.status == 'running' else 'Last Night' }}:</strong>
   <span>{{ night.stats.get('saved', 0) }} new in the Inbox · {{ night.stats.get('fields', 0) }} fields filled · {{ night.stats.get('companies', 0) }} enriched{% if night.status == 'running' %} · still running{% elif night.status == 'paused' %} · paused{% elif night.status == 'stopped' %} · stopped{% endif %}</span>
@@ -32,7 +32,7 @@
 </div>
 {% if sel_group and sel_group.description %}<p class="hint" style="margin:-6px 0 0">{{ sel_group.description }}</p>{% endif %}
 
-{% if sel_group %}
+{% if sel_group and searcher(user) %}
 <nav class="utabs" aria-label="Directory tabs">
   <a href="{{ base_path }}" class="{% if dtab != 'existing' %}on{% endif %}" {% if dtab != 'existing' %}aria-current="page"{% endif %}>Contacts <span>{{ stats.total if stats else records|length }}</span></a>
   <a href="{{ base_path }}?tab=existing" class="{% if dtab == 'existing' %}on{% endif %}" {% if dtab == 'existing' %}aria-current="page"{% endif %}>Existing Contacts <span>{{ hits_n }}</span></a>
@@ -129,7 +129,7 @@
   <span class="sub">{% if flt.active() %}{{ records|length }} match{% else %}{{ records|length }} shown{% endif %}{% if limited %} (first {{ records|length }}; narrow the filters to see others){% endif %}</span>
   {% if view == 'list' %}
   <span class="selbar" data-selbar="sel"><strong data-selcount="sel">0</strong> selected</span>
-  {% if can(user, 'enrich') %}<button type="submit" form="sel" class="btn btn-dark btn-small">Enrich Selected</button>{% endif %}
+  {% if can(user, 'enrich') %}<span class="splitbtn"><button type="submit" form="sel" class="btn btn-dark btn-small">Enrich Selected</button>{% if sees_methods(user) %}<details class="menu inline enrich-menu"><summary class="btn btn-dark btn-small" aria-label="Choose the Enrich steps for the selected contacts" title="Choose the steps">▾</summary>{% with formid='sel' %}{% include "_enrich_menu.html" %}{% endwith %}</details>{% endif %}</span>{% endif %}
   {% set targets = groups|rejectattr('id', 'equalto', sel_group.id if sel_group else 0)|selectattr('id', 'in', edit_gids)|list %}
   {% if targets %}
   <span class="inline-form">

@@ -1,6 +1,6 @@
 # NetGate — Complete Project Document
 
-As of 18 Oct 2026 (v0.8) · Owner: Abdul Moeez (Motofast International, Sialkot)
+As of 20 Oct 2026 (v0.9) · Owner: Abdul Moeez (Motofast International, Sialkot)
 
 Same content as the owner's "NetGate — Complete Project Document" in Claude. Keep both up to date when the project changes.
 
@@ -17,10 +17,11 @@ NetGate is Motofast's own business-directory builder: it searches the web with a
 
 ## Current Status
 
-NetGate is at **v0.8** (released 18 Oct 2026). v0.9 (points 5, 7, 4, 8, 1) is agreed and waits for “build v0.9”.
+NetGate is at **v0.9** (released 20 Oct 2026). v1.0 (points 4, 8, 1) is agreed and waits for “build v1.0”.
 
 | Version | Date | What it brought |
 | --- | --- | --- |
+| v0.9 | 20 Oct 2026 | Stuck requests marked Interrupted + Force Stop, list of pages read (skip and reuse), stronger Enrich searching and Directory Settings → Enrich, Enrich Now ▾ with steps, a permission for every page + Cards Only role, colour sets and fonts like BrandPartners + My Look, pop-ups close on outside click |
 | v0.8 | 18 Oct 2026 | Delete only empty directories, contact cards fill the row, Edit and Run Again inside a request (tries, Go Deeper, Save as Keyword), Settings → Search Engines (on / off, working or blocking since when, links per engine, test, engine per link in Debug) |
 | v0.7 | 17 Oct 2026 | Tags, card styles A/B/C and fixed card width, Short Card Shows, themes (incl. Dark), bigger Help window, Debug actions, what each person sees (own contacts, own/selected directories, search methods hidden), Existing Contacts tab, Title Case, Developer Handbook, automatic backups, Running Jobs on the Dashboard |
 | v0.6 | 16 Oct 2026 | Dashboard start page, Directories page, directory switcher, moving contacts, People (users, reset password, login history, roles copy / rename / delete) |
@@ -38,13 +39,13 @@ Every page has a **?** button that opens its help.
 | --- | --- |
 | Dashboard | Numbers at a glance, Needs Attention (with a button each), Running Jobs, Quick Actions, System status (AI server, browser, search engine, eBay), Directories table, recent activity |
 | Directories | One card per directory; tabs and Jump To to switch; Contacts and Existing Contacts tabs; complete bar; Find New, Run All Keywords, Enrich All Incomplete |
-| Directory Settings | Name, owner, search words, search methods, Cards (style A/B/C, width, Fill the row, tint), fields (type, Filled from, Find / Enrich step, search words), AI instructions, keywords with night runs, Test a Page, Delete (only when empty) |
-| Contacts | Grid or list, filters and saved views, sort, tags, Export CSV; big card with Edit, Enrich Now, Short Card Shows, + Tag, Move Here / Also Add Here, Delete |
+| Directory Settings | Name, owner, search words, search methods, Cards (style A/B/C, width, Fill the row, tint), Enrich (own words, steps, depth), fields (type, Filled from, Find / Enrich step, search words), AI instructions, keywords with night runs, Test a Page, Delete (only when empty) |
+| Contacts | Grid or list, filters and saved views, sort, tags, Export CSV; big card with Edit, Enrich Now ▾ (choose steps), Pages Read, Short Card Shows, + Tag, Move Here / Also Add Here, Delete |
 | Inbox | New / Enriched / Rejected tabs, AI suggestions, accept into any directory, reject with a reason, restore |
 | Add Contact | One contact, a pasted list or a CSV; duplicate check; choose Enrich steps; now, tonight or Inbox only |
-| Requests | Every search and enrich job; Pause, Resume, Stop, Delete (30-day bin), Reject keyword, Run Again; **Edit and Run Again** in the same request (tries, Go Deeper, Save as Keyword); Debug page per request (with the engine of each link) |
+| Requests | Every search and enrich job; Pause, Resume, Stop, Force Stop, Delete (30-day bin), Reject keyword, Run Again; restarts mark running ones Interrupted; **Edit and Run Again** in the same request (tries, Go Deeper, Save as Keyword); Debug page per request (with the engine of each link) |
 | People | Users, roles and permissions, what each person sees, reset password, login history |
-| Settings | Tags, Themes, Backups, AI Servers & Models, Night Jobs, Crawler, **Search Engines**, Connections (API keys), Reject List, Display, My Password |
+| Settings | Tags, Themes (colour sets, two fonts, install fonts), Backups, AI Servers & Models, Night Jobs, Crawler (incl. read list pages again after N days), **Search Engines**, Connections (API keys), Reject List, Display (incl. **My Look**), My Password |
 | Help & Developer Tools | Help Center with Ask NetGate, What's New; Debug, Logs, Page Tester, Training Data, Developer Handbook |
 
 ## How It Works
@@ -72,7 +73,8 @@ Each person has a role; a person can get their own exceptions on top of it (show
 | Admin | Owner | Everything, locked |
 | Manager | Runs the directories | Contacts, searching, Inbox, directories, tags; sees search methods |
 | Researcher | Runs searches and reviews | View, export, add, run discovery and keywords, enrich, Inbox; does not see search methods |
-| Viewer | Looks things up | View and export |
+| Viewer | Looks things up | View and export (plus Dashboard, Inbox and Requests pages) |
+| Cards Only | Only looks at cards | View contacts only — no Dashboard, Inbox, requests, searching or export |
 | Developer | Improves NetGate | Debug, logs, page tester, training data, Developer Handbook; sees search methods |
 
 Per person (People → a user → What This Person Sees):
@@ -112,27 +114,19 @@ Important `.env` lines: `POSTGRES_PASSWORD`, `DATABASE_URL`, `OLLAMA_URL` (the i
 
 Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (night runs and clean-up), `db` (Postgres), `redis` (job queue), `renderer` (Chromium for JavaScript pages), `searxng` (search engine), `backup` (nightly backups). If the repository is private, the PC needs a read-only GitHub token saved once with `git config credential.helper store`.
 
-## Next Update List (v0.9 and v1.0)
+## Next Update List (v1.0)
 
-v0.8 built points 2, 9, 6 and 3 (18 Oct 2026). **v0.9 = points 10, 5, 7 + 11, 12, 13, 14** (built on “build v0.9”); **v1.0 = points 4, 8, 1** (split by the owner, 20 Oct 2026). Details: `docs/ROADMAP.md`.
+v0.9 built points 10, 5, 7, 11, 12, 13 and 14 (20 Oct 2026). **v1.0 = points 4, 8, 1**, built on “build v1.0”. Details: `docs/ROADMAP.md`.
 
 | # | Point | What it means | Status |
 | --- | --- | --- | --- |
-| 5 | List of pages read | Permanent record of every page read; Enrich and discovery don't read the same pages again (also for Edit and Run Again); start of Saved Pages | Agreed |
-| 7 | Stronger Enrich searching | Searches built from what is known; own Enrich search words per directory and per contact; steps and depth per directory; each search in Debug | Agreed |
-| 4 | Browser search (v1.0) | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
-| 8 | Moving between directories (v1.0) | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
-| 1 | Verify and Company page (v1.0) | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
-| 10 | Stuck requests clean-up | After a restart, running requests become “Interrupted” with Run Again / Delete; no progress for 30 min → same; admins get Force Stop | Agreed |
-| 11 | Enrich Now with a choice of steps | Tick the Enrich steps each time; impossible steps greyed with the reason; Only Missing Fields / Check All Again | Agreed |
-| 12 | Permissions for every action | Every button and page tied to a permission; a “Cards Only” role that only sees cards, nothing about searching | Agreed (details to show first) |
-| 13 | Colours and fonts like BrandPartners | Colour presets (Navy and amber, Graphite and red, Teal and copper, Charcoal and blue …), each colour editable, heading + body font, upload own fonts; for everyone and per person in Display | Agreed |
-| 14 | Pop-ups close on outside click | Every menu and pop-up window closes when you click outside it or press Esc | Agreed |
-| 2, 9, 6, 3 | Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines | — | Done in v0.8 |
+| 4 | Browser search (with Solve CAPTCHA Yourself) | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
+| 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
+| 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
 
 ## Longer-Term Plan
 
-After v0.9 the agreed order is below; each step is explained first and built only on “build”.
+After v1.0 the agreed order is below; each step is explained first and built only on “build”.
 
 1. **Saved Pages & Scans, inside NetGate.** Save single pages and whole sites (manual and automatic), keep versions, recipes per site, a page library and storage rules. Heavy scans run in their own worker container in the same setup; pages are stored in a folder set in `.env`.
 2. **Chrome extension.** Connects to NetGate with a key from Settings → Connections: Save Page, auto-capture on chosen sites, a never-capture list.
@@ -182,4 +176,4 @@ Full list with reasons: `docs/DECISIONS.md`.
 | `docs/dev/` | The Developer Handbook (also in the app under Developer Tools) |
 | `tests/` | The end-to-end tests run before each release |
 
-To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v0.9.”
+To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v1.0.”

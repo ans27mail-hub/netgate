@@ -24,17 +24,17 @@
 <section class="panel" style="padding:0">
   <div class="overflow">
     <table class="t dash-dirs">
-      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th>{% if sees_methods(user) %}<th>Methods</th>{% endif %}<th>Keywords</th><th>Last Search</th><th><span class="sr">Actions</span></th></tr></thead>
+      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th>{% if can(user, 'see_inbox') %}<th>Waiting in Inbox</th>{% endif %}{% if sees_methods(user) %}<th>Methods</th>{% endif %}{% if searcher(user) %}<th>Keywords</th><th>Last Search</th>{% endif %}<th><span class="sr">Actions</span></th></tr></thead>
       <tbody>
         {% for g in groups %}{% set st = stats[g.id] %}
         <tr>
           <td><a href="/d/{{ g.id }}"><b>{{ g.name }}</b></a>{% if g.description %}<span class="sub dblock">{{ g.description|truncate(80) }}</span>{% endif %}</td>
           <td>{{ st.contacts }}</td>
           <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>
-          <td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>
+          {% if can(user, 'see_inbox') %}<td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>{% endif %}
           {% if sees_methods(user) %}<td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>{% endif %}
-          <td>{{ st.keywords }}</td>
-          <td class="sub">{{ ago(st.last) }}</td>
+          {% if searcher(user) %}<td>{{ st.keywords }}</td>
+          <td class="sub">{{ ago(st.last) }}</td>{% endif %}
           <td class="rowacts">{% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="btn btn-outline btn-small">Settings</a>{% endif %}</td>
         </tr>
         {% endfor %}
@@ -61,7 +61,7 @@
     </div>
     <div class="dircard-count">
       <span class="big">{{ st.contacts }}</span><span class="sub">contact{{ '' if st.contacts == 1 else 's' }}</span>
-      {% if st.inbox %}<a href="/inbox?dir={{ g.id }}" class="badge blue ml-auto">{{ st.inbox }} waiting in Inbox</a>{% else %}<span class="badge ml-auto">0 waiting in Inbox</span>{% endif %}
+      {% if can(user, 'see_inbox') %}{% if st.inbox %}<a href="/inbox?dir={{ g.id }}" class="badge blue ml-auto">{{ st.inbox }} waiting in Inbox</a>{% else %}<span class="badge ml-auto">0 waiting in Inbox</span>{% endif %}{% endif %}
     </div>
     <div class="completeness">
       <span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>
@@ -73,7 +73,7 @@
     </div>
     {% endif %}
     <div class="dircard-foot">
-      <span>{{ st.keywords }} keyword{{ '' if st.keywords == 1 else 's' }} · last search {{ ago(st.last) }}</span>
+      {% if searcher(user) %}<span>{{ st.keywords }} keyword{{ '' if st.keywords == 1 else 's' }} · last search {{ ago(st.last) }}</span>{% else %}<span>{{ st.contacts }} contact{{ '' if st.contacts == 1 else 's' }}</span>{% endif %}
       {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ g.id }}" class="ml-auto">Settings</a>{% endif %}
     </div>
   </article>

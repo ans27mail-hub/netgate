@@ -1,16 +1,17 @@
 """Settings → Tags and Settings → Themes."""
+import os
 import re
 import uuid
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 
 from .. import tags as TG
 from .. import themes as TH
 from ..auth import can
-from ..db import RecordTag, SessionLocal, Tag, get_setting, set_setting
-from .common import all_groups, current_user, flash, go, render, require
+from ..db import FontFile, RecordTag, SessionLocal, Tag, get_setting, set_setting
+from .common import all_groups, current_user, flash, go, render, require, uploaded_fonts
 
 router = APIRouter()
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -119,6 +120,53 @@ async def tag_save(request: Request, tid: int):
 
 # ---------- Themes ----------
 
+FONT_TYPES = {".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf"}
+MAX_FONT = 3 * 1024 * 1024
+
+
+@router.post("/settings/themes/fonts")
+async def font_upload(request: Request):
+    """Install a font file (v0.9): kept in NetGate's database and served by NetGate, so it works offline."""
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "display_all")
+        if form.get("delete"):
+            row = s.get(FontFile, int(form.get("delete")) if str(form.get("delete")).isdigit() else 0)
+            if row:
+                s.delete(row)
+                s.commit()
+                flash(request, f"Font “{row.name}” removed. Themes that used it fall back to Instrument Sans.")
+            return go("/settings/themes#fonts")
+        up = form.get("file")
+        name = re.sub(r"[^A-Za-z0-9 \-]", "", str(form.get("name") or "")).strip()[:60]
+        ext = os.path.splitext(getattr(up, "filename", "") or "")[1].lower()
+        if not up or ext not in FONT_TYPES:
+            flash(request, "Choose a font file: .woff2, .woff, .ttf or .otf.", True)
+            return go("/settings/themes#fonts")
+        data = await up.read()
+        if not data or len(data) > MAX_FONT:
+            flash(request, "That file is empty or bigger than 3 MB.", True)
+            return go("/settings/themes#fonts")
+        name = name or re.sub(r"[^A-Za-z0-9 \-]", " ", os.path.splitext(up.filename)[0]).strip()[:60] or "My font"
+        if name in TH.FONTS or s.scalar(select(FontFile).where(FontFile.name == name)):
+            flash(request, f"There is already a font called “{name}”. Give it another name.", True)
+            return go("/settings/themes#fonts")
+        s.add(FontFile(name=name, mime=FONT_TYPES[ext], data=data))
+        s.commit()
+        flash(request, f"Font “{name}” installed. Choose it as a theme's text or heading font.")
+    return go("/settings/themes#fonts")
+
+
+@router.get("/fonts/{fid}")
+def font_file(fid: int):
+    with SessionLocal() as s:
+        row = s.get(FontFile, fid)
+        if not row:
+            return Response(status_code=404)
+        return Response(row.data, media_type=row.mime, headers={"Cache-Control": "public, max-age=604800"})
+
+
 def theme_settings(s) -> dict:
     return {"default": "classic", "allow_personal": True, "follow_dark": False, **(get_setting(s, "theme", {}) or {})}
 
@@ -129,12 +177,15 @@ def themes_page(request: Request, edit: str = ""):
         user = current_user(s, request)
         require(user, "display_all")
         saved = get_setting(s, "themes", []) or []
-        themes = TH.all_themes(saved)
-        cur = TH.get(saved, edit) if edit else None
+        fonts = uploaded_fonts(s)
+        themes = TH.all_themes(saved, fonts)
+        cur = TH.get(saved, edit, fonts) if edit else None
         if cur and cur["id"] != edit:
             cur = None
         return render(request, s, user, "themes.html", active_nav="themes", help="themes", themes=themes,
                       cfg=theme_settings(s), cur=cur, COLOURS=TH.COLOURS, FONTS=TH.FONTS, CORNERS=TH.CORNERS,
+                      font_names=list(TH.FONTS) + [f for f in fonts if f not in TH.FONTS], uploaded=fonts,
+                      PRESETS=TH.PRESETS,
                       SPACING=TH.SPACING, warnings=TH.warnings(cur) if cur else [], all=all_groups(s))
 
 
@@ -144,8 +195,9 @@ async def themes_save(request: Request):
     with SessionLocal() as s:
         user = current_user(s, request)
         action = str(form.get("action") or "")
-        saved = [TH.clean(t) for t in (get_setting(s, "themes", []) or [])]
-        ids = {t["id"] for t in TH.all_themes(saved)}
+        fonts = uploaded_fonts(s)
+        saved = [TH.clean(t, fonts) for t in (get_setting(s, "themes", []) or [])]
+        ids = {t["id"] for t in TH.all_themes(saved, fonts)}
         if action == "mine":   # anyone allowed: try a theme for themselves
             cfg = theme_settings(s)
             tid = str(form.get("id") or "")
@@ -172,8 +224,8 @@ async def themes_save(request: Request):
             flash(request, "This theme is now used by everyone (people who chose their own keep theirs).")
             return go("/settings/themes")
         if action == "copy":
-            src = TH.get(saved, str(form.get("id") or ""))
-            new = TH.clean({**src, "id": "t" + uuid.uuid4().hex[:8], "name": f"{src['name']} (copy)"})
+            src = TH.get(saved, str(form.get("id") or ""), fonts)
+            new = TH.clean({**src, "id": "t" + uuid.uuid4().hex[:8], "name": f"{src['name']} (copy)"}, fonts)
             saved.append(new)
             set_setting(s, "themes", saved)
             s.commit()
@@ -201,10 +253,15 @@ async def themes_save(request: Request):
             v = str(form.get(f"c_{key}") or "").strip()
             if HEX.match(v):
                 t["colors"][key] = v.lower()
-        for key, opts in (("font", TH.FONTS), ("corners", TH.CORNERS), ("spacing", TH.SPACING)):
+        for key, opts in (("corners", TH.CORNERS), ("spacing", TH.SPACING)):
             if form.get(key) in opts:
                 t[key] = form.get(key)
-        saved[idx] = TH.clean(t)
+        if TH.font_ok(form.get("font"), fonts):
+            t["font"] = form.get("font")
+        if form.get("heading_font") is not None:
+            hf = str(form.get("heading_font") or "")
+            t["heading_font"] = hf if TH.font_ok(hf, fonts) else ""
+        saved[idx] = TH.clean(t, fonts)
         set_setting(s, "themes", saved)
         if action == "try":
             user.prefs = {**(user.prefs or {}), "theme": tid}

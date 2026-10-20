@@ -49,13 +49,18 @@
           <h2>Edit Theme</h2>
           {% for w in warnings %}<div class="flash err" role="status">{{ w }}</div>{% endfor %}
           <label class="field">Name<input type="text" name="name" value="{{ cur.name }}" maxlength="60" required></label>
+          <div class="stack" style="gap:6px"><span class="caps-sm">Start from a colour set</span>
+            <div class="presetrow">{% for pid, pname, pc in PRESETS %}<button type="button" class="presetbtn" data-preset='{{ pc|tojson }}'><span class="swatches" aria-hidden="true">{% for k in ['side', 'accent', 'bg'] %}<i style="background:{{ pc[k] }};width:10px;height:18px"></i>{% endfor %}</span>{{ pname }}</button>{% endfor %}</div>
+            <span class="hint">Fills in every colour below; you can still change each one. Press Save to keep it.</span>
+          </div>
           <div class="colorgrid">
             {% for key, label in COLOURS %}
             <label class="colorpick"><input type="color" name="c_{{ key }}" value="{{ c[key] }}" aria-label="{{ label }}" data-k="{{ key }}"><span><b>{{ label }}</b><span class="mono-sm">{{ c[key] }}</span></span></label>
             {% endfor %}
           </div>
           <div class="row">
-            <label class="field">Font<select name="font">{% for f in FONTS %}<option {% if cur.font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+            <label class="field">Text font<select name="font">{% for f in font_names %}<option {% if cur.font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+            <label class="field">Heading font<select name="heading_font"><option value="">Same as the text</option>{% for f in font_names %}<option {% if cur.heading_font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
             <label class="field">Corners<select name="corners">{% for k, v in CORNERS.items() %}<option value="{{ k }}" {% if cur.corners == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}</select></label>
             <label class="field">Spacing<select name="spacing">{% for k, v in SPACING.items() %}<option value="{{ k }}" {% if cur.spacing == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}</select></label>
           </div>
@@ -90,12 +95,32 @@
           document.querySelectorAll('.colorpick').forEach(function (l) { var i = l.querySelector('input'); l.querySelector('.mono-sm').textContent = i.value; });
         }
         document.querySelectorAll('.colorpick input').forEach(function (i) { i.addEventListener('input', paint); });
+        document.querySelectorAll('.presetbtn').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var c = JSON.parse(b.dataset.preset);
+            Object.keys(c).forEach(function (k) { var i = document.querySelector('input[data-k=' + k + ']'); if (i) i.value = c[k]; });
+            paint();
+          });
+        });
         paint();
       })();
     </script>
     {% else %}
     <p class="hint" style="margin:0">To make your own theme, press <b>Copy</b> on a theme and change its colours. Built-in themes can't be changed.</p>
     {% endif %}
+
+    <section class="panel stack" id="fonts">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Fonts</h2><span class="hint">{{ FONTS|length }} included · {{ uploaded|length }} installed by you</span></div>
+      <p class="sub" style="margin:0">Included: {{ FONTS|list|join(', ') }}. Install more by uploading a font file (.woff2, .woff, .ttf or .otf, up to 3 MB); it is kept on your server, so it works without internet.</p>
+      {% if uploaded %}<ul class="tight">{% for name, fid in uploaded.items() %}<li style="display:flex;gap:10px;align-items:center"><span style="font-family:'{{ name }}'">{{ name }} — Acme Leather, Sialkot</span>
+        <form method="post" action="/settings/themes/fonts" class="inline" onsubmit="return confirm('Remove the font {{ name|e }}?')"><input type="hidden" name="delete" value="{{ fid }}"><button type="submit" class="btn btn-outline btn-xs">Remove</button></form></li>{% endfor %}</ul>
+      <style>{% for name, fid in uploaded.items() %}@font-face{font-family:'{{ name|replace("'", "") }}';src:url('/fonts/{{ fid }}')}{% endfor %}</style>{% endif %}
+      <form method="post" action="/settings/themes/fonts" enctype="multipart/form-data" class="row" style="align-items:flex-end">
+        <label class="field" style="flex:1 1 240px">Font file<input type="file" name="file" accept=".woff2,.woff,.ttf,.otf" required></label>
+        <label class="field" style="flex:1 1 200px">Name (optional)<input type="text" name="name" maxlength="60" placeholder="e.g. Motofast Sans"></label>
+        <button type="submit" class="btn btn-outline">Install Font</button>
+      </form>
+    </section>
   </div>
 </div>
 {% endblock %}

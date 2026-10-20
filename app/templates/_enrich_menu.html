@@ -1,0 +1,19 @@
+{# Enrich Now ▾ (v0.9). Needs: enrich_steps, enrich_choice; inside a form when `formid` is set (Enrich Selected). #}
+{% set fattr = ('form="' ~ formid ~ '"')|safe if formid is defined and formid else '' %}
+<{{ 'div' if formid is defined and formid else 'form method="post" action="/records/' ~ r.id ~ '/enrich"' }} class="menu-body enrich-body right">
+  <input type="hidden" name="choose" value="1" {{ fattr }}>
+  <span class="caps-sm">Enrich steps</span>
+  {% for st in enrich_steps %}
+  <label class="estep {{ 'off' if st.why }}" title="{{ st.why or st.desc }}">
+    <input type="checkbox" name="steps" value="{{ st.key }}" {{ fattr }} {% if st.why %}disabled{% elif st.key in enrich_choice.steps %}checked{% endif %}>
+    <span><b>{{ st.label }}</b><span class="sub dblock">{{ st.why or st.hint or st.desc }}</span></span>
+  </label>
+  {% endfor %}
+  <fieldset class="emode"><legend class="caps-sm">Which fields</legend>
+    <label><input type="radio" name="mode" value="missing" {{ fattr }} {% if enrich_choice.mode != 'all' %}checked{% endif %}> Only Missing Fields</label>
+    <label><input type="radio" name="mode" value="all" {{ fattr }} {% if enrich_choice.mode == 'all' %}checked{% endif %}> Check All Again</label>
+  </fieldset>
+  <label class="field">Extra search words (optional)<input type="text" name="words" {{ fattr }} placeholder="e.g. leather jackets, wholesale"></label>
+  <span class="hint">“Check All Again” also re-reads pages read before. Your choice is remembered.</span>
+  <button type="submit" class="btn btn-primary btn-small" {{ fattr }}>{{ 'Enrich Selected' if formid is defined and formid else 'Enrich With These Steps' }}</button>
+</{{ 'div' if formid is defined and formid else 'form' }}>

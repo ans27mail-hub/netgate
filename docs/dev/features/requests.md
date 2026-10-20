@@ -1,7 +1,7 @@
 ---
 title: Requests (pause, stop, delete, reject)
 order: 80
-updated: v0.8
+updated: v0.9
 ---
 **What it does:** every search and enrich is a request with tabs All · Running · Waiting · Paused · Done · Failed · Stopped · Rejected · Deleted, and actions Pause, Resume, Stop, Delete (bin 30 days), Reject (keyword to the reject list), Run Again, bulk and Pause All.
 
@@ -20,6 +20,12 @@ updated: v0.8
 - Requests list: “Try N” badge, and “Nothing found — try different words or Go Deeper” for a finished Discover with 0 new / 0 updated.
 - Plain **Run Again** still makes a new request; since v0.8 it keeps `methods` and `deeper`.
 - Not yet: skipping pages read in earlier tries (needs the pages-read list, v0.9).
+
+## v0.9 — stuck requests
+- Status **`interrupted`** (shown in the Failed tab, actions like failed: Edit, Run Again, Delete, Reject).
+- Workers start with `python -m app.worker <queue>` (docker-compose): `control.worker_started()` marks that queue's running requests interrupted (one worker per queue, so they can't still be running) and re-queues waiting ones (Redis has no volume, so the queue is empty after an update; `run_job` ignores a request that isn't waiting, so a double entry is harmless). Then it runs `rq worker`.
+- Scheduler, every minute: `control.interrupt_stale()` — running requests whose `updated_at` is older than 30 minutes (`Ctx.step` updates it on every page).
+- **Force Stop** (`/requests/<id>/force`, needs *Control everyone's requests*): requests in `pausing` / `stopping` → `stopped` with control `stop`.
 
 ## Files
 `app/control.py`, `app/web/requests_routes.py`, `templates/requests.html`, `request_edit.html`, `debug.html`.

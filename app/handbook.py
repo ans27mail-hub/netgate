@@ -26,6 +26,7 @@ FEATURES = {
     "visibility": "What each person sees (own contacts, directories, methods)", "themes": "Themes", "backups": "Backups",
     "help-center": "Help Center", "developer-tools": "Developer Tools and this Handbook", "crawler": "Crawler and renderer",
     "search-engines": "Search engines (SearXNG engines, status, log)",
+    "pages-read": "List of pages read (skip and reuse)",
 }
 AUTO = {
     "auto-routes": "Pages and addresses (automatic)", "auto-database": "Database tables (automatic)",

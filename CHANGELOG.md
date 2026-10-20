@@ -1,5 +1,15 @@
 # What's new
 
+## v0.9 — 20 Oct 2026 · Pages read, stronger Enrich, Cards Only, your own look
+
+- **No more stuck requests.** After a restart (for example `netgate update`) a request that was running is marked **Interrupted (NetGate restarted)**, with **Run Again**, **Edit** and **Delete**; waiting requests start again by themselves. A request with no progress for 30 minutes is marked the same way. Admins get **Force Stop** for a request stuck in *Pausing* or *Stopping*.
+- **List of pages read.** NetGate remembers every page it reads and what it found there. A new search skips list pages already read for the same directory in the last 7 days (Settings → Crawler), **Edit and Run Again** skips pages of earlier tries, and **Enrich** doesn't open a company's pages again — it reuses what it found. You see the pages on the request's **Debug** page and on the open card (**Pages Read**).
+- **Stronger Enrich.** Searches are built from what is known: the website address, the search that found the company, its products, the directory's B2B sites, and **your own words**. **Directory Settings → Enrich**: the directory's own search words, which steps it uses, results per search and searches per contact. Enrich stops as soon as every field is filled. Debug shows why each search was made and **which page filled which field**.
+- **Enrich Now ▾** on the open card and **Enrich Selected ▾** in list view: tick the steps to run (steps that can't work are greyed out with the reason), **Only Missing Fields** or **Check All Again**, and extra search words. Your choice is remembered.
+- **A permission for everything, and a Cards Only role.** New permissions *See the Dashboard*, *See the Inbox* and *See requests and AI jobs*; every page and button is hidden without its permission. The ready-made **Cards Only** role only sees the directories and the contact cards — nothing about searching. Everyone keeps the access they had.
+- **Your own look, like BrandPartners.** Colour sets **A · Navy and Amber**, **B · Graphite and Racing Red**, **C · Deep Teal and Copper**, **D · Charcoal and Blue**; a **text font** and a **heading font** from 14 fonts, or **install your own font file**. In **Settings → Display → My Look** each person picks their own colours, fonts and text size.
+- **Pop-ups close when you click outside them** (or press Esc): menus like Reject…, Jump To…, + Add Filter and the AI jobs list, windows like Run Discovery and Move, and an open card.
+
 ## v0.8 — 18 Oct 2026 · Delete only empty directories, cards fill the row, Edit and Run Again, Search Engines
 
 - **Deleting a directory** is only possible when it is empty. The Delete button stays off while it still has contacts (“move or remove them first”, with a link to the list) or companies waiting in the Inbox for it (“accept or reject them first”, with a link to the Inbox for that directory).

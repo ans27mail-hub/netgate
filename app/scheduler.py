@@ -47,6 +47,10 @@ def main():
     while True:
         try:
             tick()
+            from .control import interrupt_stale
+            with SessionLocal() as s:   # v0.9: requests with no progress for 30 minutes
+                if interrupt_stale(s):
+                    s.commit()
         except Exception as e:
             print(f"scheduler: {type(e).__name__}: {e}", flush=True)
             log("error", "scheduler", f"{type(e).__name__}: {e}")

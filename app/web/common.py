@@ -16,7 +16,7 @@ from ..contacts import METHOD_LABELS, REJECT_REASONS, completeness_of, empty
 from ..db import FIELD_TYPES, Group, InboxItem, Job, Membership, NightRun, Record, User, get_setting
 from ..methods import ENRICH_STEPS, FIELD_SOURCES, METHODS, SOURCE_LABELS
 
-VERSION = "v0.8"
+VERSION = "v0.9"
 BASE = os.path.dirname(os.path.dirname(__file__))
 SECRET = os.environ.get("APP_SECRET_KEY") or hashlib.sha256(os.environ["DATABASE_URL"].encode()).hexdigest()
 templates = Jinja2Templates(directory=os.path.join(BASE, "templates"))
@@ -91,8 +91,18 @@ def _engine_label(name) -> str:
 
 
 templates.env.filters["engine_label"] = _engine_label
+
+
+def searcher(user) -> bool:
+    """Has anything to do with searching (v0.9): a “Cards Only” person doesn't."""
+    return can_any(user, ["request", "keywords", "see_requests", "see_inbox"])
+
+
+def start_page(user) -> str:
+    """Where “NetGate” and the start page lead: the Dashboard, or Directories without “See the Dashboard”."""
+    return "/" if can(user, "see_dashboard") else "/directories"
 templates.env.globals.update(
-    can=can, can_any=can_any, fmt=fmt_value, fresh=is_fresh, domain=domain, ago=ago, empty=empty,
+    searcher=searcher, start_page=start_page, can=can, can_any=can_any, fmt=fmt_value, fresh=is_fresh, domain=domain, ago=ago, empty=empty,
     pct_class=pct_class, PERMS=PERMS, PERM_GROUPS=PERM_GROUPS, PERM_KEYS=PERM_KEYS, DIR_PERMS=DIR_PERMS,
     FIELD_TYPES=FIELD_TYPES, VERSION=VERSION, sees_methods=sees_methods, own_only=own_contacts_only, SPECIAL_COLS=SPECIAL_COLS, JOB_TYPES=ai.JOB_TYPES,
     METHOD_LABELS=METHOD_LABELS, METHODS=METHODS, FIELD_SOURCES=FIELD_SOURCES, SOURCE_LABELS=SOURCE_LABELS,
@@ -259,15 +269,27 @@ def nav_data(s, user) -> dict:
             "dir_labels": {g.id: g.name for g in groups}}
 
 
+def uploaded_fonts(s) -> dict:
+    """{font name: file id} of fonts uploaded in Settings → Themes (v0.9)."""
+    from ..db import FontFile
+    return dict(s.execute(select(FontFile.name, FontFile.id).order_by(FontFile.name)).all())
+
+
 def theme_for(s, user) -> tuple[str, str]:
-    """(css, font link) of the theme this person sees."""
+    """(css, font link) of the theme this person sees, with their own fonts and text size (v0.9)."""
     cfg = {"default": "classic", "allow_personal": True, "follow_dark": False, **(get_setting(s, "theme", {}) or {})}
     saved = get_setting(s, "themes", []) or []
-    mine = (user.prefs or {}).get("theme") if user else None
-    tid = mine if mine and (cfg["allow_personal"] or can(user, "display_all")) else cfg["default"]
-    t = TH.get(saved, tid)
+    fonts = uploaded_fonts(s)
+    personal = bool(user) and (cfg["allow_personal"] or can(user, "display_all"))
+    mine = (user.prefs or {}).get("theme") if personal else None
+    tid = mine or cfg["default"]
+    t = TH.get(saved, tid, fonts)
+    if personal:
+        t = TH.with_look(t, (user.prefs or {}).get("look"), fonts)
     dark = TH.BUILTIN["dark"] if cfg["follow_dark"] and not TH.is_dark(t) and not mine else None
-    return TH.css(t, dark), TH.font_url(t, dark)
+    if dark and personal:
+        dark = TH.with_look(dark, (user.prefs or {}).get("look"), fonts)
+    return TH.css(t, dark, fonts), TH.font_url(t, dark)
 
 
 def render(request: Request, s, user, name: str, **ctx):

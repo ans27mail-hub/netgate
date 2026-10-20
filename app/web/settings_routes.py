@@ -11,8 +11,9 @@ from .. import themes as TH
 from ..auth import can, can_any
 from ..db import (EMPLOYEE_RANGES, FIELD_TYPES, AIServer, Field, Group, InboxItem, Keyword, Membership, NightRun,
                   PageCache, RejectedKeyword, SessionLocal, User, get_setting, log, set_setting, slugify)
-from ..jobs import NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, night_settings
-from .common import (CARD_STYLES, DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require)
+from ..jobs import NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, enrich_config, night_settings
+from .common import (CARD_STYLES, DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require,
+                     uploaded_fonts)
 
 router = APIRouter()
 
@@ -163,7 +164,7 @@ def _dir_page(request, s, user, group, **extra):
     conn = methods.connections(s)
     owners = s.scalars(select(User).where(User.active).order_by(User.username)).all()
     return render(request, s, user, "dir_edit.html", active_nav="dirs", help="directory-settings", group=group,
-                  owners=owners, block=delete_blockers(s, group.id),
+                  owners=owners, block=delete_blockers(s, group.id), econf=enrich_config(group),
                   count=_settings_ctx(s)["counts"].get(group.id, 0), ebay_sites=ebay.EBAY_SITES, conn=conn,
                   opts={k: methods.options(group, k) for k in ("ebay", "directory")}, **_settings_ctx(s), **extra)
 
@@ -218,6 +219,15 @@ async def directory_save(request: Request, gid: int):
                 card["fill"] = fill == "on"
             group.card = card
             flash(request, "Card look saved for this directory.")
+        elif section == "enrich":
+            steps = [k for k in form.getlist("enrich_steps") if k in methods.ENRICH_STEP_KEYS]
+            if not steps:
+                flash(request, "Tick at least one Enrich step.", True)
+                return go(f"/settings/directories/{gid}#enrich")
+            group.enrich = {"words": str(form.get("enrich_words") or "").strip()[:500], "steps": steps,
+                            "results": _int(form.get("enrich_results"), 8, 1, 30),
+                            "searches": _int(form.get("enrich_searches"), 8, 1, 30)}
+            flash(request, "Enrich settings saved for this directory.")
         else:
             group.instructions = str(form.get("instructions", "")).strip()
             group.enrich_instructions = str(form.get("enrich_instructions", "")).strip()
@@ -596,10 +606,48 @@ def display_page(request: Request):
         everyone = {**DISPLAY_DEFAULTS, **(get_setting(s, "display", {}) or {})}
         mine = (user.prefs or {}).get("display") or {}
         th = get_setting(s, "theme", {}) or {}
+        fonts = uploaded_fonts(s)
+        themes = TH.all_themes(get_setting(s, "themes", []), fonts)
+        default = th.get("default") or "classic"
         return render(request, s, user, "display.html", active_nav="display", help="settings",
                       everyone=everyone, mine=mine, current={**everyone, **mine}, **_settings_ctx(s),
-                      themes=TH.all_themes(get_setting(s, "themes", [])), my_theme=(user.prefs or {}).get("theme") or "",
-                      allow_personal=th.get("allow_personal", True), default_theme=th.get("default") or "classic")
+                      themes=themes, theme_by_id={**{t["id"]: t for t in themes}, default: TH.get(
+                          get_setting(s, "themes", []), default, fonts)},
+                      my_theme=(user.prefs or {}).get("theme") or "", look=(user.prefs or {}).get("look") or {},
+                      font_names=list(TH.FONTS) + [f for f in fonts if f not in TH.FONTS], SIZES=TH.SIZES,
+                      allow_personal=th.get("allow_personal", True), default_theme=default)
+
+
+@router.post("/settings/display/look")
+async def look_save(request: Request):
+    """My Look (v0.9): this person's colours (a theme), fonts and text size."""
+    form = await request.form()
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        th = get_setting(s, "theme", {}) or {}
+        if not (th.get("allow_personal", True) or can(user, "display_all")):
+            flash(request, "Personal looks are switched off by an admin.", True)
+            return go("/settings/display")
+        prefs = dict(user.prefs or {})
+        if form.get("reset"):
+            prefs.pop("theme", None)
+            prefs.pop("look", None)
+            msg = "You now use the look for everyone."
+        else:
+            fonts = uploaded_fonts(s)
+            ids = {t["id"] for t in TH.all_themes(get_setting(s, "themes", []), fonts)}
+            tid = str(form.get("theme") or "")
+            prefs["theme"] = tid if tid in ids else ""
+            prefs["look"] = {k: v for k, v in {
+                "font": str(form.get("font") or "") if TH.font_ok(form.get("font"), fonts) else "",
+                "heading_font": str(form.get("heading_font") or "") if TH.font_ok(form.get("heading_font"), fonts) else "",
+                "size": str(form.get("size") or "") if form.get("size") in TH.SIZES and form.get("size") != "normal" else "",
+            }.items() if v}
+            msg = "Your look is saved — only you see it."
+        user.prefs = prefs
+        s.commit()
+        flash(request, msg)
+    return go("/settings/display#look")
 
 
 @router.post("/settings/display")
@@ -614,10 +662,6 @@ async def display_save(request: Request):
              "card_style": form.get("card_style") if form.get("card_style") in CARD_STYLES else "A",
              "card_width": _int(form.get("card_width"), 260, 180, 520),
              "card_tint": form.get("card_tint") == "on", "card_fill": form.get("card_fill") == "on"}
-        if form.get("theme") is not None:
-            th = get_setting(s, "theme", {}) or {}
-            if th.get("allow_personal", True) or can(user, "display_all"):
-                user.prefs = {**(user.prefs or {}), "theme": str(form.get("theme") or "")}
         if form.get("scope") == "everyone" and can(user, "display_all"):
             set_setting(s, "display", d)
             prefs = dict(user.prefs or {})
@@ -666,6 +710,7 @@ async def crawler_save(request: Request):
             "delay": num("delay", d["delay"], 0, 30, float),
             "robots": form.get("robots") == "on",
             "max_chunks": num("max_chunks", d["max_chunks"], 1, 8),
+            "reread_days": num("reread_days", d["reread_days"], 0, 365),
         }
         set_setting(s, "crawler", cfg)
         s.commit()

@@ -55,7 +55,7 @@
         {% for g in members %}
         <span class="dchip">{{ g.name }}{% if can(user, 'edit', g.id) %}<form method="post" action="/records/{{ r.id }}/directories" class="inline"><input type="hidden" name="group_id" value="{{ g.id }}"><input type="hidden" name="action" value="remove"><button type="submit" aria-label="Remove from {{ g.name }}" title="Remove from {{ g.name }} (the contact is kept)">×</button></form>{% endif %}</span>
         {% endfor %}
-        {% for it in items if it.status == 'new' %}<span class="badge amber">In Inbox{% if it.group_id %} for {{ by_id[it.group_id].name if it.group_id in by_id else '' }}{% endif %}</span>{% endfor %}
+        {% for it in items if it.status == 'new' and can(user, 'see_inbox') %}<span class="badge amber">In Inbox{% if it.group_id %} for {{ by_id[it.group_id].name if it.group_id in by_id else '' }}{% endif %}</span>{% endfor %}
         {% if add_targets %}
         <form method="post" action="/records/{{ r.id }}/directories" class="inline-form moveform">
           <label for="addto-{{ r.id }}" class="sr">Directory</label>
@@ -74,9 +74,17 @@
     </div>
     <div class="big-actions">
       {% if may_enrich %}
+      <span class="splitbtn">
       <form method="post" action="/records/{{ r.id }}/enrich">
         <button type="submit" class="btn btn-primary"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Enrich Now</button>
       </form>
+      {% if sees_methods(user) %}
+      <details class="menu inline enrich-menu">
+        <summary class="btn btn-primary" aria-label="Choose the Enrich steps" title="Choose the steps">▾</summary>
+        {% include "_enrich_menu.html" %}
+      </details>
+      {% endif %}
+      </span>
       {% endif %}
       {% if not limited and can(user, 'edit') and not edit %}
       <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open?edit=1{% if ctx_gid %}&from={{ ctx_gid }}{% endif %}" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Edit</button>
@@ -161,6 +169,12 @@
     {% if finder %}<span>Found first by {{ finder }}</span>{% endif %}
     {% if r.source_url %}<span>First found on <a href="{{ r.source_url }}" target="_blank" rel="noopener">{{ domain(r.source_url) }}</a></span>{% endif %}
   </div>
+  {% if read_rows and searcher(user) %}
+  <details class="history pagesread">
+    <summary>Pages Read ({{ read_rows|length }})</summary>
+    <ul>{% for p in read_rows %}<li><span class="mono-sm">{{ p.at.strftime('%d %b %Y') }}</span> <span class="badge">{{ PURPOSES.get(p.purpose, p.purpose) }}</span> <a href="{{ p.final_url or p.url }}" target="_blank" rel="noopener">{{ (p.final_url or p.url)|truncate(70) }}</a> <span class="sub">· {{ page_summary(p) }}{% if p.job_id and can(user, 'debug') %} · <a href="/requests/{{ p.job_id }}/debug">#{{ p.job_id }}</a>{% endif %}</span></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
   {% if r.history %}
   <details class="history">
     <summary>History ({{ r.history|length }})</summary>

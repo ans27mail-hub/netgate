@@ -12,6 +12,8 @@ from sqlalchemy import select
 from .db import Job, NightRun, RejectedKeyword
 
 WAITING = {"queued"}
+STUCK = {"pausing", "stopping"}          # admins may Force Stop these (v0.9)
+NO_PROGRESS_MINUTES = 30                 # a running request with no progress this long is marked interrupted
 RUNNING = {"running", "searching", "crawling", "extracting", "pausing", "stopping"}
 STATUS_TABS = [
     ("all", "All"), ("running", "Running"), ("waiting", "Waiting"), ("paused", "Paused"), ("done", "Done"),
@@ -29,6 +31,8 @@ def tab_of(job) -> str:
         return "waiting"
     if job.status in RUNNING:
         return "running"
+    if job.status == "interrupted":
+        return "failed"
     return job.status if job.status in {"paused", "done", "failed", "stopped", "rejected"} else "running"
 
 
@@ -38,7 +42,8 @@ def actions(job) -> list[str]:
     discover = job.kind in DISCOVER_KINDS
     return {
         "waiting": ["pause", "stop", "delete"] + (["reject"] if discover else []),
-        "running": ([] if job.control else ["pause", "stop"]) + (["reject"] if discover and not job.control else []),
+        "running": ([] if job.control else ["pause", "stop"]) + (["reject"] if discover and not job.control else [])
+        + (["force"] if job.status in STUCK else []),
         "paused": ["resume", "stop", "delete"] + (["reject"] if discover else []),
         "done": (["edit"] if discover else []) + ["again", "delete"] + (["reject"] if discover else []),
         "failed": (["edit"] if discover else []) + ["again", "delete"] + (["reject"] if discover else []),
@@ -220,7 +225,7 @@ MAX_DEEPER = 3   # "Go deeper" levels: each one reads more result pages
 
 def can_edit(job) -> bool:
     """Only a finished, failed or stopped Discover request can be changed and run again in place."""
-    return job.kind in DISCOVER_KINDS and not job.deleted_at and job.status in {"done", "failed", "stopped"}
+    return job.kind in DISCOVER_KINDS and not job.deleted_at and job.status in {"done", "failed", "stopped", "interrupted"}
 
 
 def tries(job) -> list[dict]:
@@ -261,6 +266,54 @@ def edit_and_run(s, job, user, query: str, group_id: int, use_methods: list | No
     job.started_at, job.finished_at = None, None
     s.commit()
     enqueue_job(job)
+    return True
+
+
+# ---------- stuck requests (v0.9) ----------
+
+def _interrupt(s, job, message: str):
+    job.status, job.control, job.message = "interrupted", "", message
+    job.finished_at = datetime.utcnow()
+    if job.kind == "night":
+        run = s.get(NightRun, (job.params or {}).get("run_id"))
+        if run and run.status in ("running", "paused"):
+            run.status, run.ended_at, run.note = "stopped", datetime.utcnow(), message
+
+
+def worker_started(s, night: bool) -> tuple[int, int]:
+    """A worker (re)started: every request it was running can no longer be running (one worker per queue),
+    so it is marked interrupted; waiting requests are queued again (the queue is empty after an update).
+    Returns (interrupted, queued again)."""
+    kind_ok = (Job.kind == "night") if night else (Job.kind != "night")
+    n = 0
+    for job in s.scalars(select(Job).where(kind_ok, Job.deleted_at.is_(None), Job.status.in_(list(RUNNING)))).all():
+        _interrupt(s, job, "Interrupted (NetGate restarted) — press Run Again to search again")
+        n += 1
+    waiting = s.scalars(select(Job).where(kind_ok, Job.deleted_at.is_(None), Job.status.in_(list(WAITING)))).all()
+    s.commit()
+    for job in waiting:
+        enqueue_job(job)   # run_job ignores a request that is no longer waiting, so a double entry is harmless
+    return n, len(waiting)
+
+
+def interrupt_stale(s, minutes: int = NO_PROGRESS_MINUTES) -> int:
+    """Running requests that made no progress for `minutes` (the worker died or hangs) are marked interrupted."""
+    old = datetime.utcnow() - timedelta(minutes=minutes)
+    n = 0
+    for job in s.scalars(select(Job).where(Job.deleted_at.is_(None), Job.status.in_(list(RUNNING)),
+                                           Job.updated_at < old)).all():
+        _interrupt(s, job, f"Interrupted — no progress for {minutes} minutes. Press Run Again to search again")
+        n += 1
+    return n
+
+
+def force_stop(s, job, user) -> bool:
+    """Admins: end a request stuck in Pausing / Stopping right away."""
+    if job.status not in STUCK:
+        return False
+    job.status, job.control = "stopped", "stop"   # 'stop' also tells a still-living worker to end
+    job.message = f"Force-stopped by {user.username if user else 'an admin'}"
+    job.finished_at = datetime.utcnow()
     return True
 
 

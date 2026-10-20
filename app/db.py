@@ -42,6 +42,7 @@ class Group(Base):
     refresh_days: Mapped[int] = mapped_column(Integer, default=0)        # 0 = never refresh
     owner_id: Mapped[int | None] = mapped_column(Integer)                # who it belongs to ("own directories")
     card: Mapped[dict] = mapped_column(JSONB, default=dict)              # short card: style A/B/C, width, tint
+    enrich: Mapped[dict] = mapped_column(JSONB, default=dict)            # v0.9: Enrich words, steps, depth
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     keywords: Mapped[list["Keyword"]] = relationship(order_by="Keyword.id", cascade="all, delete-orphan",
@@ -363,6 +364,36 @@ class SearchLog(Base):
     test: Mapped[bool] = mapped_column(Boolean, default=False)      # from “Test Now”
 
 
+class PageRead(Base):
+    """Every page NetGate read (v0.9): when, for which request, which company, what was found. Kept permanently.
+    Discovery skips list pages read recently; Enrich only opens pages it hasn't read for that company and reuses
+    what code found on the others. The start of the Saved Pages part of NetGate."""
+    __tablename__ = "pages_read"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(Text, index=True)
+    final_url: Mapped[str] = mapped_column(Text, default="")
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, index=True)       # no link: the list outlives requests
+    group_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    record_id: Mapped[int | None] = mapped_column(Integer, index=True)    # the company it was read for (Enrich)
+    purpose: Mapped[str] = mapped_column(String(12), default="list")    # list / profile / site / other
+    ok: Mapped[bool] = mapped_column(Boolean, default=True)
+    chars: Mapped[int] = mapped_column(Integer, default=0)
+    rendered: Mapped[bool] = mapped_column(Boolean, default=False)
+    found: Mapped[dict] = mapped_column(JSONB, default=dict)            # code finds, companies, fields filled
+    note: Mapped[str] = mapped_column(Text, default="")
+
+
+class FontFile(Base):
+    """A font file uploaded in Settings → Themes (v0.9); served from the server, so it works without internet."""
+    __tablename__ = "font_files"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    mime: Mapped[str] = mapped_column(String(60), default="font/woff2")
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class AIServer(Base):
     __tablename__ = "ai_servers"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -496,6 +527,8 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS existing_fields JSONB NOT NULL DEFAULT '[]'::jsonb",
     "ALTER TABLE records ADD COLUMN IF NOT EXISTS found_by INTEGER",
     "CREATE INDEX IF NOT EXISTS ix_records_found_by ON records (found_by)",
+    # v0.9
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS enrich JSONB NOT NULL DEFAULT '{}'::jsonb",
 ]
 
 EMPLOYEE_RANGES = "1–10, 11–50, 51–200, 201–500, 500+"
@@ -689,6 +722,32 @@ def _upgrade_v07(s):
     s.add(Setting(key="v07_upgraded", value="1"))
 
 
+def _upgrade_v09(s):
+    """One-time changes for v0.9: new permissions keep everyone's access; a ready-made Cards Only role."""
+    if s.get(Setting, "v09_upgraded"):
+        return
+    # these three pages were open to everyone who could view contacts; keep it that way for existing roles
+    new = {"see_dashboard", "see_inbox", "see_requests"}
+    for r in s.scalars(select(Role)).all():
+        if r.locked:
+            continue
+        perms = split(r.perms)
+        if "view" in perms:
+            r.perms = join(perms | new)
+    for u in s.scalars(select(User)).all():
+        extra = split(u.extra_perms)
+        if "view" in extra:
+            u.extra_perms = join(extra | new)
+        removed = split(u.removed_perms)
+        if removed & new:   # these keys didn't exist before, so nobody chose to take them away
+            u.removed_perms = join(removed - new)
+    if not s.scalar(select(Role).where(Role.name == "Cards Only")):
+        pos = (s.scalar(select(func.max(Role.position))) or 0) + 1
+        s.add(Role(name="Cards Only", perms="view", position=pos, contacts_scope="all",
+                   description="Sees the contact cards only: no searching, Inbox, requests, Dashboard or export."))
+    s.add(Setting(key="v09_upgraded", value="1"))
+
+
 def _upgrade_v05(s):
     """One-time data changes for v0.5 on existing installs. Nothing is deleted."""
     if s.get(Setting, "v05_upgraded"):
@@ -767,5 +826,7 @@ def init_db():
         _upgrade_v05(s)
         s.flush()
         _upgrade_v07(s)
+        s.flush()
+        _upgrade_v09(s)
         _seed_ai(s)
         s.commit()

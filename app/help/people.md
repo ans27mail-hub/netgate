@@ -36,7 +36,16 @@ A grid: roles across the top, permissions down the side. Tick what each role may
 | **Manager** | Runs the work | Directories, keywords, instructions, night jobs, everyone's searches |
 | **Researcher** | Uses the site | Run keywords, enrich, review the Inbox, add contacts, control own searches |
 | **Viewer** | Looks only | View, filter, export |
+| **Cards Only** | Only looks at the cards | View contacts — nothing else: no Dashboard, Inbox, requests, searching or export |
 | **Developer** | Helps build NetGate | Debug view, logs, page tester, training data, developer help — no users and no API keys |
+
+Every page and button has its own permission, and is hidden when the person doesn't have it. Some useful ones:
+- **See the Dashboard** — without it, the start page is **Directories**.
+- **See the Inbox** — the Inbox page and the “waiting in the Inbox” numbers.
+- **See requests and AI jobs** — the Requests page and the “AI Jobs Running” list at the top.
+- **Run discovery**, **Run keywords**, **Enrich**, **Add contacts by hand**, **Export** — each one separately.
+
+So a person who should **only see the cards** gets the **Cards Only** role (or any role with only *View contacts* ticked). They see the directories and the contact cards, and nothing about searching.
 
 - **Rename** a role: type the new name at the top of its column, then **Save Roles**.
 - **New Role**: give it a name and start from nothing or from **a copy of** an existing role, then change the ticks.

@@ -30,6 +30,10 @@
           <label class="field">Company profiles to open per list page<input type="number" name="profiles_per_page" min="0" max="60" value="{{ cfg.profiles_per_page }}"></label>
           <label class="field">Long pages: split into at most<input type="number" name="max_chunks" min="1" max="8" value="{{ cfg.max_chunks }}"></label>
         </div>
+        <div class="row">
+          <label class="field">Read list pages again after (days, 0 = always)<input type="number" name="reread_days" min="0" max="365" value="{{ cfg.reread_days }}"></label>
+        </div>
+        <span class="hint">NetGate keeps a list of every page it reads. A list page already read for the same directory within these days is skipped, so new searches spend their time on new pages. Pages read by an earlier try of the same request are always skipped.</span>
         <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="directory_mode" {% if cfg.directory_mode %}checked{% endif %}> Directory mode — open each company's profile on list pages to find its website, email and phone</label>
       </section>
 

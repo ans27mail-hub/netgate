@@ -98,7 +98,8 @@ with SessionLocal() as s:
     gid, mid = manu.id, mats.id
     roles = {r.name: r for r in s.scalars(select(Role)).all()}
     users = {u.username: u for u in s.scalars(select(User)).all()}
-    check(set(roles) == {"Admin", "Manager", "Researcher", "Viewer", "Developer"}, f"roles seeded: {sorted(roles)}")
+    check(set(roles) - {"Cards Only"} == {"Admin", "Manager", "Researcher", "Viewer", "Developer"},
+          f"roles seeded: {sorted(roles)}")   # v0.9 adds Cards Only
     check(users["admin"].role == "Admin" and users["admin"].is_admin, "admin → Admin role")
     check(users["worker1"].role == "Researcher" and "review" in users["worker1"].perm_set
           and "requests_own" in users["worker1"].perm_set, "v0.4 Editor → Researcher with same access + new keys")
@@ -108,7 +109,7 @@ with SessionLocal() as s:
     check(s.scalar(select(func.count(Membership.record_id))) == 5, "every v0.4 listing is an accepted member")
     check(all(r.accepted_at and r.history for r in s.scalars(select(Record)).all()), "records accepted with history note")
     check(manu.methods == {"web": {}, "website": {}}, "groups became directories with web + website methods")
-    set_setting(s, "crawler", {"delay": 0.2})
+    set_setting(s, "crawler", {"delay": 0.2, "reread_days": 0})   # v0.9: this test reads the same lists again
     s.commit()
 crawl._settings_cache["value"] = None
 
@@ -499,7 +500,8 @@ r = c.post(f"/settings/roles/{roles['Developer'].id}/delete", follow_redirects=T
 check("Choose which role they get instead" in r.text, "a role in use needs a replacement role before deleting (v0.6)")
 c.post("/settings/roles/new", data={"name": "Sales", "copy": roles["Viewer"].id})
 with SessionLocal() as s:
-    check(s.scalar(select(Role).where(Role.name == "Sales")).perm_set == {"view", "export"}, "new role copied from Viewer")
+    check(s.scalar(select(Role).where(Role.name == "Sales")).perm_set
+          == {"view", "export", "see_dashboard", "see_inbox", "see_requests"}, "new role copied from Viewer")
 d = TestClient(app)
 d.post("/login", data={"username": "dev1", "password": "secret123"})
 check(d.get(f"/requests/{pj}/debug").status_code == 200 and d.get("/settings/users").status_code == 403

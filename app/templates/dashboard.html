@@ -32,14 +32,14 @@
     {% endfor %}
   </section>
 
-  <section class="panel dash-jobs" aria-labelledby="rj-h" id="runjobs" hx-get="/dashboard/jobs" hx-trigger="load, every 5s" hx-swap="innerHTML">
+  {% if can(user, 'see_requests') %}<section class="panel dash-jobs" aria-labelledby="rj-h" id="runjobs" hx-get="/dashboard/jobs" hx-trigger="load, every 5s" hx-swap="innerHTML">
     <div class="rj-head"><h2 id="rj-h">Running Jobs</h2></div><p class="sub" style="margin:0">Loading…</p>
-  </section>
+  </section>{% endif %}
 
   <div class="dash-side">
     <section class="panel stack" aria-labelledby="qa-h">
       <h2 id="qa-h">Quick Actions</h2>
-      {% if can(user, 'review') %}<a href="/inbox" class="btn btn-dark">Review the Inbox ({{ inbox_new }} Waiting)</a>{% endif %}
+      {% if can(user, 'review') and can(user, 'see_inbox') %}<a href="/inbox" class="btn btn-dark">Review the Inbox ({{ inbox_new }} Waiting)</a>{% endif %}
       {% if req_groups %}<button type="button" class="btn btn-primary" onclick="document.getElementById('ask').showModal()">Run Discovery</button>{% endif %}
       {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add" class="btn btn-outline">Add Contact</a>{% endif %}
       <a href="/directories" class="btn btn-outline">All Directories</a>
@@ -56,16 +56,16 @@
   {% if groups %}
   <div class="overflow">
     <table class="t dash-dirs">
-      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th><th>Waiting in Inbox</th>{% if sees_methods(user) %}<th>Methods</th>{% endif %}<th>Last Search</th></tr></thead>
+      <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th>{% if can(user, 'see_inbox') %}<th>Waiting in Inbox</th>{% endif %}{% if sees_methods(user) %}<th>Methods</th>{% endif %}{% if searcher(user) %}<th>Last Search</th>{% endif %}</tr></thead>
       <tbody>
         {% for g in groups %}{% set st = stats[g.id] %}
         <tr>
           <td><a href="/d/{{ g.id }}"><b>{{ g.name }}</b></a></td>
           <td>{{ st.contacts }}</td>
           <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>
-          <td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>
+          {% if can(user, 'see_inbox') %}<td>{% if st.inbox %}<a href="/inbox?dir={{ g.id }}">{{ st.inbox }}</a>{% else %}0{% endif %}</td>{% endif %}
           {% if sees_methods(user) %}<td class="sub">{{ st.methods|map(attribute='name')|join(' · ') or '—' }}</td>{% endif %}
-          <td class="sub">{{ ago(st.last) }}</td>
+          {% if searcher(user) %}<td class="sub">{{ ago(st.last) }}</td>{% endif %}
         </tr>
         {% endfor %}
       </tbody>

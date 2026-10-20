@@ -78,6 +78,8 @@
                   {% for x in ['Wrong results', 'Off-topic', 'Duplicate keyword', 'Too broad'] %}<button type="submit" name="reason" value="{{ x }}" class="reason">{{ x }}</button>{% endfor %}
                 </form>
               </details>
+              {% elif a == 'force' %}
+              {% if can(user, 'requests_all') %}<form method="post" action="/requests/{{ j.id }}/force" class="inline" onsubmit="return confirm('Force-stop this request now? Use it when it has been stuck in {{ j.status }} for a long time.')"><button type="submit" class="btn btn-danger btn-xs" title="Stuck? End it now">Force Stop</button></form>{% endif %}
               {% elif a == 'edit' %}
               <a href="/requests/{{ j.id }}/edit" class="btn btn-outline btn-xs" title="Change the search and run it again inside this request">Edit</a>
               {% else %}

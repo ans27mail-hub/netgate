@@ -16,8 +16,8 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 
 /* buttons & inputs */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; text-decoration: none; line-height: 1.2; min-height: 40px; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-dark); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--accent-fg, #fff); }
+.btn-primary:hover { background: var(--accent-dark); color: var(--accent-fg, #fff); }
 .btn-dark { background: var(--ink); color: var(--card); }
 .btn-dark:hover { background: var(--ink-2); color: var(--card); }
 .btn-outline { background: var(--card); border-color: var(--line-strong); color: var(--ink); }
@@ -276,7 +276,7 @@ dialog h2 { margin: 0; font-size: 20px; }
 .nav-item.on { background: var(--side-hi); color: var(--side-text); font-weight: 600; }
 .nav-item span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item .n { color: var(--side-muted); font-weight: 400; font-size: 13px; }
-.count-badge { background: var(--accent); color: #fff; border-radius: 999px; padding: 0 8px; font-size: 12px; line-height: 20px; font-weight: 600; }
+.count-badge { background: var(--accent); color: var(--accent-fg, #fff); border-radius: 999px; padding: 0 8px; font-size: 12px; line-height: 20px; font-weight: 600; }
 .nav-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 10px 6px; font-size: 11px;
   font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-2); }
 .nav-head a { color: var(--side-text); text-decoration: none; font-size: 18px; line-height: 1; padding: 0 4px; }
@@ -638,7 +638,7 @@ a.dircard-name:hover { color: var(--accent); }
 .card-side form { margin: 0; }
 .enrich-sq { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.enrich-sq:hover { background: var(--accent); color: #fff; }
+.enrich-sq:hover { background: var(--accent); color: var(--accent-fg, #fff); }
 .tagbar-mark { display: block; width: 24px; height: 8px; border-radius: 3px; background: var(--tc); }
 .card-side.inline .tagbar-mark { width: 18px; }
 .tagbar-mark:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
@@ -776,4 +776,34 @@ dialog.helpdlg form.hp-foot input[type=text] { flex: 1 1 300px; min-height: 40px
 @media (max-width: 600px) {
   .engtable .engnote, .engtable .lastw { display: none; }
   .engtable td, .engtable th { padding-left: 8px; padding-right: 8px; }
+}
+.st-interrupted { color: #f2a3a3; }
+/* v0.9: Enrich Now ▾ and Pages Read */
+.splitbtn { display: inline-flex; align-items: stretch; position: relative; }
+.splitbtn > form > .btn, .splitbtn > .btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.splitbtn .enrich-menu > summary { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 1px solid rgba(255,255,255,.35); padding-left: 10px; padding-right: 10px; height: 100%; list-style: none; }
+.splitbtn .enrich-menu > summary::-webkit-details-marker { display: none; }
+.enrich-body { width: 320px; display: flex; flex-direction: column; gap: 4px; }
+.enrich-body .estep { align-items: flex-start; }
+.enrich-body .estep.off { opacity: .55; }
+.enrich-body .emode { border: 0; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.enrich-body .field { padding: 4px; }
+.pagesread li { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; overflow-wrap: anywhere; }
+
+/* v0.9: heading font (Settings → Themes / Display) */
+h1, h2, h3, .sidenav .brand, .brand { font-family: var(--display, var(--font)); }
+/* v0.9: My Look (Display) and theme colour sets */
+.lookgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.lookgrid legend { grid-column: 1 / -1; }
+.lookopt { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); cursor: pointer; }
+.lookopt.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.lookopt input { margin: 0; }
+.swatches { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); flex: none; }
+.swatches i { display: block; width: 16px; height: 28px; }
+.fontsample { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+.fontsample b { font-size: 20px; font-family: var(--display, var(--font)); }
+.presetrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.presetbtn { display: inline-flex; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+@media (max-width: 600px) {
+  .enrich-body { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; max-height: 75vh; overflow-y: auto; z-index: 40; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
 }

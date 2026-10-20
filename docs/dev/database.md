@@ -13,6 +13,9 @@ The full list of tables and columns is on [Database tables (automatic)](/dev/han
 - **`inbox`** — one item per contact + directory waiting for a decision (new / accepted / rejected), with method, keyword, AI suggestion.
 - **`decisions`** — every accept / reject / restore / remove / move with a snapshot of the contact (used for suggestions and training data).
 - **`existing_hits`** — a person's search found a contact someone else found first (Existing Contacts tab).
+- **`pages_read`** (v0.9) — every page read: url, when, request, directory, company (Enrich), purpose (list / profile / site / other), what was found. Kept permanently; no foreign keys.
+- **`font_files`** (v0.9) — fonts uploaded in Settings → Themes (name, type, the file).
+- `groups.enrich` (v0.9) — Directory Settings → Enrich: words, steps, results per search, searches per contact.
 - **`search_log`** (v0.8) — one row per web search: engines asked, links per engine, failed engines with the reason, request id, test flag. Kept 30 days; Settings → Search Engines builds the status from it.
 - **`tags`**, **`record_tags`** — tags and which contact has which.
 - **`jobs`** — requests: query, kind, status, `stats`, `params`, `control` (pause / stop asked), `state` (where a paused job got to), `deleted_at`.

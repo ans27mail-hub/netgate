@@ -7,9 +7,10 @@
   <span class="badge st-{{ job_tab(job) }}">{{ job.status }}</span>
   <span class="ml-auto btnrow">
     {% if control %}
-    {% set labels = {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'reject': 'Reject…', 'restore': 'Take Off Reject List', 'again': 'Run Again'} %}
+    {% set labels = {'pause': 'Pause', 'resume': 'Resume', 'stop': 'Stop', 'delete': 'Delete', 'undelete': 'Restore', 'reject': 'Reject…', 'restore': 'Take Off Reject List', 'again': 'Run Again', 'force': 'Force Stop'} %}
     {% for a in job_actions(job) %}
-    {% if a == 'edit' %}
+    {% if a == 'force' and not can(user, 'requests_all') %}
+    {% elif a == 'edit' %}
     <a href="/requests/{{ job.id }}/edit" class="btn btn-outline btn-small">Edit and Run Again</a>
     {% elif a == 'reject' %}
     <form method="post" action="/requests/{{ job.id }}/reject" class="inline" onsubmit="var r=prompt('Why reject this keyword? (it goes on the reject list)');if(r===null)return false;this.reason.value=r"><input type="hidden" name="reason"><button type="submit" class="btn btn-outline btn-small">Reject…</button></form>
@@ -25,7 +26,7 @@
 
 <nav class="utabs" aria-label="Show">
   <a href="?" class="{% if not f_kind %}on{% endif %}">Everything <span>{{ kinds.values()|sum }}</span></a>
-  {% for k, label in [('search', 'Searches'), ('page', 'Pages read'), ('code', 'Found by code'), ('ai', 'AI questions'), ('error', 'Errors'), ('note', 'Notes')] if kinds.get(k) %}
+  {% for k, label in [('search', 'Searches'), ('page', 'Pages read'), ('code', 'Found by code'), ('ai', 'AI questions'), ('fill', 'Fields filled'), ('error', 'Errors'), ('note', 'Notes')] if kinds.get(k) %}
   <a href="?kind={{ k }}" class="{% if f_kind == k %}on{% endif %}">{{ label }} <span>{{ kinds[k] }}</span></a>
   {% endfor %}
 </nav>
@@ -42,6 +43,8 @@
       {% if t.kind == 'ai' %}<span class="sub">{{ ((t.data.get('answer') or {}).get('entries') or [])|length }} entries{% if (t.data.get('answer') or {}).get('fields') %} · {{ (t.data.answer.fields or {}).keys()|list|join(', ') }}{% endif %}</span>{% endif %}
       {% if t.kind == 'search' %}<span class="sub">{{ (t.data.get('results') or [])|length }} results{% if t.data.get('page') and t.data.page > 1 %} · page {{ t.data.page }}{% endif %}{% if t.data.get('blocked') %} · <span class="warn">failed: {{ t.data.blocked.keys()|map('engine_label')|join(', ') }}</span>{% endif %}</span>{% endif %}
       {% if t.kind == 'note' %}<span class="sub">{{ t.data.get('text', '') }}</span>{% endif %}
+      {% if t.kind == 'search' and t.data.get('why') %}<span class="sub">· for {{ t.data.why }}</span>{% endif %}
+      {% if t.kind == 'fill' %}<span class="sub"><b>{{ t.data.get('field') }}</b> = {{ (t.data.get('value')|string)|truncate(60) }}{% if not t.url %} · from {{ t.data.get('source') }}{% endif %}</span>{% endif %}
     </summary>
     <div class="trbody">
       {% if t.kind == 'page' %}<pre>{{ t.data.get('text', '') }}</pre>
@@ -55,6 +58,17 @@
   </details>
 {% endfor %}
 </div>
+
+{% if read_rows %}
+<section class="panel stack">
+  <h2>Pages Read by This Request ({{ read_rows|length }})</h2>
+  <div class="overflow"><table class="t">
+    <thead><tr><th>When</th><th>Page</th><th>Kind</th><th>What Was Found</th></tr></thead>
+    <tbody>{% for p in read_rows %}<tr><td class="sub nowrap">{{ p.at.strftime('%H:%M:%S') }}</td><td class="mono-sm" style="overflow-wrap:anywhere">{{ (p.final_url or p.url)|truncate(90) }}</td><td>{{ PURPOSES.get(p.purpose, p.purpose) }}</td><td class="sub">{{ page_summary(p) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <span class="hint">Every page NetGate reads is kept in this list. Pages already read are skipped next time: list pages for a few days (Settings → Crawler), a company's pages until “Check All Again”.</span>
+</section>
+{% endif %}
 
 {% if new_items %}
 <section class="panel stack">

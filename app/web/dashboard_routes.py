@@ -134,9 +134,9 @@ def _attention(s, user, groups, stats) -> list[dict]:
             out.append({"tone": "red" if "No backup" in warn or "days old" in warn else "amber", "text": warn,
                         "label": "Backups", "href": "/settings/backups"})
     day = datetime.utcnow() - timedelta(hours=24)
-    failed = s.scalar(select(func.count(Job.id)).where(Job.deleted_at.is_(None), Job.status == "failed",
+    failed = s.scalar(select(func.count(Job.id)).where(Job.deleted_at.is_(None), Job.status.in_(["failed", "interrupted"]),
                                                        Job.updated_at >= day, jobs_clause(user)))
-    if failed:
+    if failed and can(user, "see_requests"):
         out.append({"tone": "red", "text": f"{failed} request{'s' if failed != 1 else ''} failed in the last 24 hours",
                     "label": "See Requests", "href": "/requests?tab=failed"})
     for name, st in engines.problems(s)[:3]:   # v0.8: a search engine that blocks or doesn't answer
@@ -168,7 +168,7 @@ def _attention(s, user, groups, stats) -> list[dict]:
         out.append(item)
     ready = s.scalar(select(func.count(InboxItem.id)).join(Record, Record.id == InboxItem.record_id)
                      .where(InboxItem.status == "new", Record.enrich_runs > 0, inbox_clause(user, groups)))
-    if ready and can(user, "review"):
+    if ready and can(user, "review") and can(user, "see_inbox"):
         out.append({"tone": "green", "text": f"{ready} compan{'ies' if ready != 1 else 'y'} in the Inbox "
                                              f"{'are' if ready != 1 else 'is'} enriched and ready to decide",
                     "label": "Review", "href": "/inbox?tab=enriched"})
@@ -183,6 +183,8 @@ def dashboard(request: Request, group: int | None = None):
     with SessionLocal() as s:
         user = current_user(s, request)
         require(user, "view")
+        if not can(user, "see_dashboard"):
+            return go("/directories")
         groups = view_groups(s, user)
         stats = dir_stats(s, groups, user)
         week = datetime.utcnow() - timedelta(days=7)
@@ -200,7 +202,7 @@ def dashboard(request: Request, group: int | None = None):
         jc = [Job.deleted_at.is_(None), jobs_clause(user)]
         running = s.scalar(select(func.count(Job.id)).where(Job.status.in_(list(control.RUNNING)), *jc)) or 0
         waiting = s.scalar(select(func.count(Job.id)).where(Job.status.in_(list(control.WAITING)), *jc)) or 0
-        failed = s.scalar(select(func.count(Job.id)).where(Job.status == "failed",
+        failed = s.scalar(select(func.count(Job.id)).where(Job.status.in_(["failed", "interrupted"]),
                                                            Job.updated_at >= datetime.utcnow() - timedelta(hours=24),
                                                            *jc)) or 0
         night = last_night(s) or s.scalar(select(NightRun).order_by(NightRun.id.desc()).limit(1))
@@ -222,6 +224,8 @@ def dashboard(request: Request, group: int | None = None):
         else:
             tiles.append({"label": "Night Run", "value": "not yet", "sub": "runs at night when switched on",
                           "href": "/settings/night" if can(user, "night") else "/requests"})
+        need = {"/inbox": "see_inbox", "/requests": "see_requests"}
+        tiles = [t for t in tiles if can(user, need.get(t["href"], "view"))]
         return render(request, s, user, "dashboard.html", active_nav="dashboard", help="dashboard",
                       tiles=tiles, attention=_attention(s, user, groups, stats), groups=groups, stats=stats,
                       activity=_activity(s, user, groups), inbox_new=inbox_new)
@@ -232,7 +236,7 @@ def running_jobs(request: Request):
     """The Running Jobs panel (reloads itself every few seconds)."""
     with SessionLocal() as s:
         user = current_user(s, request)
-        require(user, "view")
+        require(user, "see_requests")
         base = [Job.deleted_at.is_(None), jobs_clause(user)]
         running = s.scalars(select(Job).where(Job.status.in_(list(control.RUNNING)), *base)
                             .order_by(Job.started_at.desc().nulls_last()).limit(6)).all()
@@ -283,7 +287,7 @@ def system_status(request: Request):
     """Loaded after the page (it waits up to 3 seconds for each service)."""
     with SessionLocal() as s:
         user = current_user(s, request)
-        require(user, "view")
+        require(user, "see_dashboard")
         servers = s.scalars(select(AIServer).where(AIServer.enabled).order_by(AIServer.id)).all()
         conn = connections(s)
         checks = []
@@ -324,5 +328,6 @@ def directories_page(request: Request, sort: str = "menu", view: str = ""):
         ordered = sorted(groups, key=keyf) if keyf else list(groups)
         tiles = {g.id: TILES[i % len(TILES)] for i, g in enumerate(groups)}
         total = s.scalar(select(func.count(Record.id)).where(visible_records_clause(user, groups))) or 0
+        sorts = [x for x in SORTS if x[0] != "inbox" or can(user, "see_inbox")]
         return render(request, s, user, "directories.html", active_nav="directories", help="directories",
-                      groups=ordered, stats=stats, tiles=tiles, sort=sort, sorts=SORTS, view=view, total=total)
+                      groups=ordered, stats=stats, tiles=tiles, sort=sort, sorts=sorts, view=view, total=total)

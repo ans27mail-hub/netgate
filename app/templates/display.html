@@ -47,16 +47,7 @@
         <span class="hint"><b>Fill the row</b> (on): cards are never narrower than this width and stretch evenly to fill the whole row. Off: cards keep exactly this width. Each directory can have its own style and width (Directory Settings → Cards).</span>
       </section>
 
-      {% if allow_personal or can(user, 'display_all') %}
-      <section class="panel row">
-        <label class="field">My theme
-          <select name="theme">
-            <option value="" {% if not my_theme %}selected{% endif %}>The theme for everyone</option>
-            {% for th in themes %}<option value="{{ th.id }}" {% if my_theme == th.id %}selected{% endif %}>{{ th.name }}</option>{% endfor %}
-          </select></label>
-        <span class="hint fullrow">Only for you.{% if can(user, 'display_all') %} Themes are made and chosen for everyone in <a href="/settings/themes">Settings → Themes</a>.{% endif %}</span>
-      </section>
-      {% endif %}
+
 
       <section class="panel row">
         <label class="field">Default view
@@ -76,6 +67,46 @@
         </label>
       </section>
     </form>
+
+    {% if allow_personal or can(user, 'display_all') %}
+    <form method="post" action="/settings/display/look" class="panel stack" id="look">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>My Look</h2><span class="hint">Colours, fonts and text size — only for you. {% if can(user, 'display_all') %}The look for everyone is set in <a href="/settings/themes">Settings → Themes</a>.{% endif %}</span></div>
+      <fieldset class="lookgrid" style="border:0;padding:0;margin:0">
+        <legend class="caps-sm">Colours</legend>
+        <label class="lookopt {% if not my_theme %}on{% endif %}"><input type="radio" name="theme" value="" {% if not my_theme %}checked{% endif %}>
+          <span class="swatches" aria-hidden="true">{% set dt = theme_by_id[default_theme] %}{% for k in ['side', 'accent', 'bg'] %}<i style="background:{{ dt.colors[k] }}"></i>{% endfor %}</span>
+          <span><b>The Look for Everyone</b><span class="sub dblock">{{ dt.name }}</span></span></label>
+        {% for t in themes %}
+        <label class="lookopt {% if my_theme == t.id %}on{% endif %}"><input type="radio" name="theme" value="{{ t.id }}" {% if my_theme == t.id %}checked{% endif %}>
+          <span class="swatches" aria-hidden="true">{% for k in ['side', 'accent', 'bg'] %}<i style="background:{{ t.colors[k] }}"></i>{% endfor %}</span>
+          <span><b>{{ t.name }}</b><span class="sub dblock">{{ t.heading_font or t.font }}{% if t.heading_font and t.heading_font != t.font %} + {{ t.font }}{% endif %}</span></span></label>
+        {% endfor %}
+      </fieldset>
+      <div class="row">
+        <label class="field">Text font<select name="font" data-sample="body"><option value="">The colours' own font</option>{% for f in font_names %}<option {% if look.font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+        <label class="field">Heading font<select name="heading_font" data-sample="head"><option value="">The colours' own font</option>{% for f in font_names %}<option {% if look.heading_font == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
+        <label class="field">Text size<select name="size">{% for k, v in SIZES.items() %}<option value="{{ k }}" {% if (look.size or 'normal') == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="fontsample" aria-hidden="true"><b data-s="head">Manufacturers in Sialkot</b><span data-s="body">Acme Leather makes leather motorcycle gloves and jackets since 1990.</span></div>
+      <div class="btnrow">
+        <button type="submit" class="btn btn-primary">Save My Look</button>
+        <button type="submit" name="reset" value="1" class="btn btn-outline">Use the Look for Everyone</button>
+      </div>
+    </form>
+    <script>
+      (function () {
+        var f = document.getElementById('look');
+        function show() {
+          f.querySelectorAll('select[data-sample]').forEach(function (s) {
+            var el = f.querySelector('[data-s=' + s.dataset.sample + ']');
+            el.style.fontFamily = s.value ? "'" + s.value.replace(' (also Urdu)', '') + "', system-ui" : '';
+          });
+          f.querySelectorAll('.lookopt').forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
+        }
+        f.addEventListener('change', show); show();
+      })();
+    </script>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

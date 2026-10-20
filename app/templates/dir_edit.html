@@ -99,6 +99,24 @@
       </form>
     </section>
 
+    <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="enrich">
+      <input type="hidden" name="section" value="enrich">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Enrich</h2><span class="hint">How NetGate looks for a contact's missing details in this directory.</span></div>
+      {% set ec = econf %}
+      <label class="field">Own Enrich search words (separate with commas)
+        <input type="text" name="enrich_words" value="{{ ec.words }}" placeholder="e.g. wholesale, export, distributor, motorcycle clothing"></label>
+      <span class="hint">Each word is searched together with the company's name, e.g. “Acme Leather” wholesale. NetGate also searches by its website address, the search that found it, its products and this directory's B2B sites (Directory site search).</span>
+      <fieldset class="stack" style="border:0;padding:0;margin:0"><legend class="caps-sm">Enrich steps used in this directory</legend>
+        <div class="gchecks">{% for key, label, desc, _ in ENRICH_STEPS %}<label title="{{ desc }}"><input type="checkbox" name="enrich_steps" value="{{ key }}" {% if key in ec.steps %}checked{% endif %}> {{ label }}</label>{% endfor %}</div>
+      </fieldset>
+      <div class="row">
+        <label class="field" style="flex:0 1 240px">Results read per search<input type="number" name="enrich_results" min="1" max="30" value="{{ ec.results }}"></label>
+        <label class="field" style="flex:0 1 240px">Searches per contact at most<input type="number" name="enrich_searches" min="1" max="30" value="{{ ec.searches }}"></label>
+      </div>
+      <span class="hint">Enrich stops early when every field is filled. Pages it already read for a contact aren't opened again (it reuses what it found there) unless someone chooses “Check All Again”.</span>
+      <div><button type="submit" class="btn btn-primary">Save Enrich</button></div>
+    </form>
+
     <form method="post" action="/settings/directories/{{ group.id }}" class="panel stack" id="instructions">
       <input type="hidden" name="section" value="instructions">
       <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Instructions for the AI</h2><span class="hint">Plain language. Sent to the model with every job in this directory.</span></div>

@@ -31,7 +31,7 @@ def _items_stmt(user, groups, tab: str):
 def inbox(request: Request, tab: str = "new"):
     with SessionLocal() as s:
         user = current_user(s, request)
-        require(user, "view")
+        require(user, "see_inbox")
         tab = tab if tab in dict(TABS) else "new"
         groups = view_groups(s, user)
         flt = Filters(request, groups=groups)

@@ -7,9 +7,10 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 
 from .. import contacts as C
+from .. import crawl, ebay, methods, pages
 from .. import tags as T
-from ..auth import can, own_contacts_only, sees_all_groups
-from ..db import ExistingHit, Group, InboxItem, Membership, Record, SessionLocal, User, slugify
+from ..auth import can, own_contacts_only, sees_all_groups, sees_methods
+from ..db import ExistingHit, Group, InboxItem, Membership, PageRead, Record, SessionLocal, User, slugify
 from ..jobs import night_settings
 from .common import (SPECIAL_COLS, Forbidden, all_groups, back, card_cfg, card_fields, current_user, display_for,
                      flash, fmt_value, go, last_night, memberships_map, own_clause, record_fields_map, render,
@@ -131,7 +132,8 @@ def _listing(request: Request, s, user, sel=None):
     return dict(sel_group=sel, records=records, fmap=fmap, flt=flt, sort=sort, view=view, stats=stats,
                 fields=fields, options=options, cols=_columns(user, col_key, fields), col_key=col_key,
                 dirs_of=memberships_map(s, records), q=flt.q, limited=len(records) >= LIMIT,
-                colfields={f.key: f for f in fields}, groups=groups, night=last_night(s), night_cfg=night_settings(s),
+                colfields={f.key: f for f in fields}, groups=groups, enrich_steps=enrich_step_choices(s),
+                enrich_choice=enrich_choice(user), night=last_night(s), night_cfg=night_settings(s),
                 edit_gids=[g.id for g in groups if can(user, "edit", g.id)], tags=tags, tmap=tmap,
                 tag_labels={t.id: t.name for t in tags},
                 tag_counts=T.counts(s, base.with_only_columns(Record.id)), card=card_cfg(s, user, sel),
@@ -202,7 +204,16 @@ def _card(request, s, user, rec, edit=False, ctx_gid=None, notice=""):
     rec_tags = T.tags_map(s, [rec.id]).get(rec.id, [])
     can_tag = not limited and any(can(user, "edit", g) for g in mids) if mids else (not limited and can(user, "edit"))
     finder = s.get(User, rec.found_by) if rec.found_by else None
+    read_rows = []
+    if not limited:
+        read_rows = list(pages.for_record(s, rec.id, 40))
+        if rec.source_url:
+            read_rows += s.scalars(select(PageRead).where(PageRead.url == pages.norm(rec.source_url),
+                                                          PageRead.record_id.is_(None)).order_by(PageRead.id.desc())
+                                   .limit(3)).all()
     return templates.TemplateResponse(request, "_bigcard.html", {
+        "enrich_steps": enrich_step_choices(s, rec), "enrich_choice": enrich_choice(user),
+        "read_rows": read_rows, "page_summary": pages.summary, "PURPOSES": pages.PURPOSES,
         "r": rec, "user": user, "fields": fields, "filled": filled, "total": total,
         "members": [by_id[g] for g in mids if g in by_id], "items": items, "by_id": by_id,
         "edit": edit and not limited, "ctx_gid": ctx_gid, "limited": limited,
@@ -372,8 +383,58 @@ async def add_selected_to_directory(request: Request):
     return back(request, "/contacts")
 
 
-def enrich_many(s, user, ids: list[int], steps=None) -> int:
+# ---------- Enrich Now ▾ (v0.9): choose the steps ----------
+
+def enrich_step_choices(s, rec=None) -> list[dict]:
+    """The Enrich steps with a reason when one can't work (for one contact, or for many when rec is None)."""
+    conn = methods.connections(s)
+    data = (rec.data or {}) if rec else {}
+    social = (rec.social or {}) if rec else {}
+    seller = rec and ((rec.ext or {}).get("ebay") or C.marketplace_id("ebay", (rec.links or {}).get("ebay", "")))
+    out = []
+    for key, label, desc, _ in methods.ENRICH_STEPS:
+        why = ""
+        if key == "ebay":
+            if not ebay.ready(conn):
+                why = "eBay keys are not set up (Settings → Connections)"
+            elif rec is not None and not seller:
+                why = "No eBay seller known for this contact"
+        elif key == "find_site" and rec is not None and data.get("website"):
+            why = "Its website is already known"
+        elif key == "social" and rec is not None and all(social.get(k) for k in crawl.SOCIAL):
+            why = "Facebook, Instagram and LinkedIn are already known"
+        hint = "No website known yet: runs if Find Own Website finds one" \
+            if key == "website" and rec is not None and not data.get("website") else ""
+        out.append({"key": key, "label": label, "desc": desc, "why": why, "hint": hint})
+    return out
+
+
+def enrich_choice(user) -> dict:
+    c = (user.prefs or {}).get("enrich_choice") or {}
+    return {"steps": [k for k in (c.get("steps") or methods.ENRICH_STEP_KEYS) if k in methods.ENRICH_STEP_KEYS],
+            "mode": "all" if c.get("mode") == "all" else "missing"}
+
+
+def _choice_from_form(s, user, form) -> dict:
+    """Steps / Only missing or Check all again / extra words from the Enrich Now ▾ menu (remembered per person).
+    People who don't see search methods always use the directory's own Enrich steps."""
+    if form.get("choose") != "1" or not sees_methods(user):
+        return {}
+    steps = [k for k in form.getlist("steps") if k in methods.ENRICH_STEP_KEYS]
+    mode = "all" if form.get("mode") == "all" else "missing"
+    user.prefs = {**(user.prefs or {}), "enrich_choice": {"steps": steps, "mode": mode}}
+    params = {"steps": steps or None, "refresh": mode == "all"}
+    words = str(form.get("words") or "").strip()[:300]
+    if words:
+        params["words"] = words
+    return {k: v for k, v in params.items() if v}
+
+
+def enrich_many(s, user, ids: list[int], steps=None, params: dict | None = None) -> int:
     n = 0
+    params = dict(params or {})
+    if steps:
+        params["steps"] = steps
     for rid in ids:
         rec = s.get(Record, rid)
         if not rec or not C.can_see_record(s, user, rec):
@@ -381,19 +442,24 @@ def enrich_many(s, user, ids: list[int], steps=None) -> int:
         gids = C.member_ids(s, rec.id) + C.open_item_group_ids(s, rec.id)
         if not C.may_enrich(user, rec, gids[0] if gids else None):
             continue
-        start_job(s, user, "enrich", rec.title, gids[0] if gids else None, record_id=rec.id,
-                  params={"steps": steps} if steps else {})
+        start_job(s, user, "enrich", rec.title, gids[0] if gids else None, record_id=rec.id, params=dict(params))
         n += 1
     return n
 
 
 @router.post("/records/{rid}/enrich")
-def enrich_one(request: Request, rid: int):
+async def enrich_one(request: Request, rid: int):
+    form = await request.form()
     with SessionLocal() as s:
         user = current_user(s, request)
-        if not enrich_many(s, user, [rid]):
+        params = _choice_from_form(s, user, form)
+        if form.get("choose") == "1" and sees_methods(user) and not params.get("steps"):
+            flash(request, "Tick at least one Enrich step.", True)
+            return back(request)
+        if not enrich_many(s, user, [rid], params=params):
             raise Forbidden
-        flash(request, "Enrich started. The card updates when it finishes — see AI activity.")
+        flash(request, "Enrich started" + (" (checking every field again)" if params.get("refresh") else "")
+              + ". The card updates when it finishes — see AI activity.")
     return back(request)
 
 
@@ -403,7 +469,7 @@ async def enrich_selected(request: Request):
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()][:100]
     with SessionLocal() as s:
         user = current_user(s, request)
-        n = enrich_many(s, user, ids)
+        n = enrich_many(s, user, ids, params=_choice_from_form(s, user, form))
         flash(request, f"Enrich started for {n} contact{'' if n == 1 else 's'}." if n else
               "Tick one or more contacts first.", not n)
     return back(request)

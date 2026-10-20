@@ -24,10 +24,12 @@
         <label for="topq" class="sr">Search</label>
         <input id="topq" type="search" name="q" value="{{ q or '' }}" placeholder="{% if path == '/inbox' %}Search the Inbox by name, city, website…{% elif sel_group %}Search {{ sel_group.name }}…{% else %}Search all contacts by name, city, product…{% endif %}">
       </form>
+{% if can(user, 'see_requests') %}
       <details class="jobs-pop" {% if running_n %}data-running{% endif %}>
         <summary hx-get="/activity" hx-target="#activity" hx-trigger="click once" class="pill-btn"><span class="dot {% if not running_n %}off{% endif %}" aria-hidden="true"></span>{% if running_n %}{{ running_n }} AI Job{{ '' if running_n == 1 else 's' }} Running{% else %}No AI Jobs Running{% endif %} ▾</summary>
         <section class="activity" id="activity" hx-get="/activity" hx-trigger="every 5s [document.querySelector('.jobs-pop').open]" hx-swap="innerHTML"><p class="sub">Loading…</p></section>
       </details>
+      {% endif %}
       {% if help %}<button type="button" class="pill-btn help-btn" aria-label="Help for this page" hx-get="/help/{{ help }}?partial=1" hx-target="#helpbody" onclick="document.getElementById('helpdlg').showModal()">?</button>{% endif %}
       {% if add_groups or can(user, 'add_contacts') %}<a href="/contacts/add{% if sel_group %}?group={{ sel_group.id }}{% endif %}" class="btn btn-outline pill">+ Add Contact</a>{% endif %}
       {% if req_groups %}<button type="button" class="btn btn-primary pill" onclick="document.getElementById('ask').showModal()">+ Run Discovery</button>{% endif %}
@@ -91,6 +93,37 @@
     if (el.classList && (el.classList.contains('card') || el.classList.contains('clickable'))) {
       document.querySelectorAll('.bigcard').forEach(function (b) { b.remove(); });
     }
+  });
+  // v0.9: pop-ups close when you click outside them or press Esc; only one menu is open at a time
+  function closeMenus(except) {
+    var closed = false;
+    document.querySelectorAll('details[open]').forEach(function (d) {
+      if (d === except || (except && d.contains(except))) return;
+      if (d.matches('.menu, .jobs-pop, .ds-jump, [data-popup]') || d.querySelector(':scope > .menu-body, :scope > .activity')) {
+        d.removeAttribute('open'); closed = true;
+      }
+    });
+    return closed;
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var inMenu = t.closest && t.closest('details[open]');
+    if (closeMenus(inMenu) && !inMenu) return;   // this click only closed a menu
+    // a click on the dark area around a window closes it (typed text stays for next time)
+    if (t.tagName === 'DIALOG' && t.open) {
+      var r = t.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) t.close();
+    }
+    // a click outside an open big card closes it (not when clicking another card, a menu or a window)
+    if (!t.closest('.bigcard, .card, details, dialog, .selbar, .list-tools, form')) {
+      document.querySelectorAll('.bigcard').forEach(function (b) { b.remove(); });
+    }
+  });
+  document.addEventListener('toggle', function (e) {
+    if (e.target.open) closeMenus(e.target);
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMenus(null);
   });
   // tick-all boxes and the selection bar
   function selCount(form) {

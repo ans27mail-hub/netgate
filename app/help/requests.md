@@ -17,8 +17,14 @@ Every search and enrich is a **request**. The **Requests** page lists them with 
 | **Restore** | On a rejected request: takes its keyword off the reject list. |
 | **Edit** | On a finished, failed or stopped search: change it and run it again **inside the same request** (see below). |
 | **Run Again** | Starts a **new** request with the same search (and the same methods). |
+| **Force Stop** | Admins (*Control everyone's requests*): ends a request stuck in *Pausing* or *Stopping* straight away. |
 
 **Pause All** pauses every waiting and running request you may control (admins and managers: everyone's, including the night run). **Resume All** brings them back.
+
+## Interrupted requests
+When NetGate restarts — for example after `netgate update` — a request that was running can't continue. It is marked **Interrupted (NetGate restarted)** and shows in the **Failed** tab with **Run Again**, **Edit** and **Delete**. Requests that were still waiting simply start again by themselves.
+
+A request that makes **no progress for 30 minutes** is marked *Interrupted* the same way, so nothing stays “running” for ever.
 
 ## Edit and Run Again
 When a search found too little, press **Edit** (or **Edit and Run Again** on its Debug page). You can change:
@@ -33,7 +39,7 @@ When a search finished and found nothing, the Requests page says **Nothing found
 
 **Save as Keyword** (in the Tries list) adds a good try's words to the keywords of its directory, so it can be run again with one click and at night. It needs *Run keywords* for that directory (or *Manage directories*).
 
-Your own requests can be edited with *Control own requests*; other people's with *Control everyone's requests*. Pages read in earlier tries may be read again for now; skipping them comes with the list of pages read (next version).
+Your own requests can be edited with *Control own requests*; other people's with *Control everyone's requests*. Pages read by earlier tries are skipped (see [Pages read](/help/pages-read)).
 
 ## Contacts are never touched
 Requests are a separate layer. Deleting or rejecting a request **never** changes the contacts it found: their data, sources and Inbox items stay. Each contact keeps a history note of how it was found. Contacts are only removed in the Inbox or on a contact's card, on purpose.

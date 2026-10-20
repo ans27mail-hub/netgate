@@ -35,6 +35,7 @@ CRAWLER_DEFAULTS = {
     "robots": True,            # follow robots.txt
     "max_chunks": 3,           # long pages are split into this many parts at most
     "skip_domains": "",        # extra sites to never read, one per line
+    "reread_days": 7,          # v0.9: a list page read for a directory is skipped for this many days (0 = read again)
 }
 
 # Sites that never help: videos, images, shops and social sites that need a login to read.
