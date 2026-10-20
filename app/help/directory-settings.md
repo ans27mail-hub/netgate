@@ -10,6 +10,8 @@ Settings → a directory. Sections:
 ## Basics & Search Methods
 Name, description, menu order, words added to every web search, **Owner** (people set to “only their own directories” see the directories they own), and the [search methods](/help/search-methods) with their options.
 
+Under **Basics** tick the **languages** this directory searches in (besides English). Searches built from the Keyword Library then also run in those languages — see *Keyword Library*. **Browser Search** in Search Methods searches in NetGate's own browser — see *Browser Search*.
+
 ## Cards
 How the short cards look in this directory (empty = the default from Settings → Display):
 - **Style A** — tag bars under the Enrich button on the right; **B** — the same on the left; **C** — tags and Enrich on the name line (shortest cards).
@@ -31,6 +33,8 @@ Which fields a short card shows (up to 3) is the “Card” tick in Fields below
 
 Removing a field keeps the values already found on the contacts.
 
+**Same as** (in the fields table) links a field to another directory's field with the same meaning — see *Moving contacts*.
+
 ## Instructions for the AI
 - **What belongs here** — used when judging search results.
 - **How to fill the fields** — used by Enrich.
@@ -40,6 +44,8 @@ Write them like you would explain it to a new colleague. Short and concrete work
 
 ## Keywords
 Each keyword has **Search with** (all methods, or one) and **Night Jobs** on / off. Keywords on the reject list can't be added.
+
+**Add From the Keyword Library** builds keywords from library words (with a language) instead of typing them.
 
 ## Test the instructions on a page
 Paste a list page or a company page and press **Test**. You see exactly what Discover would find there — names, what code found (email, phone, social), and whether a next page was found. Nothing is saved.

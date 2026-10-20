@@ -40,6 +40,27 @@
       </div>
     </form>
 
+    <form method="post" action="/settings/browser" class="panel stack" id="browser">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Browser Search</h2><span class="hint">For directories that use the <b>Browser search</b> method: NetGate's own browser searches like a person.</span></div>
+      <div class="overflow"><table class="t">
+        <thead><tr><th style="width:64px">On</th><th>Engine</th><th>Status</th><th>Last 7 Days</th><th></th></tr></thead>
+        <tbody>{% for e, info in BENGINES.items() %}{% set st = bstatus[e] %}
+          <tr><td><label class="switch"><input type="checkbox" name="engines" value="{{ e }}" {% if e in bcfg.engines %}checked{% endif %} aria-label="Browser search on {{ info[0] }}"><span aria-hidden="true"></span></label></td>
+            <td><b>{{ info[0] }}</b>{% if e == 'google' %}<span class="sub dblock">Off unless you switch it on: Google asks for CAPTCHAs most.</span>{% endif %}</td>
+            <td>{% if bpaused[e] %}<span class="badge red">Paused</span><span class="sub dblock">until {{ bpaused[e].strftime('%d %b %H:%M') }} UTC (CAPTCHA)</span>{% elif st.state == 'working' %}<span class="badge green">Working</span>{% elif st.state == 'blocking' %}<span class="badge red">CAPTCHA</span><span class="sub dblock">started {{ ago(st.since) }}</span>{% elif st.state == 'error' %}<span class="badge amber">Not Answering</span>{% else %}<span class="badge">Not Used Yet</span>{% endif %}</td>
+            <td class="nowrap">{% if st.searches %}<b>{{ st.results }}</b> links in {{ st.searches }} searches{% else %}<span class="sub">—</span>{% endif %}</td>
+            <td>{% if bpaused[e] %}<button type="submit" name="resume" value="{{ e }}" class="btn btn-outline btn-xs" formnovalidate>Use Again Now</button>{% endif %}</td></tr>
+        {% endfor %}</tbody></table></div>
+      <div class="row">
+        <label class="field">Seconds between two searches on the same engine<input type="number" name="pause" min="5" max="600" value="{{ bcfg.pause }}"></label>
+        <label class="field">Searches per engine per hour at most<input type="number" name="per_hour" min="1" max="200" value="{{ bcfg.per_hour }}"></label>
+        <label class="field">Minutes to wait for a person to solve a CAPTCHA<input type="number" name="wait_minutes" min="1" max="15" value="{{ bcfg.wait_minutes }}"></label>
+        <label class="field">Hours an engine pauses when nobody solves it<input type="number" name="captcha_hours" min="0.5" max="72" step="0.5" value="{{ bcfg.captcha_hours }}"></label>
+      </div>
+      <span class="hint">On a CAPTCHA the search waits: the person who started it gets a pop-up with the page and solves it there; the Dashboard shows <b>Solve</b> for everyone who may control the request. NetGate never solves CAPTCHAs itself.</span>
+      <div><button type="submit" class="btn btn-primary">Save Browser Search</button></div>
+    </form>
+
     <form method="post" action="/settings/search-engines/test" class="panel stack">
       <h2>Test Now</h2>
       <div class="row" style="align-items:flex-end">

@@ -20,7 +20,8 @@ STATUS_TABS = [
     ("failed", "Failed"), ("stopped", "Stopped"), ("rejected", "Rejected"), ("deleted", "Deleted"),
 ]
 DISCOVER_KINDS = {"request", "keyword"}
-KIND_LABELS = {"request": "Discover", "keyword": "Discover", "enrich": "Enrich", "night": "Night"}
+KIND_LABELS = {"request": "Discover", "keyword": "Discover", "enrich": "Enrich", "night": "Night",
+               "verify": "Verify", "profile": "Profile"}
 STOP_WORDS = {"the", "a", "an", "of", "in", "for", "and", "&", "to", "on", "with", "top", "best", "list", "lists"}
 
 
@@ -211,7 +212,7 @@ def run_again(s, job, user):
     new = Job(query=job.query, group_id=job.group_id, kind=job.kind if job.kind != "night" else "request",
               user_id=user.id if user else job.user_id, record_id=job.record_id, stats={},
               params={k: v for k, v in (job.params or {}).items()
-                      if k in ("keyword_id", "method", "methods", "steps", "deeper")})
+                      if k in ("keyword_id", "method", "methods", "steps", "deeper", "terms", "lang", "browser")})
     s.add(new)
     s.commit()
     enqueue_job(new)
@@ -234,6 +235,7 @@ def tries(job) -> list[dict]:
     st = job.stats or {}
     current = {"n": len(p.get("tries") or []) + 1, "query": job.query, "group_id": job.group_id,
                "methods": p.get("methods"), "deeper": int(p.get("deeper") or 0), "status": job.status,
+               "lang": p.get("lang") or "",
                "saved": job.saved or 0, "updated": job.updated or 0, "read": st.get("read", 0),
                "results": st.get("results", 0), "message": job.message or "", "current": True,
                "started": job.started_at.isoformat() if job.started_at else "",
@@ -242,7 +244,8 @@ def tries(job) -> list[dict]:
     return list(p.get("tries") or []) + [current]
 
 
-def edit_and_run(s, job, user, query: str, group_id: int, use_methods: list | None, deeper: int) -> bool:
+def edit_and_run(s, job, user, query: str, group_id: int, use_methods: list | None, deeper: int,
+                 terms: list | None = None, lang: str | None = None) -> bool:
     """Keep this try in the request's history, change the search and run it again in the same request.
     Nothing found by earlier tries is removed: their Inbox items and contacts stay."""
     if not can_edit(job):
@@ -259,6 +262,11 @@ def edit_and_run(s, job, user, query: str, group_id: int, use_methods: list | No
                    "deeper": max(0, min(MAX_DEEPER, int(deeper or 0)))})
     if use_methods:
         params["methods"] = use_methods
+    if terms is not None:   # v1.0: built from the Keyword Library (or typed by hand: no words, no language)
+        params["terms"], params["lang"] = list(terms), lang or ""
+        if not terms:
+            params.pop("terms", None)
+            params.pop("lang", None)
     job.query, job.group_id, job.params = query[:500], group_id, params
     job.status, job.control, job.state, job.stats = "queued", "", {}, {}
     job.saved, job.updated = 0, 0

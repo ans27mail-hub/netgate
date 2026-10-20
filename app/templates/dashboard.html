@@ -59,7 +59,7 @@
       <thead><tr><th>Directory</th><th>Contacts</th><th>Complete</th>{% if can(user, 'see_inbox') %}<th>Waiting in Inbox</th>{% endif %}{% if sees_methods(user) %}<th>Methods</th>{% endif %}{% if searcher(user) %}<th>Last Search</th>{% endif %}</tr></thead>
       <tbody>
         {% for g in groups %}{% set st = stats[g.id] %}
-        <tr>
+        <tr class="rowlink" data-href="/d/{{ g.id }}">
           <td><a href="/d/{{ g.id }}"><b>{{ g.name }}</b></a></td>
           <td>{{ st.contacts }}</td>
           <td><span class="pctcell"><span class="bar {{ st.bar }}" aria-hidden="true"><span style="width:{{ st.pct }}%"></span></span>{{ st.pct }}%</span></td>

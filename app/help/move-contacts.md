@@ -19,8 +19,18 @@ Switch to the **List** view, tick the contacts, pick a **Directory** in the bar 
 - **Move There** — a box asks you to confirm. On a directory's page they leave that directory. On **All Contacts** you choose *From*: all their current directories, or one directory only.
 - **Also Add There** — added, nothing removed.
 
+## Before you move: the preview
+When you pick the new directory, a short preview shows:
+- **Kept but hidden** — details the new directory has no field for (for example *Employees*). Nothing is deleted; they wait under **Other Details** on the big card and come back if a field for them is added.
+- **Missing there** — fields of the new directory this contact doesn't have yet.
+- **Enrich the missing fields now** — tick it and NetGate starts Enrich for the moved contacts straight away.
+
 ## What happens to the details
 Everything is kept: fields, notes, links, history. The history gets a line like *Moved from Manufacturers to Buyers & brands by admin*.
 If the new directory has fields the old one didn't, they show as **Missing**. **Enrich** fills them as usual (by hand, or at night).
+
+## Other Details and “Same as”
+- The big card lists **Other Details** — values the directory you are looking at has no field for. **Add This Field to …** (Manage directories) adds that field to the directory, and the value shows at once.
+- In **Directory Settings → Fields**, **Same as** links a field to a field of another directory that means the same thing (for example *Materials* in one directory = *Products* in another). Both then show and fill the same value; values already there are copied across, nothing is deleted. Choose nothing to go back to the field's own data.
 
 You need the permission **Edit contacts** for both directories.

@@ -1,7 +1,7 @@
 ---
 title: Discovery (finding companies)
 order: 30
-updated: v0.9
+updated: v1.0
 ---
 **What it does:** turns a keyword into new companies in the Inbox.
 
@@ -28,3 +28,6 @@ Each search is traced with `trace_search()`: links, the engine(s) behind each li
 
 ## Limits & ideas
 Small AI model; sites change. Ideas: site recipes (Scanner), Etsy / Amazon methods.
+
+## v1.0
+Requests may carry `params.terms` (Keyword Library word ids) and `params.lang`; `jobs.search_words()` translates missing words once (saved) and searches in that language. Browser search runs as the `browser` method.

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Solve the CAPTCHA · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/requests" class="btn btn-outline btn-small">← Back to Requests</a></p>
+<section class="panel">{% include "_captcha.html" %}</section>
+{% endblock %}

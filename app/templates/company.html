@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ r.title }} · NetGate{% endblock %}
+{% block content %}
+{% set p = r.profile or {} %}
+<p style="margin:0"><a href="javascript:history.back()" class="btn btn-outline btn-small">← Back</a></p>
+
+<section class="panel company-head">
+  <div class="big-head">
+    <div class="pic pic-lg" aria-hidden="true">{{ (r.title or '?')[:1] }}</div>
+    <div class="big-title">
+      <h1 style="margin:0">{{ r.title }}</h1>
+      <span class="sub" style="font-size:14px">
+        {{ [(r.data or {}).get('city'), (r.data or {}).get('country')]|select|join(', ') or 'Location unknown' }}
+        {% if (r.data or {}).get('website') %} · <a href="{{ r.data.website }}" target="_blank" rel="noopener">{{ domain(r.data.website) }}</a>{% endif %}
+        {% if p.type %} · {{ p.type|capitalize }}{% endif %}
+      </span>
+      <div class="dirline"><span class="caps-sm">In</span>
+        {% for g in members %}<a class="dchip" href="/d/{{ g.id }}">{{ g.name }}</a>{% else %}<span class="sub">No directory yet</span>{% endfor %}
+      </div>
+    </div>
+    <div class="big-actions">
+      {% if may_enrich %}
+      <form method="post" action="/companies/{{ r.id }}/verify" class="inline"><button type="submit" class="btn btn-primary" title="Open the pages each detail came from again and check it is still there">Verify All Details</button></form>
+      <form method="post" action="/companies/{{ r.id }}/profile" class="inline"><button type="submit" class="btn btn-outline" {% if not (r.data or {}).get('website') %}disabled title="Needs a website"{% endif %}>{{ 'Update Profile & Products' if p.at else 'Make Profile & Products' }}</button></form>
+      {% endif %}
+    </div>
+  </div>
+  {% if running %}<div class="notice" role="status">{% for j in running %}{{ 'Verify' if j.kind == 'verify' else 'Profile' }} is {{ 'waiting to start' if j.status == 'queued' else 'running' }} (request #{{ j.id }}). {% endfor %}Reload this page to see the result.</div>{% endif %}
+  {% if waiting %}<div class="notice warn" role="status">{{ waiting }} detail{{ '' if waiting == 1 else 's' }} changed or could not be found again — choose Accept New Value or Keep Old below.</div>{% endif %}
+  <p class="sub" style="margin:8px 0 0">Last verified: {{ verified or 'never' }} · Profile: {{ profile_at or 'not made yet' }}</p>
+</section>
+
+<section class="panel">
+  <h2>Details</h2>
+  <div class="overflow">
+  <table class="t company-fields">
+    <thead><tr><th>Field</th><th>Value</th><th>How Found</th><th>Found</th><th>Last Checked</th><th>Verify</th></tr></thead>
+    <tbody>
+    {% for x in rows %}
+    {% set vf = x.verify %}
+    <tr id="f-{{ x.f.key }}" class="{% if vf.status in ('changed', 'not_found', 'gone') %}vrow-warn{% endif %}">
+      <th scope="row">{{ x.f.name }}</th>
+      {% if x.empty %}
+      <td class="sub" colspan="5">Missing{% if x.f.source == 'manual' %} · filled by hand only{% endif %}</td>
+      {% else %}
+      <td>{% if x.f.type == 'url' %}<a href="{{ x.value }}" target="_blank" rel="noopener">{{ domain(x.value) }}</a>{% elif x.f.type == 'email' %}<a href="mailto:{{ x.value }}">{{ x.value }}</a>{% else %}{{ fmt(r, x.f) }}{% endif %}</td>
+      <td>{{ x.how }}{% if x.src.startswith('http') %}<br><a href="{{ x.src }}" target="_blank" rel="noopener" class="sub">{{ x.src|truncate(50) }}</a>{% endif %}</td>
+      <td class="mono-sm">{{ x.at or '—' }}</td>
+      <td class="mono-sm">{{ x.checked or '—' }}</td>
+      <td>
+        {% if vf.status %}
+        <span class="badge {{ 'green' if vf.status in ('same', 'kept', 'accepted') else 'amber' }}">{{ LABELS.get(vf.status, vf.status) }}</span>
+        {% if vf.status == 'changed' %}<div class="sub">New: <b>{{ vf.new if vf.new is string else (vf.new|join(', ') if vf.new is iterable else vf.new) }}</b></div>{% endif %}
+        {% if vf.status in ('changed', 'not_found', 'gone') and may_edit %}
+        <div class="btnrow" style="margin-top:4px">
+          <form method="post" action="/companies/{{ r.id }}/accept" class="inline"><input type="hidden" name="key" value="{{ x.f.key }}"><button type="submit" class="btn btn-primary btn-xs">{{ 'Accept New Value' if vf.status == 'changed' else 'Remove It' }}</button></form>
+          <form method="post" action="/companies/{{ r.id }}/keep" class="inline"><input type="hidden" name="key" value="{{ x.f.key }}"><button type="submit" class="btn btn-outline btn-xs">Keep Old</button></form>
+        </div>
+        {% endif %}
+        {% elif x.src.startswith('http') and may_enrich %}
+        <form method="post" action="/companies/{{ r.id }}/verify" class="inline"><input type="hidden" name="key" value="{{ x.f.key }}"><button type="submit" class="btn btn-outline btn-xs">Verify</button></form>
+        {% else %}<span class="sub">{{ 'Not from a page' if not x.src.startswith('http') else '—' }}</span>{% endif %}
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if r.summary %}<p class="big-desc">{{ r.summary }}</p>{% endif %}
+  {% if r.notes %}<p class="big-notes"><b>Notes:</b> {{ r.notes }}</p>{% endif %}
+</section>
+
+<section class="panel" id="profile">
+  <h2>Profile</h2>
+  {% if p.summary or p.categories or p.main_products %}
+  {% if p.summary %}<p style="margin:0 0 10px">{{ p.summary }}</p>{% endif %}
+  <dl class="profile-dl">
+    {% for label, key in [('Product categories', 'categories'), ('Main products', 'main_products'), ('Materials', 'materials'), ('Sells to', 'markets'), ('Certifications', 'certifications')] if p[key] %}
+    <dt>{{ label }}</dt><dd>{% for c in p[key] %}<span class="chip chip-sm chip-static">{{ c }}</span>{% endfor %}</dd>
+    {% endfor %}
+    {% if p.founded %}<dt>Founded</dt><dd>{{ p.founded }}</dd>{% endif %}
+  </dl>
+  <p class="sub" style="margin:8px 0 0">Made {{ profile_at }} by the local AI from {{ (p.pages or [])|length }} page{{ '' if (p.pages or [])|length == 1 else 's' }} of the company's website. Check it before you rely on it.</p>
+  {% elif p.note %}<p class="sub">{{ p.note }}</p>
+  {% else %}<p class="sub">No profile yet. {% if may_enrich %}Click <b>Make Profile &amp; Products</b>: NetGate reads the company's website and the local AI writes a short profile.{% endif %}</p>{% endif %}
+</section>
+
+<section class="panel" id="products">
+  <h2>Products ({{ products|length }})</h2>
+  {% if products %}
+  <div class="prodgrid">
+    {% for pr in products %}
+    <div class="prod">
+      {% if pr.image_url %}<img src="{{ pr.image_url }}" alt="{{ pr.name }}" loading="lazy" referrerpolicy="no-referrer">{% else %}<div class="prod-noimg" aria-hidden="true">{{ pr.name[:1] }}</div>{% endif %}
+      <b>{% if pr.source_url %}<a href="{{ pr.source_url }}" target="_blank" rel="noopener">{{ pr.name }}</a>{% else %}{{ pr.name }}{% endif %}</b>
+      <span class="sub">{{ pr.category or 'No category' }}{% if pr.price %} · {{ pr.price }}{% endif %}{% if pr.moq %} · MOQ {{ pr.moq }}{% endif %}</span>
+      <span class="sub">{{ 'Added by a person' if pr.added_by else 'Found on the website' }}</span>
+      {% if may_edit %}<form method="post" action="/companies/{{ r.id }}/product-delete" class="inline"><input type="hidden" name="pid" value="{{ pr.id }}"><button type="submit" class="btn btn-outline btn-xs" aria-label="Remove {{ pr.name }}">Remove</button></form>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<p class="sub">No products yet.</p>{% endif %}
+  {% if may_edit %}
+  <details class="addprod">
+    <summary class="btn btn-outline btn-small">+ Add a Product</summary>
+    <form method="post" action="/companies/{{ r.id }}/product-add" class="stack" style="margin-top:10px">
+      <div class="row">
+        <label class="field" style="flex:2 1 220px">Name<input type="text" name="name" required maxlength="200"></label>
+        <label class="field" style="flex:1 1 180px">Category<select name="category"><option value="">—</option>{% for c in cats %}<option>{{ c }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="row">
+        <label class="field">Price<input type="text" name="price" maxlength="60"></label>
+        <label class="field">Minimum order<input type="text" name="moq" maxlength="60"></label>
+      </div>
+      <div class="row">
+        <label class="field" style="flex:1 1 260px">Picture link<input type="url" name="image_url" placeholder="https://…"></label>
+        <label class="field" style="flex:1 1 260px">Product page<input type="url" name="source_url" placeholder="https://…"></label>
+      </div>
+      <div class="btnrow"><button type="submit" class="btn btn-primary btn-small">Add Product</button></div>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+{% if read_rows and searcher(user) %}
+<section class="panel">
+  <details class="history pagesread" open>
+    <summary>Pages Read ({{ read_rows|length }})</summary>
+    <ul>{% for pg in read_rows %}<li><span class="mono-sm">{{ pg.at.strftime('%d %b %Y') }}</span> <span class="badge">{{ PURPOSES.get(pg.purpose, pg.purpose) }}</span> <a href="{{ pg.final_url or pg.url }}" target="_blank" rel="noopener">{{ (pg.final_url or pg.url)|truncate(70) }}</a> <span class="sub">· {{ page_summary(pg) }}{% if pg.job_id and can(user, 'debug') %} · <a href="/requests/{{ pg.job_id }}/debug">#{{ pg.job_id }}</a>{% endif %}</span></li>{% endfor %}</ul>
+  </details>
+</section>
+{% endif %}
+{% if r.history %}
+<section class="panel">
+  <details class="history" open>
+    <summary>History ({{ r.history|length }})</summary>
+    <ul>{% for h in r.history|reverse %}<li><span class="mono-sm">{{ h.at[:10] }}</span> {{ h.text }}</li>{% endfor %}</ul>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{# Solve CAPTCHA Yourself (v1.0): a live picture of NetGate's browser; clicks and typing go to that page.
+   Used as a full page (captcha.html) and inside the pop-up (frame=1). Needs: w, job, engine, frame #}
+{% if frame %}<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/static/app.css"><title>Solve the CAPTCHA</title></head><body class="capframe">{% endif %}
+<div class="capwrap" id="cap" data-id="{{ w.id }}">
+  <div class="caphead">
+    <b>{{ engine }} is asking you to prove you're human</b>
+    <span class="sub">Request #{{ w.job_id }}{% if job %} · “{{ job.query|truncate(60) }}”{% endif %}. Click and type in the picture below as you would on the real page. NetGate never solves CAPTCHAs itself.</span>
+  </div>
+  {% if w.status == 'waiting' %}
+  <div class="capshot"><img id="capimg" src="/captcha/{{ w.id }}/shot" alt="The search engine's page in NetGate's browser — click on it to answer" width="1100" height="800"></div>
+  <div class="row capctl">
+    <label class="field" style="flex:1 1 220px"><span class="sr">Text to type</span><input type="text" id="captext" placeholder="Type letters or words here, then Send"></label>
+    <button type="button" class="btn btn-outline" id="capsend">Send Text</button>
+    <button type="button" class="btn btn-outline" data-key="Enter">Enter ↵</button>
+    <button type="button" class="btn btn-outline" data-key="Tab">Tab</button>
+    <span id="capstate" class="sub" role="status">Waiting for you…</span>
+    <button type="button" class="btn btn-danger ml-auto" id="capgiveup">Give Up</button>
+  </div>
+  {% else %}
+  <div class="notice">This CAPTCHA is {{ 'solved — the search goes on' if w.status == 'solved' else 'closed' }}.</div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var box = document.getElementById('cap'), id = box.dataset.id, img = document.getElementById('capimg');
+  var st = document.getElementById('capstate');
+  if (!img) return;
+  var busy = false, done = false;
+  function refresh() { if (!done) img.src = '/captcha/' + id + '/shot?t=' + Date.now(); }
+  var timer = setInterval(refresh, 600);
+  function post(what, data) {
+    if (busy || done) return;
+    busy = true; st.textContent = 'Sending…';
+    var body = new URLSearchParams(data || {});
+    fetch('/captcha/' + id + '/' + what, {method: 'POST', body: body, credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        busy = false;
+        if (j.status === 'solved') { done = true; clearInterval(timer); st.textContent = 'Solved — thank you. The search goes on.'; setTimeout(function () { if (window.parent !== window) window.parent.postMessage('captcha-done', '*'); }, 1200); }
+        else if (j.status === 'gave_up' || j.status === 'gone') { done = true; clearInterval(timer); st.textContent = 'Closed. The engine pauses for a few hours.'; if (window.parent !== window) window.parent.postMessage('captcha-done', '*'); }
+        else { st.textContent = 'Waiting for you…'; refresh(); }
+      }).catch(function () { busy = false; st.textContent = 'Could not reach NetGate — try again.'; });
+  }
+  img.addEventListener('click', function (e) {
+    var r = img.getBoundingClientRect();
+    var x = (e.clientX - r.left) * (img.naturalWidth || 1100) / r.width, y = (e.clientY - r.top) * (img.naturalHeight || 800) / r.height;
+    post('click', {x: Math.round(x), y: Math.round(y)});
+  });
+  document.getElementById('capsend').addEventListener('click', function () { var t = document.getElementById('captext'); post('type', {text: t.value}); t.value = ''; });
+  box.querySelectorAll('[data-key]').forEach(function (b) { b.addEventListener('click', function () { post('key', {key: b.dataset.key}); }); });
+  document.getElementById('capgiveup').addEventListener('click', function () { post('giveup'); });
+})();
+</script>
+{% if frame %}</body></html>{% endif %}

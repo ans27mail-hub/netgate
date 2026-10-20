@@ -35,13 +35,29 @@ PAGES = {
  ("acme.test", "/impressum"): "<html><body><h1>Impressum</h1><p>Acme Leather (Pvt) Ltd, 12 Kashmir Road, Sialkot. Tel +92 52 1111111.</p></body></html>",
  ("acme.test", "/blog/post-1"): "<html><body>Blog post about leather care.</body></html>",
  ("acme.test", "/sitemap.xml"): SITEMAP,
+ ("acme.test", "/products"): '<html><body><h1>Our products</h1><div><img src="/img/racing-glove.jpg" alt="Racing Glove RG-1"><h2>Racing Glove RG-1</h2><p>Cowhide, MOQ 300 pairs</p></div><div><img src="/img/touring-jacket.jpg" alt="Touring Jacket TJ"><h2>Touring Jacket TJ</h2><p>Leather jacket</p></div></body></html>',
 }
 for k, v in PROFILES.items():
     PAGES[("dir.test", "/company/" + k)] = v
 ROBOTS = {"dir.test": "User-agent: *\nDisallow: /company/gamma\n", "acme.test": "User-agent: *\nDisallow: /private\n"}
 HITS = {}
+ORIG = {}
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
+    def do_POST(self):
+        # /__set?host=acme.test&path=/contact  (body = new page; empty body = back to the original) — v1.0 Verify tests
+        from urllib.parse import parse_qs, urlparse
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+        key = (q.get("host", ""), q.get("path", "/"))
+        ORIG.setdefault(key, PAGES.get(key))
+        if body:
+            PAGES[key] = body
+        elif ORIG.get(key) is not None:
+            PAGES[key] = ORIG[key]
+        else:
+            PAGES.pop(key, None)
+        self.send_response(200); self.send_header("Content-Length", "2"); self.end_headers(); self.wfile.write(b"ok")
     def do_GET(self):
         host = (self.headers.get("Host") or "").split(":")[0]
         HITS[(host, self.path)] = HITS.get((host, self.path), 0) + 1

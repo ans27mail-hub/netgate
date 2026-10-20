@@ -1,7 +1,7 @@
 ---
 title: Search methods
 order: 35
-updated: v0.7
+updated: v1.0
 ---
 **What it does:** a directory chooses how it finds companies: **Web search**, **Directory site search**, **eBay search** (find step) and **Company website** (enrich step). Etsy, Amazon and Custom recipe are shown as “later”.
 
@@ -15,3 +15,6 @@ Methods are **code** (added through GitHub), never editable in the web page.
 
 ## Files
 `app/methods.py`, `templates/_dir_methods.html`, `app/auth.py → sees_methods()`.
+
+## v1.0
+New method `browser` (find; options `want`, `max_pages`, `max_minutes`, `engines`, defaults in `methods.BROWSER_DEFAULTS`) — see *Browser search*.

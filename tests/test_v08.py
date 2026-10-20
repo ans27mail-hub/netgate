@@ -80,7 +80,7 @@ v = client("viewer1")      # Viewer
 surf = client("surfer1")   # Researcher, own contacts only
 
 # ---------- upgrade ----------
-check(c.get("/health").json().get("version", "").startswith("v0."), "version v0.8 or later")
+check(c.get("/health").json().get("version", "") >= "v0.8", "version v0.8 or later")
 with SessionLocal() as s:
     check(s.scalar(select(func.count(SearchLog.id))) == 0, "search_log table made, empty")
     groups = {g.name: g for g in s.scalars(select(Group)).all()}

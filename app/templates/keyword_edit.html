@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ term.text }} · Keyword Library · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/keywords?cat={{ term.category_id }}" class="btn btn-outline btn-small">← {{ term.category.name }}</a></p>
+<div class="pagehead">
+  <h1>{{ term.text }}</h1>
+  {% if not term.active %}<span class="badge">off</span>{% endif %}
+  {% if blocked %}<span class="badge red">on the reject list</span>{% endif %}
+  <span class="sub">Used {{ term.uses or 0 }} time{{ '' if term.uses == 1 else 's' }} · {{ term.found or 0 }} companies found · {{ acc }} accepted · last used {{ ago(term.last_used_at) if term.last_used_at else 'never' }}</span>
+</div>
+
+<form method="post" action="/keywords/terms/{{ term.id }}" class="panel stack">
+  <div class="row">
+    <label class="field" style="flex:2 1 260px">Keyword (English)<input type="text" name="text" value="{{ term.text }}" required maxlength="200" {% if not may_manage %}readonly{% endif %}></label>
+    <label class="field" style="flex:1 1 200px">Category<select name="category_id" {% if not may_manage %}disabled{% endif %}>{% for c in cats %}<option value="{{ c.id }}" {% if c.id == term.category_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+    <label class="check-inline" style="min-height:40px"><input type="checkbox" name="active" {% if term.active %}checked{% endif %} {% if not may_manage %}disabled{% endif %}> In use</label>
+  </div>
+  <label class="field">Notes<input type="text" name="notes" value="{{ term.notes }}" maxlength="500" {% if not may_manage %}readonly{% endif %}></label>
+
+  <h2 style="margin:6px 0 0">Translations</h2>
+  <span class="hint">When a search is in another language, NetGate uses the translation saved here. A missing one is made by your AI the first time it is needed and saved as <i>AI-translated</i>. Correct it here once and tick <b>Checked</b>.</span>
+  <div class="trgrid">
+    {% for code, name in LANGS.items() %}{% set tr = term.translations|selectattr('lang', 'equalto', code)|first %}
+    <div class="trrow">
+      <label class="field" style="flex:1 1 220px">{{ name }}<input type="text" name="tr_{{ code }}" value="{{ tr.text if tr else '' }}" maxlength="200" placeholder="not translated yet" {% if not may_manage %}readonly{% endif %}></label>
+      <span class="trmeta">{% if tr %}{% if tr.checked %}<span class="badge green">checked</span>{% else %}<span class="badge amber">{{ 'AI-translated' if tr.source == 'ai' else 'typed' }}</span>{% endif %}
+        {% if may_manage %}<label class="check-inline"><input type="checkbox" name="ok_{{ code }}" {% if tr.checked %}checked{% endif %}> Checked</label>{% endif %}{% endif %}
+        {% if may_manage %}<button type="submit" name="action" value="translate" formnovalidate onclick="this.form.lang.value='{{ code }}'" class="btn btn-outline btn-xs">{{ 'Translate Again' if tr else 'Translate Now' }}</button>{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <input type="hidden" name="lang" value="">
+  {% if may_manage %}<div><button type="submit" name="action" value="save" class="btn btn-primary">Save Keyword</button></div>{% endif %}
+</form>
+
+<section class="panel stack">
+  <h2>Where It Is Used</h2>
+  {% if used_in %}<ul class="tight">{% for k in used_in %}<li><b>{{ k.text }}</b>{% if k.lang %} <span class="langchip">{{ k.lang|upper }}</span>{% endif %} — keyword of {{ groups.get(k.group_id, '?') }} · found {{ k.found_count or 0 }}</li>{% endfor %}</ul>{% else %}<span class="sub">Not in any directory's keywords.</span>{% endif %}
+  {% if jobs %}<h3 style="margin:8px 0 0;font-size:15px">Recent Searches</h3>
+  <ul class="tight">{% for j in jobs %}<li><a href="/requests/{{ j.id }}/edit">#{{ j.id }}</a> {{ j.query }}{% if (j.params or {}).get('lang') %} <span class="langchip">{{ j.params.lang|upper }}</span>{% endif %} · {{ groups.get(j.group_id, '') }} · {{ j.saved or 0 }} new · {{ j.status }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endblock %}

@@ -34,3 +34,15 @@
   </div>
   <span class="hint">NetGate reads each list page, follows its next pages and opens each company's profile to get its own website, email and phone.</span>
 </div>
+<div class="mopts" id="opt-browser" {% if 'browser' not in cur %}hidden{% endif %}>
+  <strong>Browser search settings</strong>
+  <div class="row">
+    <label class="field">Stop after this many new companies<input type="number" name="browser_want" min="1" max="500" value="{{ (opts.browser or {}).get('want', 20) }}"></label>
+    <label class="field">Result pages per search engine at most<input type="number" name="browser_max_pages" min="1" max="20" value="{{ (opts.browser or {}).get('max_pages', 5) }}"></label>
+    <label class="field">Minutes per search at most<input type="number" name="browser_max_minutes" min="1" max="120" value="{{ (opts.browser or {}).get('max_minutes', 15) }}"></label>
+  </div>
+  <div class="gchecks"><span class="hint">Search engines (none ticked = the ones in Settings → Search Engines):</span>
+    {% for e in ['bing', 'duckduckgo', 'google'] %}<label><input type="checkbox" name="browser_engines" value="{{ e }}" {% if e in (opts.browser or {}).get('engines', []) %}checked{% endif %}> {{ {'bing': 'Bing', 'duckduckgo': 'DuckDuckGo', 'google': 'Google'}[e] }}</label>{% endfor %}
+  </div>
+  <span class="hint">NetGate's own browser searches like a person, with a pause between searches and a limit per hour. If a search engine asks for a CAPTCHA, the person who started the search can solve it in a pop-up; NetGate never solves CAPTCHAs itself.</span>
+</div>

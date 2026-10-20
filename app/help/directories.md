@@ -12,6 +12,8 @@ Click a card to open the directory's page, with only the companies accepted into
 ## Existing Contacts
 Next to **Contacts**, the **Existing Contacts** tab lists companies that a search found but that were already in NetGate (found first by someone else). They are not added twice: they stay with the person who found them first. You see who found them first, who found them again, the keyword and when.
 
+Click **anywhere on a directory's card** (or its row in the list view) to open it.
+
 ## Switching directories
 On a directory's page, the bar at the top has a tab for every directory, so one click takes you to the next one. **▾ Jump To…** opens a list with a search box, handy when there are many. **← All Directories** goes back to the cards.
 

@@ -18,7 +18,8 @@
 {% if editable %}
 <form method="post" action="/requests/{{ job.id }}/edit" class="panel stack editform">
   <div class="row">
-    <label class="field" style="flex:3 1 320px">Search for<input type="text" name="query" value="{{ job.query }}" required maxlength="500"></label>
+    <label class="field" style="flex:3 1 320px">Search for<input type="text" name="query" value="{{ job.query }}" required maxlength="500" list="libwords"></label>
+    <datalist id="libwords">{% for w in lib_words %}<option value="{{ w }}">{% endfor %}</datalist>
     <label class="field" style="flex:1 1 200px">Directory
       <select name="group_id" id="edit-dir">{% for g in groups %}<option value="{{ g.id }}" {% if g.id == job.group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
     <label class="field" style="flex:1 1 200px">How deep
@@ -38,6 +39,7 @@
   {% endif %}
   <div class="btnrow">
     <button type="submit" class="btn btn-primary">Run Again in This Request</button>
+    <a href="/keywords/build?group={{ job.group_id }}&request_id={{ job.id }}" class="btn btn-outline">Pick From the Keyword Library</a>
     {% if deeper < max_deeper %}<button type="submit" name="go_deeper" value="1" class="btn btn-outline" title="Reads more search-result pages than the last try">Go Deeper and Run (Level {{ deeper + 1 }})</button>{% endif %}
   </div>
   <span class="hint">Go Deeper reads more pages of search results (and more “next” pages of lists), so it takes longer. Pages read in earlier tries may be read again for now.</span>
@@ -55,7 +57,7 @@
       {% for t in history|reverse %}
       <tr class="{{ 'cur' if t.current }}">
         <td>{{ t.n }}{% if t.current %} <span class="sub">(now)</span>{% endif %}</td>
-        <td><b>{{ t.query }}</b>{% if t.methods and sees_methods(user) %}<span class="sub dblock">{% for m in t.methods %}{{ METHODS[m].name if m in METHODS else m }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}</td>
+        <td><b>{{ t.query }}</b>{% if t.lang %} <span class="langchip" title="{{ lang_name(t.lang) }}">{{ t.lang|upper }}</span>{% endif %}{% if t.methods and sees_methods(user) %}<span class="sub dblock">{% for m in t.methods %}{{ METHODS[m].name if m in METHODS else m }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}</td>
         <td>{{ t.group }}</td>
         <td>{{ 'Normal' if not t.deeper else 'Level ' ~ t.deeper }}</td>
         <td class="nowrap">{% if t.status in ('queued', 'running', 'searching', 'crawling', 'extracting', 'pausing', 'stopping', 'paused') %}<span class="sub">{{ t.status }}</span>{% else %}<b>{{ t.saved }}</b> new{% if t.updated %} · {{ t.updated }} updated{% endif %}{% if t.status != 'done' %}<span class="sub dblock">{{ t.status }}</span>{% endif %}{% endif %}</td>

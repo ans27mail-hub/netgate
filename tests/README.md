@@ -70,3 +70,18 @@ NO_PROXY=.test,127.0.0.1 python3 tests/test_v09.py
 v0.9 changes to the older tests: `test_v05.py` sets *read list pages again after* to 0 (it reads the same lists on purpose)
 and expects the new role Cards Only and the new Viewer permissions; `test_v08.py` accepts any later version and looks
 for the “Try 2” note among several notes.
+
+## Run (v1.0 test, upgrading from v0.9)
+Make a v0.9 database (run `tests/test_v09.py` with the v0.9 code). Keep the fake SearXNG running, start the fake search
+engine for Browser search, and run the renderer from this version (it has the new search sessions):
+```
+python3 tests/fake_engine.py                       # port 3996
+PORT=3999 python3 renderer/server.py
+DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/up9 REDIS_URL=redis://x SEARXNG_URL=http://127.0.0.1:3997 \
+OLLAMA_URL=http://127.0.0.1:9 MODEL=qwen3:8b RENDER_URL=http://127.0.0.1:3999 BACKUP_DIR=/tmp/ngbackups \
+NO_PROXY=.test,127.0.0.1 python3 tests/test_v10.py
+```
+The test points Browser search at the fake engine itself (`BROWSER_ENGINE_URLS`). `tests/fakeweb.py` now also accepts
+`POST /__set?host=…&path=…` to change a page (empty body = back to the original), which the Verify part uses.
+v1.0 changes to the older tests: `test_v06.py` counts directory cards by `dircard clickable`; `test_v08.py` and
+`test_v09.py` accept any later version. All six suites pass with the v1.0 code.

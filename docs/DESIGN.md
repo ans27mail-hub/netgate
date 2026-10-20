@@ -29,6 +29,27 @@ The D4 mockups are on the owner's design canvas (claude.ai artifact *NetGate lay
 | A user: What This Person Sees | `design/v07-user-sees.png` |
 | Help window | `design/v07-help-window.png` |
 
+## v1.0 additions
+- **Dashboard:** tiles `auto-fit` over the full width; Needs Attention and Running Jobs share the middle evenly (`flex: 1 1 340px`).
+- **Click anywhere:** directory cards and list rows have `data-href`; one handler in `base.html` opens them unless a button, link, form field or selected text was clicked.
+- **Keyword Library:** categories on the left, words as a table with ticks for bulk actions; language chips (DE, IT …) — filled = checked, outlined = AI. **Search Builder:** words as toggle chips per category, languages as checkboxes, a table of searches with warning badges.
+- **Solve CAPTCHA:** a large dialog with the live picture (refreshed about twice a second), a text box, Enter / Tab, Give Up; Later closes it for this page.
+- **Company page:** header with Verify and Profile buttons, a Details table (amber rows wait for a decision), Profile as chips, Products as a picture grid.
+- **Testing Guide:** three panels (start a run, health check, Test Directory); each step is a bordered row with a coloured left edge (green passed, red failed, grey skipped), round result chips, a note box and a Screenshot button.
+
+| Page | Screenshot |
+|---|---|
+| Dashboard (full width tiles) | `design/v10-dashboard.png` |
+| Directories | `design/v10-directories.png` |
+| Keyword Library / a word / Search Builder | `design/v10-keywords.png`, `design/v10-keyword-edit.png`, `design/v10-builder.png` |
+| Solve CAPTCHA pop-up / on the Dashboard | `design/v10-captcha-popup.png`, `design/v10-attention-captcha.png` |
+| Browser Search settings | `design/v10-browser-settings.png` |
+| Company page (phone: `v10-phone-company.png`) | `design/v10-company.png` |
+| Product Categories | `design/v10-product-categories.png` |
+| Move preview on the big card | `design/v10-bigcard-move.png` |
+| Directory Settings (languages, Same as) | `design/v10-dir-settings.png` |
+| Testing Guide / a run / health check | `design/v10-testing.png`, `design/v10-test-run.png` (phone: `v10-phone-test-run.png`), `design/v10-health.png` |
+
 ## v0.9 additions
 - **Enrich Now ▾**: a split button; the menu lists the steps with a grey reason when one can't work. On phones it opens as a sheet at the bottom of the screen.
 - **My Look** (Display): colour sets as cards with three swatches (menu, accent, page) and the fonts; a font sample line.

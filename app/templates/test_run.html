@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Test Run #{{ run.id }} · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/testing" class="btn btn-outline btn-small">← Testing Guide</a></p>
+<div class="shead">
+  <h1>Test Run #{{ run.id }} · {{ run.version }}</h1>
+  <span class="sub">{{ 'Only what is new in ' ~ run.version if run.scope == 'new' else 'Everything' }} · started by {{ names.get(run.user_id, '—') }} on {{ run.started_at.strftime('%d %b %Y %H:%M') }}{% if run.finished_at %} · finished {{ run.finished_at.strftime('%d %b %Y %H:%M') }}{% endif %}</span>
+</div>
+{% if old_version %}<div class="notice warn">This run tested {{ run.version }}. NetGate is now {{ VERSION }} — start a new run to test this version.</div>{% endif %}
+
+<section class="panel trun-sum">
+  <div class="row" style="align-items:center">
+    <span class="badge green">{{ n['pass'] }} passed</span>
+    <span class="badge {{ 'red' if n['fail'] else '' }}">{{ n['fail'] }} failed</span>
+    <span class="badge">{{ n['skip'] }} skipped</span>
+    <span class="badge">{{ n['todo'] }} not done</span>
+    <span class="sub">of {{ n['total'] }} steps</span>
+    <span class="ml-auto btnrow">
+      <a href="/testing/runs/{{ run.id }}" class="btn btn-outline btn-small {% if not only %}on{% endif %}">All Steps</a>
+      <a href="/testing/runs/{{ run.id }}?only=todo" class="btn btn-outline btn-small {% if only == 'todo' %}on{% endif %}">Not Done</a>
+      <a href="/testing/runs/{{ run.id }}?only=fail" class="btn btn-outline btn-small {% if only == 'fail' %}on{% endif %}">Failed</a>
+    </span>
+  </div>
+  <div class="progress" aria-hidden="true"><span style="width:{{ ((n['total'] - n['todo']) * 100 / n['total'])|round|int if n['total'] else 0 }}%"></span></div>
+</section>
+
+{% for c in lists %}
+<section class="panel tlist">
+  <h2>{{ c.title }}</h2>
+  {% if c.intro %}<p class="sub" style="margin:0 0 8px">{{ c.intro }}</p>{% endif %}
+  <ol class="tsteps">
+    {% for st in c.steps %}
+    {% with r = (run.results or {}).get(st.id) or {}, shots = shots.get(st.id, []) %}{% include "_test_step.html" %}{% endwith %}
+    {% endfor %}
+  </ol>
+</section>
+{% else %}
+<section class="panel"><p class="sub">{{ 'No failed steps.' if only == 'fail' else ('Every step is done.' if only == 'todo' else 'This run has no steps.') }}</p></section>
+{% endfor %}
+
+<section class="panel stack">
+  <h2>Report</h2>
+  <form method="post" action="/testing/runs/{{ run.id }}/notes" class="stack">
+    <label class="field">Notes for the whole run<textarea name="notes" rows="3">{{ run.notes or '' }}</textarea></label>
+    <div class="btnrow"><button type="submit" class="btn btn-outline btn-small">Save Notes</button></div>
+  </form>
+  <label class="field">Failed steps, ready to copy into a message
+    <textarea id="treport" rows="6" readonly>{{ report }}{% if run.notes %}
+
+Notes: {{ run.notes }}{% endif %}</textarea>
+  </label>
+  <div class="btnrow">
+    <button type="button" class="btn btn-outline btn-small" onclick="var t=document.getElementById('treport');t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='Copied'">Copy Report</button>
+    {% if run.finished_at %}
+    <form method="post" action="/testing/runs/{{ run.id }}/reopen" class="inline"><button type="submit" class="btn btn-outline btn-small">Open Again</button></form>
+    {% else %}
+    <form method="post" action="/testing/runs/{{ run.id }}/finish" class="inline"><button type="submit" class="btn btn-primary btn-small">Finish Run</button></form>
+    {% endif %}
+    {% if mine %}<form method="post" action="/testing/runs/{{ run.id }}/delete" class="inline ml-auto" onsubmit="return confirm('Delete this test run and its screenshots?')"><button type="submit" class="btn btn-danger btn-small">Delete Run</button></form>{% endif %}
+  </div>
+</section>
+{% endblock %}

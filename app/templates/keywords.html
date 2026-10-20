@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Keyword Library · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Keyword Library</h1>
+  <span class="sub">Words in English, sorted in categories. Build searches from them instead of typing new ones every time.</span>
+  <span class="ml-auto btnrow">
+    <a href="/keywords/build" class="btn btn-primary">Build Searches</a>
+    <a href="/keywords/export.csv" class="btn btn-outline">Export CSV</a>
+  </span>
+</div>
+
+<div class="kwlayout">
+  <nav class="kwcats panel" aria-label="Categories">
+    <form method="get" action="/keywords" class="kwfind"><label class="sr" for="kwq">Find a keyword</label><input id="kwq" type="search" name="q" value="{{ q }}" placeholder="Find a keyword…"></form>
+    {% for c in cats %}
+    <a href="/keywords?cat={{ c.id }}" class="{% if sel and sel.id == c.id and not q %}on{% endif %}"><span>{{ c.name }}</span><small>{{ c.terms|length }}</small></a>
+    {% else %}<span class="sub">No categories yet.</span>{% endfor %}
+    {% if may_manage %}
+    <details class="kwnewcat"><summary class="btn btn-outline btn-small">+ New Category</summary>
+      <form method="post" action="/keywords/categories" class="stack" style="padding-top:8px">
+        <label class="field">Name<input type="text" name="name" required maxlength="80" placeholder="e.g. Materials"></label>
+        <label class="field">What it holds (optional)<input type="text" name="description" maxlength="300"></label>
+        <button type="submit" class="btn btn-primary btn-small">Add Category</button>
+      </form>
+    </details>
+    {% endif %}
+  </nav>
+
+  <div class="stack" style="flex:1;min-width:0">
+    {% if q %}
+    <div class="row" style="align-items:baseline"><h2 style="margin:0">Found for “{{ q }}”</h2><a href="/keywords" class="ml-auto">Clear</a></div>
+    {% elif sel %}
+    <section class="panel stack">
+      <div class="row" style="align-items:baseline">
+        <h2 style="margin:0">{{ sel.name }}</h2><span class="sub">{{ sel.description }}</span>
+        {% if may_manage %}
+        <span class="ml-auto btnrow">
+          <form method="post" action="/keywords/categories" class="inline"><input type="hidden" name="id" value="{{ sel.id }}"><button type="submit" name="action" value="up" class="btn btn-outline btn-xs" aria-label="Move category up">↑</button><button type="submit" name="action" value="down" class="btn btn-outline btn-xs" aria-label="Move category down">↓</button></form>
+          <details class="menu inline"><summary class="btn btn-outline btn-xs">Rename…</summary>
+            <form method="post" action="/keywords/categories" class="menu-body right stack"><input type="hidden" name="id" value="{{ sel.id }}">
+              <label class="field">Name<input type="text" name="name" value="{{ sel.name }}" required maxlength="80"></label>
+              <label class="field">What it holds<input type="text" name="description" value="{{ sel.description }}" maxlength="300"></label>
+              <button type="submit" class="btn btn-primary btn-small">Save</button></form></details>
+          <form method="post" action="/keywords/categories" class="inline" onsubmit="return confirm('Delete the category {{ sel.name|e }} and its {{ sel.terms|length }} keywords?')"><input type="hidden" name="id" value="{{ sel.id }}"><button type="submit" name="action" value="delete" class="btn btn-danger btn-xs">Delete</button></form>
+        </span>
+        {% endif %}
+      </div>
+      {% if may_manage %}
+      <form method="post" action="/keywords/terms/add" class="row" style="align-items:flex-end">
+        <input type="hidden" name="category_id" value="{{ sel.id }}">
+        <label class="field" style="flex:1 1 320px">Add keywords — one per line, or separated by commas<textarea name="text" rows="2" required placeholder="e.g. cowhide leather, goat leather, Cordura"></textarea></label>
+        <button type="submit" class="btn btn-outline">Add</button>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if terms %}
+    <form id="kwsel" method="post" action="/keywords/terms/bulk" hidden></form>
+    {% if may_manage %}
+    <div class="selbar big" data-selbar="kwsel">
+      <strong><span data-selcount="kwsel">0</span> selected</strong>
+      <span class="inline-form"><label class="sr" for="kwto">Move to</label><select id="kwto" name="to" form="kwsel">{% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select><button type="submit" form="kwsel" name="action" value="move" class="btn btn-outline btn-small">Move</button></span>
+      <button type="submit" form="kwsel" name="action" value="merge" class="btn btn-outline btn-small" title="Join duplicates: the first ticked one stays">Merge</button>
+      <button type="submit" form="kwsel" name="action" value="on" class="btn btn-outline btn-small">Switch On</button>
+      <button type="submit" form="kwsel" name="action" value="off" class="btn btn-outline btn-small">Switch Off</button>
+      <span class="inline-form"><label class="sr" for="kwlang">Language</label><select id="kwlang" name="lang" form="kwsel">{% for k, v in LANGS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select><button type="submit" form="kwsel" name="action" value="translate" class="btn btn-outline btn-small">Translate</button></span>
+      <button type="submit" form="kwsel" name="action" value="delete" class="btn btn-danger btn-small" onclick="return confirm('Delete the ticked keywords?')">Delete</button>
+    </div>
+    {% endif %}
+    <section class="panel" style="padding:0">
+      <div class="overflow">
+        <table class="t kwtable">
+          <thead><tr>{% if may_manage %}<th style="width:36px"><input type="checkbox" aria-label="Select all" data-all="kwsel"></th>{% endif %}<th>Keyword</th>{% if q %}<th>Category</th>{% endif %}<th>Languages</th><th>Used</th><th>Found</th><th>Accepted</th><th>Last Used</th></tr></thead>
+          <tbody>
+          {% for t in terms %}
+          <tr class="{{ 'off' if not t.active }}">
+            {% if may_manage %}<td><input type="checkbox" name="ids" value="{{ t.id }}" form="kwsel" aria-label="Select {{ t.text }}"></td>{% endif %}
+            <td><a href="/keywords/terms/{{ t.id }}"><b>{{ t.text }}</b></a>{% if not t.active %} <span class="badge">off</span>{% endif %}{% if t.id in blocked %} <span class="badge red">on the reject list</span>{% endif %}{% if t.notes %}<span class="sub dblock">{{ t.notes|truncate(80) }}</span>{% endif %}</td>
+            {% if q %}<td class="sub">{{ t.category.name }}</td>{% endif %}
+            <td>{% for tr in t.translations %}<span class="langchip {{ 'checked' if tr.checked else '' }}" title="{{ LANGS.get(tr.lang, tr.lang) }}: {{ tr.text }}{{ ' (checked)' if tr.checked else ' (AI-translated)' }}">{{ tr.lang|upper }}</span>{% else %}<span class="sub">English only</span>{% endfor %}</td>
+            <td>{{ t.uses or 0 }}</td><td>{{ t.found or 0 }}</td><td>{{ acc.get(t.id, 0) }}</td>
+            <td class="sub nowrap">{{ ago(t.last_used_at) if t.last_used_at else '—' }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% else %}
+    <div class="empty">{% if q %}No keyword matches “{{ q }}”.{% elif sel %}No keywords in {{ sel.name }} yet.{% else %}Make a category first, then add keywords to it.{% endif %}</div>
+    {% endif %}
+
+    {% if may_manage %}
+    <details class="panel"><summary><b>Import Keywords from a CSV File</b></summary>
+      <form method="post" action="/keywords/import" enctype="multipart/form-data" class="row" style="align-items:flex-end;margin-top:10px">
+        <label class="field" style="flex:1 1 280px">CSV file<input type="file" name="file" accept=".csv,text/csv" required></label>
+        <button type="submit" class="btn btn-outline">Import</button>
+      </form>
+      <p class="hint">Columns: <b>category</b>, <b>keyword</b>, and if you like <b>active</b> (yes / no), <b>notes</b> and a column per language code with its translation (de, it, fr, es, nl, pl …). New categories are made; keywords already there are updated. Tip: Export CSV first, change it in Excel, then import it.</p>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

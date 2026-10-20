@@ -89,7 +89,7 @@ v = client("viewer1")    # Viewer
 crawl.purge_cache(0)
 
 # ---------- upgrade ----------
-check(c.get("/health").json().get("version") == "v0.9", "version v0.9")
+check(c.get("/health").json().get("version", "") >= "v0.9", "version v0.9 or later")
 with SessionLocal() as s:
     check(s.get(Setting, "v09_upgraded") is not None, "v0.9 upgrade ran")
     roles = {r.name: r for r in s.scalars(select(Role)).all()}

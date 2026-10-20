@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Quick Health Check · NetGate{% endblock %}
+{% block content %}
+<p style="margin:0"><a href="/testing" class="btn btn-outline btn-small">← Testing Guide</a></p>
+<div class="shead">
+  <h1>Quick Health Check</h1>
+  <span class="sub">Checked {{ at.strftime('%d %b %Y %H:%M') }} (UTC). It only reads — nothing was changed.</span>
+  <a href="/testing/health" class="btn btn-outline ml-auto">Check Again</a>
+</div>
+<section class="panel">
+  {% for r in rows %}
+  <div class="sysrow"><span>{{ r.name }}</span><span class="sysstate"><span class="dot-{{ r.tone }}" aria-hidden="true"></span>{{ r.detail }}</span></div>
+  {% endfor %}
+  {% set bad = rows|selectattr('tone', 'equalto', 'red')|list %}
+  <p class="{{ 'notice warn' if bad else 'notice' }}" style="margin-top:12px">{% if bad %}{{ bad|length }} part{{ '' if bad|length == 1 else 's' }} not working: {{ bad|map(attribute='name')|join(', ') }}. See Help → Troubleshooting.{% else %}Everything that was checked answers.{% endif %}</p>
+</section>
+{% endblock %}

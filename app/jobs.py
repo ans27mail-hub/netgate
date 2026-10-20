@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 
 from . import ai, contacts, control, crawl, ebay, extract, learn, methods, pages
+from . import keywords as KW
 from .db import (DISCOVER_KEYS, Group, InboxItem, Job, JobTrace, Keyword, Membership, NightRun, Record,
                  SessionLocal, User, get_setting, log, name_key, url_domain)
 
@@ -22,7 +23,8 @@ ENRICH_PAGES = int(os.environ.get("ENRICH_PAGES", 6))   # other pages (not the c
 TRACE_LIMIT = 400                                       # debug rows kept per job
 
 NIGHT_DEFAULTS = {"enabled": False, "start": "23:00", "stop": "07:00", "days": [0, 1, 2, 3, 4, 5],
-                  "max_companies": 150, "pause": 3, "timezone": "Asia/Karachi", "enrich_inbox": True}
+                  "max_companies": 150, "pause": 3, "timezone": "Asia/Karachi", "enrich_inbox": True,
+                  "verify_months": 0, "verify_max": 30}
 
 TYPE_HINTS = {
     "text": "short text, or null",
@@ -598,6 +600,9 @@ def discover(ctx: Ctx, group_id: int, query: str, use_methods: list[str] | None 
                 directory_discover(ctx, group, query, sub)
             elif m == "ebay":
                 ebay_discover(ctx, group, query)
+            elif m == "browser":   # v1.0
+                from . import browser
+                browser.discover(ctx, group, query, crawl_pages, trace_search)
         except ebay.EbayError as e:
             ctx.notes.append(str(e))
             ctx.trace("error", "", error=str(e))
@@ -923,10 +928,14 @@ def enrich(ctx: Ctx, record_id: int, refresh: bool = False, steps: list[str] | N
         if not rec:
             return []
         d, src = dict(rec.data or {}), dict(rec.sources or {})
+        changed_keys = []
         for k, v in found.items():
             if refresh or empty(d.get(k)):
+                changed_keys.append(("checked" if d.get(k) == v else "new", k))
                 d[k], src[k] = v, found_src[k]
         rec.data, rec.sources, rec.social = d, src, social
+        contacts.stamp(rec, [k for how, k in changed_keys if how == "new"])
+        contacts.stamp(rec, [k for how, k in changed_keys if how == "checked"], checked=True)
         rec.links, rec.ext = {**(rec.links or {}), **links}, {**(rec.ext or {}), **ext}
         rec.domain = rec.domain or url_domain(d.get("website"))
         if description:
@@ -990,7 +999,7 @@ def run_night(ctx: Ctx, run_id: int):
                     continue
                 if control.rejected_entry(s, k.text, g.id):
                     continue
-                plan.append((g.id, k.id, k.text, methods.keyword_methods(g, k)))
+                plan.append((g.id, k.id, k.text, methods.keyword_methods(g, k), list(k.term_ids or []), k.lang or ""))
         enrich_groups = {g.id: g for g in groups if g.night_enrich}
         refresh_groups = {g.id: g.refresh_days for g in groups if g.refresh_days}
         for g in groups:
@@ -1000,13 +1009,14 @@ def run_night(ctx: Ctx, run_id: int):
     ctx.stats.update({"companies": ctx.stats.get("companies", 0)})
 
     # 1. Discover with each night keyword (results go to the Inbox)
-    for gid, kid, text, use in plan:
+    for gid, kid, text, use, term_ids, lang in plan:
         if ctx.should_stop():
             break
         before = ctx.stats["saved"]
         ctx.resume_state = {}
-        discover(ctx, gid, text, use)
+        discover(ctx, gid, search_words(text, term_ids, lang, ctx), use)
         _keyword_done(kid, ctx.stats["saved"] - before)
+        KW.record_use(term_ids, ctx.stats["saved"] - before)
 
     # 2. Enrich: incomplete contacts (least complete first), flagged "enrich tonight", new Inbox items; 3. refresh
     limit = int(cfg.get("max_companies") or 0)
@@ -1051,6 +1061,23 @@ def run_night(ctx: Ctx, run_id: int):
         ctx.stats["companies"] += 1
         _night_progress(run_id, ctx.stats)
 
+    # 4. Verify (v1.0): companies not checked for verify_months months
+    months = int(cfg.get("verify_months") or 0)
+    if months and not ctx.should_stop():
+        from . import verify as VF
+        cutoff = (datetime.utcnow() - timedelta(days=30 * months)).isoformat(timespec="seconds")
+        with SessionLocal() as s:
+            ids = s.scalars(select(Record.id).where(Record.created_at < datetime.utcnow() - timedelta(days=30 * months))
+                            .order_by(Record.id)).all()
+            old = [r.id for r in s.scalars(select(Record).where(Record.id.in_(ids or [-1]))).all()
+                   if str((r.meta or {}).get("_verified") or "") < cutoff]
+        for rid in old[:int(cfg.get("verify_max") or 30)]:
+            if ctx.should_stop():
+                break
+            VF.verify(ctx, rid)
+            ctx.stats["verified"] = ctx.stats.get("verified", 0) + 1
+            _night_progress(run_id, ctx.stats)
+
     stopped = ctx.stop_rule()
     with SessionLocal() as s:
         run = s.get(NightRun, run_id)
@@ -1068,6 +1095,20 @@ def _night_progress(run_id, stats):
         if run:
             run.stats = dict(stats)
             s.commit()
+
+
+def search_words(query: str, term_ids, lang, ctx=None) -> str:
+    """v1.0: a search built from Keyword Library words in another language: translate the words that have no
+    saved translation yet (local AI, saved for next time), then search with the translated words."""
+    if not lang or not term_ids:
+        return query
+    n = KW.translate_missing(list(term_ids), lang)
+    with SessionLocal() as s:
+        text = KW.localize(s, list(term_ids), lang, query)
+    if ctx is not None:
+        ctx.trace("note", "", text=f"Searching in {KW.lang_name(lang)}: “{text}”"
+                  + (f" ({n} word{'s' if n != 1 else ''} translated by the AI and saved)" if n else ""))
+    return text
 
 
 def _keyword_done(keyword_id: int | None, found: int):
@@ -1137,7 +1178,8 @@ def run_job(job_id: int, keyword_id: int | None = None, run_id: int | None = Non
         s.commit()
     keyword_id = keyword_id or params.get("keyword_id")
     run_id = run_id or params.get("run_id")
-    ctx = Ctx(job_id, "night" if kind == "night" else ("enrich" if kind == "enrich" else "discover"), user=uname)
+    ctx = Ctx(job_id, "night" if kind == "night" else ("enrich" if kind in ("enrich", "verify", "profile")
+                                                         else "discover"), user=uname)
     ctx.resume_state = state
     ctx.deeper = max(0, min(control.MAX_DEEPER, int(params.get("deeper") or 0)))
     crawl.set_search_job(job_id)
@@ -1155,6 +1197,15 @@ def run_job(job_id: int, keyword_id: int | None = None, run_id: int | None = Non
                            words=str(params.get("words") or ""))
             msg = ("Found: " + ", ".join(names)) if names else "No new information found"
             message = f"{msg} · {ctx.stats['read']} pages read"
+        elif kind == "verify":
+            from . import verify as VF
+            counts = VF.verify(ctx, record_id, params.get("keys"))
+            parts = [f"{n} {VF.STATUS_LABELS[st].lower()}" for st, n in counts.items()]
+            message = ("Verified: " + ", ".join(parts)) if parts else "Nothing to verify (no values read from a page)"
+        elif kind == "profile":
+            from . import verify as VF
+            n = VF.profile(ctx, record_id)
+            message = f"Profile made · {n} product{'' if n == 1 else 's'} · {ctx.stats['read']} pages read"
         elif kind == "night":
             run_night(ctx, run_id)
             message = f"Night run: {ctx.stats.get('companies', 0)} companies enriched · " + summary(ctx.stats)
@@ -1167,9 +1218,13 @@ def run_job(job_id: int, keyword_id: int | None = None, run_id: int | None = Non
                 with SessionLocal() as s:
                     kw, g = s.get(Keyword, keyword_id), s.get(Group, group_id)
                     use = methods.keyword_methods(g, kw) if kw and g else None
-            discover(ctx, group_id, query, use)
+            search_text = search_words(query, params.get("terms"), params.get("lang"), ctx)
+            discover(ctx, group_id, search_text, use)
             _keyword_done(keyword_id, ctx.stats["saved"])
+            KW.record_use(params.get("terms") or [], ctx.stats["saved"])
             message = summary(ctx.stats)
+            if search_text != query:
+                message += f" · searched in {KW.lang_name(params.get('lang'))}: “{search_text}”"
         if ctx.notes:
             message += " · " + " ".join(dict.fromkeys(ctx.notes))
         _finish(job_id, "done", message, ctx.stats)

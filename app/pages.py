@@ -15,7 +15,8 @@ from sqlalchemy import select
 from .db import PageRead, SessionLocal, log
 
 DEFAULT_REREAD_DAYS = 7
-PURPOSES = {"list": "List page", "profile": "Directory profile", "site": "Company website", "other": "Other page"}
+PURPOSES = {"list": "List page", "profile": "Directory profile", "site": "Company website", "other": "Other page",
+            "verify": "Verify", "company": "Profile & products"}
 
 
 def norm(url: str) -> str:

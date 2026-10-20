@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 
 from .. import crawl
+from .. import browser as BR
 from .. import engines as EN
 from ..db import SearchLog, SessionLocal
 from .common import current_user, flash, go, render, require
@@ -31,7 +32,9 @@ def _page(request, s, user, tested=None, test_query=""):
              **status[n]} for n in names]
     return render(request, s, user, "engines.html", active_nav="engines", help="search-engines", rows=rows,
                   custom=bool(choice.get("set")), reachable=cfg is not None, recent=recent, total7=total7,
-                  tested=tested, test_query=test_query or TEST_QUERY, label=EN.label, **_settings_ctx(s))
+                  tested=tested, test_query=test_query or TEST_QUERY, label=EN.label, **_settings_ctx(s),
+                  bcfg=BR.settings(s), BENGINES=BR.ENGINES, bpaused={e: BR.paused_until(BR.settings(s), e) for e in BR.ENGINES},
+                  bstatus={e: EN.status(s, [f"browser:{e}"])[f"browser:{e}"] for e in BR.ENGINES})
 
 
 @router.get("/settings/search-engines", response_class=HTMLResponse)

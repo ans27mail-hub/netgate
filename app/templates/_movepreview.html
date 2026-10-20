@@ -1,0 +1,7 @@
+{# v1.0 move preview. Needs: p {hidden, missing, n}, target, may_enrich #}
+<div class="mprev">
+  {% if p.hidden %}<span><b>Kept but hidden</b> in {{ target.name }} (it has no such field): {% for name, n in p.hidden.items() %}{{ name }}{% if p.n > 1 %} ({{ n }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}. They stay on the contact and show under <i>Other Details</i>.</span>{% endif %}
+  {% if p.missing %}<span><b>Missing in {{ target.name }}:</b> {% for name, n in p.missing.items() %}{{ name }}{% if p.n > 1 %} ({{ n }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}.</span>
+  {% if may_enrich %}<label class="check-inline"><input type="checkbox" name="enrich_now" value="1"> Enrich the missing fields now</label>{% endif %}{% endif %}
+  {% if not p.hidden and not p.missing %}<span class="sub">Every detail fits {{ target.name }}.</span>{% endif %}
+</div>

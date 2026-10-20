@@ -16,3 +16,5 @@ The Dashboard is the first page you see. Click **NetGate** (top left) or **Dashb
 - **Recent Activity** — accepts, rejects, moves, finished searches and night runs.
 
 People with access to only some directories see only those on the Dashboard.
+
+**Needs Attention** also shows a search waiting for someone to **solve a CAPTCHA** (with a Solve button) and search engines that Browser Search has paused. The number tiles spread evenly over the full width; Needs Attention and Running Jobs are the same width.

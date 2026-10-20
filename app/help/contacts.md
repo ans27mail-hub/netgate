@@ -31,3 +31,4 @@ Each card shows the company name (hover it to read the description), city, up to
 
 If you only see your own contacts, contacts someone else found first appear in a directory's **Existing Contacts** tab and open with the details your access allows.
 
+**Company Page** on the big card opens everything about the company on one page: where and when each detail was found, **Verify**, a short **profile** and **products**. See *Company page*.

@@ -1,6 +1,6 @@
 # NetGate — Complete Project Document
 
-As of 20 Oct 2026 (v0.9) · Owner: Abdul Moeez (Motofast International, Sialkot)
+As of 20 Oct 2026 (v1.0) · Owner: Abdul Moeez (Motofast International, Sialkot)
 
 Same content as the owner's "NetGate — Complete Project Document" in Claude. Keep both up to date when the project changes.
 
@@ -17,10 +17,11 @@ NetGate is Motofast's own business-directory builder: it searches the web with a
 
 ## Current Status
 
-NetGate is at **v0.9** (released 20 Oct 2026). v1.0 (points 4, 8, 1) is agreed and waits for “build v1.0”.
+NetGate is at **v1.0** (released 20 Oct 2026). Next: the owner tests v1.0 with the Testing Guide; fixes and changes go into **v1.1**.
 
 | Version | Date | What it brought |
 | --- | --- | --- |
+| v1.0 | 20 Oct 2026 | Keyword Library + Search Builder + languages (local-AI translations saved), Browser search with Solve CAPTCHA Yourself, Company page (how and when each detail was found, Verify, profile and products, Product Categories), moving between directories with different fields (preview, Other Details, Same as), Testing Guide (checklists, runs, health check, Test Directory), Dashboard tiles full width, directory cards clickable anywhere |
 | v0.9 | 20 Oct 2026 | Stuck requests marked Interrupted + Force Stop, list of pages read (skip and reuse), stronger Enrich searching and Directory Settings → Enrich, Enrich Now ▾ with steps, a permission for every page + Cards Only role, colour sets and fonts like BrandPartners + My Look, pop-ups close on outside click |
 | v0.8 | 18 Oct 2026 | Delete only empty directories, contact cards fill the row, Edit and Run Again inside a request (tries, Go Deeper, Save as Keyword), Settings → Search Engines (on / off, working or blocking since when, links per engine, test, engine per link in Debug) |
 | v0.7 | 17 Oct 2026 | Tags, card styles A/B/C and fixed card width, Short Card Shows, themes (incl. Dark), bigger Help window, Debug actions, what each person sees (own contacts, own/selected directories, search methods hidden), Existing Contacts tab, Title Case, Developer Handbook, automatic backups, Running Jobs on the Dashboard |
@@ -37,16 +38,19 @@ Every page has a **?** button that opens its help.
 
 | Area | What you can do |
 | --- | --- |
-| Dashboard | Numbers at a glance, Needs Attention (with a button each), Running Jobs, Quick Actions, System status (AI server, browser, search engine, eBay), Directories table, recent activity |
-| Directories | One card per directory; tabs and Jump To to switch; Contacts and Existing Contacts tabs; complete bar; Find New, Run All Keywords, Enrich All Incomplete |
-| Directory Settings | Name, owner, search words, search methods, Cards (style A/B/C, width, Fill the row, tint), Enrich (own words, steps, depth), fields (type, Filled from, Find / Enrich step, search words), AI instructions, keywords with night runs, Test a Page, Delete (only when empty) |
-| Contacts | Grid or list, filters and saved views, sort, tags, Export CSV; big card with Edit, Enrich Now ▾ (choose steps), Pages Read, Short Card Shows, + Tag, Move Here / Also Add Here, Delete |
+| Dashboard | Numbers at a glance (full width), Needs Attention (with a button each, incl. CAPTCHAs to solve), Running Jobs, Quick Actions, System status (AI server, browser, search engine, eBay), Directories table, recent activity |
+| Directories | One card per directory (click anywhere to open); tabs and Jump To to switch; Contacts and Existing Contacts tabs; complete bar; Find New, Run All Keywords, Enrich All Incomplete |
+| Directory Settings | Name, owner, languages, search words, search methods (incl. Browser Search), Cards (style A/B/C, width, Fill the row, tint), Enrich (own words, steps, depth), fields (type, Filled from, Find / Enrich step, search words, Same as), AI instructions, keywords with night runs (or from the Keyword Library), Test a Page, Delete (only when empty) |
+| Contacts | Grid or list, filters and saved views, sort, tags, Export CSV; big card with Edit, Enrich Now ▾ (choose steps), Pages Read, Other Details, Short Card Shows, + Tag, Move Here / Also Add Here (with preview), Company Page, Delete |
+| Company Page | Every detail with how and when it was found and last checked; Verify (Accept New Value / Keep Old); short profile and products by the local AI; add products by hand |
+| Keywords | Keyword Library (categories, words, translations, CSV, use counts) and Search Builder (combinations in several languages → run now or add as keywords) |
 | Inbox | New / Enriched / Rejected tabs, AI suggestions, accept into any directory, reject with a reason, restore |
 | Add Contact | One contact, a pasted list or a CSV; duplicate check; choose Enrich steps; now, tonight or Inbox only |
 | Requests | Every search and enrich job; Pause, Resume, Stop, Force Stop, Delete (30-day bin), Reject keyword, Run Again; restarts mark running ones Interrupted; **Edit and Run Again** in the same request (tries, Go Deeper, Save as Keyword); Debug page per request (with the engine of each link) |
 | People | Users, roles and permissions, what each person sees, reset password, login history |
-| Settings | Tags, Themes (colour sets, two fonts, install fonts), Backups, AI Servers & Models, Night Jobs, Crawler (incl. read list pages again after N days), **Search Engines**, Connections (API keys), Reject List, Display (incl. **My Look**), My Password |
+| Settings | Product Categories, Tags, Themes (colour sets, two fonts, install fonts), Backups, AI Servers & Models, Night Jobs, Crawler (incl. read list pages again after N days), **Search Engines** (incl. Browser Search), Connections (API keys), Reject List, Display (incl. **My Look**), My Password |
 | Help & Developer Tools | Help Center with Ask NetGate, What's New; Debug, Logs, Page Tester, Training Data, Developer Handbook |
+| Testing Guide | Checklists for every feature, test runs per version (Passed / Failed / notes / screenshots, report), Quick Health Check, hidden Test Directory |
 
 ## How It Works
 
@@ -62,7 +66,7 @@ Nothing reaches a directory until a person accepts it in the Inbox.
    →  8. Ready to use (filter, tag, export CSV; night jobs keep it growing)
 ```
 
-A search turns a keyword into Inbox suggestions; only what a person accepts enters a directory, where Enrich fills the gaps. Plain code finds emails, phones and links; the local AI only judges what code can't, such as which company a page is about and whether it fits the directory's instructions. SearXNG is the weak point (search engines block automated searches). Since v0.8, Settings → Search Engines shows which engines work or block and lets you switch them; v0.9 adds Browser search, the list of pages read and stronger Enrich searching.
+A search turns a keyword into Inbox suggestions; only what a person accepts enters a directory, where Enrich fills the gaps. Plain code finds emails, phones and links; the local AI only judges what code can't, such as which company a page is about and whether it fits the directory's instructions. SearXNG is the weak point (search engines block automated searches). Since v0.8, Settings → Search Engines shows which engines work or block and lets you switch them; v0.9 added the list of pages read and stronger Enrich searching; v1.0 adds Browser search (NetGate's own browser on Bing / DuckDuckGo, with a person solving any CAPTCHA) and searches in other languages from the Keyword Library.
 
 ## People, Roles and What Each Person Sees
 
@@ -71,11 +75,11 @@ Each person has a role; a person can get their own exceptions on top of it (show
 | Role | Typical use | Default access |
 | --- | --- | --- |
 | Admin | Owner | Everything, locked |
-| Manager | Runs the directories | Contacts, searching, Inbox, directories, tags; sees search methods |
+| Manager | Runs the directories | Contacts, searching, Inbox, directories, keyword library, tags; sees search methods |
 | Researcher | Runs searches and reviews | View, export, add, run discovery and keywords, enrich, Inbox; does not see search methods |
 | Viewer | Looks things up | View and export (plus Dashboard, Inbox and Requests pages) |
 | Cards Only | Only looks at cards | View contacts only — no Dashboard, Inbox, requests, searching or export |
-| Developer | Improves NetGate | Debug, logs, page tester, training data, Developer Handbook; sees search methods |
+| Developer | Improves NetGate | Debug, logs, page tester, training data, Developer Handbook, Testing Guide; sees search methods |
 
 Per person (People → a user → What This Person Sees):
 
@@ -114,34 +118,20 @@ Important `.env` lines: `POSTGRES_PASSWORD`, `DATABASE_URL`, `OLLAMA_URL` (the i
 
 Containers: `web` (pages), `worker` and `night-worker` (searches), `scheduler` (night runs and clean-up), `db` (Postgres), `redis` (job queue), `renderer` (Chromium for JavaScript pages), `searxng` (search engine), `backup` (nightly backups). If the repository is private, the PC needs a read-only GitHub token saved once with `git config credential.helper store`.
 
-## Next Update List (v1.0)
+## Next: Testing v1.0 → v1.1
 
-v0.9 built points 10, 5, 7, 11, 12, 13 and 14 (20 Oct 2026). **v1.0 = points 4, 8, 1, 15**, built on “build v1.0”. Details: `docs/ROADMAP.md`.
-
-| # | Point | What it means | Status |
-| --- | --- | --- | --- |
-| 4 | Browser search (with Solve CAPTCHA Yourself) | Chromium opens Bing / DuckDuckGo (Google only if switched on), keeps going until enough matches; pauses, hourly limit; on a CAPTCHA a pop-up lets the person solve it themselves and the search continues (night jobs wait, Dashboard shows **Solve**) | Agreed |
-| 8 | Moving between directories | Preview of hidden / missing details, Other Details on the big card, Same As to link fields with different names | Agreed |
-| 1 | Verify and Company page | Every value keeps where it came from; Verify re-checks it; short company profile; products as their own records | Agreed |
-| 15 | Dashboard layout | Number tiles spread evenly over the full width; Needs Attention and Running Jobs the same width; Quick Actions unchanged | Agreed |
-
-### Agreed for v1.1
-
-| # | Point | What it means | Status |
-| --- | --- | --- | --- |
-| 16 | Testing Guide | Step-by-step test checklists for every feature in Developer Tools, saved test runs, Quick Health Check, a hidden Test Directory; Admins and *Testing Guide* permission | Agreed |
-| 17 | Keyword Library + Search Builder | Keyword categories and keywords with full management and results per keyword; pick keywords to build searches (all combinations, run now or add to a directory); languages: tick languages and the local AI translates each keyword once, saved and correctable | Agreed |
+v1.0 built every agreed point (1, 4, 8, 15, 16, 17 and 18 — clickable directory cards). The owner now tests it with **Testing Guide → Start Test Run → Only what is new in v1.0**, marks steps Passed / Failed with notes, and sends the **Report**. Fixes and changes from that testing go into **v1.1**. Details: `docs/ROADMAP.md`.
 
 ## Longer-Term Plan
 
-After v1.0 the agreed order is below; each step is explained first and built only on “build”.
+After v1.1 the agreed order is below; each step is explained first and built only on “build”.
 
 1. **Saved Pages & Scans, inside NetGate.** Save single pages and whole sites (manual and automatic), keep versions, recipes per site, a page library and storage rules. Heavy scans run in their own worker container in the same setup; pages are stored in a folder set in `.env`.
 2. **Chrome extension.** Connects to NetGate with a key from Settings → Connections: Save Page, auto-capture on chosen sites, a never-capture list.
 3. **Sources list, products and image cache.** Every website used, with its type, value, last use and whether it needs a login. Product images are kept as links and fetched only when a Company page is viewed, then deleted after X days unless “Keep images” is on. Internal use only.
 4. **User Wallet (one login for all factory apps) with Authentik.** Each app can switch between its own login, Authentik or both without code changes; admin accounts always stay in the app. **Vaultwarden** keeps passwords for outside websites.
 
-Other ideas, not scheduled: Etsy search, Amazon sellers, custom recipes per site, pictures on cards, watch lists and alerts, a test directory for developers, an “Items, not companies” directory type.
+Other ideas, not scheduled: Etsy search, Amazon sellers, custom recipes per site, pictures on cards, watch lists and alerts, an “Items, not companies” directory type.
 
 ## Key Decisions and Rules
 
@@ -161,7 +151,9 @@ How NetGate behaves:
 - **Search methods and site recipes are code**, changed only through GitHub, never in the web pages.
 - **Secrets are never shown back** on a page; the Handbook never contains passwords or keys.
 - **Restoring a backup is only possible on the server**, never from the web page.
-- **Polite crawling:** robots.txt, a pause per site, one retry; CAPTCHAs are never solved.
+- **Polite crawling:** robots.txt, a pause per site, one retry; NetGate never solves a CAPTCHA itself — only a person may, in the Solve CAPTCHA pop-up.
+- **Verify never changes data by itself:** a person accepts or keeps each changed detail.
+- **Testing checklists are code** and every version adds its own steps (checked by the tests).
 - **One app:** page saving and scans stay inside NetGate (changed 18 Oct 2026 from a separate Scanner app).
 - **Logins later:** Authentik for all factory apps with a per-app switch back to the app's own login; Vaultwarden for outside passwords.
 
@@ -183,5 +175,6 @@ Full list with reasons: `docs/DECISIONS.md`.
 | `app/help/` | The in-app Help pages |
 | `docs/dev/` | The Developer Handbook (also in the app under Developer Tools) |
 | `tests/` | The end-to-end tests run before each release |
+| `app/testguide/` | The Testing Guide checklists (one per feature) |
 
-To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v1.0.”
+To continue in a new chat session, paste: “Read AGENTS.md in github.com/ans27mail-hub/netgate and continue the project. Next: v1.1.”

@@ -43,6 +43,9 @@ class Group(Base):
     owner_id: Mapped[int | None] = mapped_column(Integer)                # who it belongs to ("own directories")
     card: Mapped[dict] = mapped_column(JSONB, default=dict)              # short card: style A/B/C, width, tint
     enrich: Mapped[dict] = mapped_column(JSONB, default=dict)            # v0.9: Enrich words, steps, depth
+    langs: Mapped[list] = mapped_column(JSONB, default=list)             # v1.0: default search languages (codes)
+    links: Mapped[dict] = mapped_column(JSONB, default=dict)             # v1.0: “Same as…” field key -> shared key
+    is_test: Mapped[bool] = mapped_column(Boolean, default=False)        # v1.0: the Testing Guide's Test Directory
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     keywords: Mapped[list["Keyword"]] = relationship(order_by="Keyword.id", cascade="all, delete-orphan",
@@ -60,6 +63,8 @@ class Keyword(Base):
     night: Mapped[bool] = mapped_column(Boolean, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
     found_count: Mapped[int] = mapped_column(Integer, default=0)
+    term_ids: Mapped[list] = mapped_column(JSONB, default=list)     # v1.0: Keyword Library words it was built from
+    lang: Mapped[str] = mapped_column(String(8), default="")        # v1.0: search language ('' = English)
     group: Mapped[Group] = relationship(back_populates="keywords")
 
 
@@ -242,6 +247,8 @@ class Record(Base):
     vec_model: Mapped[str | None] = mapped_column(Text)
     added_by: Mapped[int | None] = mapped_column(Integer)
     found_by: Mapped[int | None] = mapped_column(Integer, index=True)   # first person who found or added it
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)          # v1.0: per value {at, checked, verify}; _verified
+    profile: Mapped[dict] = mapped_column(JSONB, default=dict)       # v1.0: short company profile
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -362,6 +369,102 @@ class SearchLog(Base):
     errors: Mapped[dict] = mapped_column(JSONB, default=dict)       # engine -> reason (CAPTCHA, timeout …)
     total: Mapped[int] = mapped_column(Integer, default=0)
     test: Mapped[bool] = mapped_column(Boolean, default=False)      # from “Test Now”
+
+
+class Product(Base):
+    """A product of a company (v1.0), from its website (AI) or added by hand. Images are only links."""
+    __tablename__ = "products"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str] = mapped_column(String(120), default="")
+    image_url: Mapped[str] = mapped_column(Text, default="")
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    price: Mapped[str] = mapped_column(String(60), default="")
+    moq: Mapped[str] = mapped_column(String(60), default="")
+    added_by: Mapped[int | None] = mapped_column(Integer)          # None = found by NetGate
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class TestRun(Base):
+    """Testing Guide (v1.0): one person testing one version; results per step {step id: {ok, note}}."""
+    __tablename__ = "test_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    scope: Mapped[str] = mapped_column(String(20), default="all")      # all / new
+    results: Mapped[dict] = mapped_column(JSONB, default=dict)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class TestShot(Base):
+    """A screenshot a tester attached to a step of a test run."""
+    __tablename__ = "test_shots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("test_runs.id", ondelete="CASCADE"), index=True)
+    step: Mapped[str] = mapped_column(String(80))
+    mime: Mapped[str] = mapped_column(String(40), default="image/png")
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class CaptchaWait(Base):
+    """Browser search met a CAPTCHA (v1.0): the request waits for a person to solve it in NetGate's browser."""
+    __tablename__ = "captcha_waits"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer)          # who started the request
+    engine: Mapped[str] = mapped_column(String(20))
+    sid: Mapped[str] = mapped_column(String(40))                  # the renderer's search session
+    url: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(12), default="waiting", index=True)  # waiting / solved / gave_up
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime)
+    solved_by: Mapped[int | None] = mapped_column(Integer)
+
+
+class KwCategory(Base):
+    """Keyword Library (v1.0): a category such as Products, Materials, Buyer types, Countries."""
+    __tablename__ = "kw_categories"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    terms: Mapped[list["KwTerm"]] = relationship(order_by="KwTerm.text", cascade="all, delete-orphan",
+                                                 back_populates="category", lazy="selectin")
+
+
+class KwTerm(Base):
+    """A word or phrase in the Keyword Library, written in English. Searches combine words from several categories."""
+    __tablename__ = "kw_terms"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("kw_categories.id", ondelete="CASCADE"), index=True)
+    text: Mapped[str] = mapped_column(String(200))
+    norm: Mapped[str] = mapped_column(String(200), index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    uses: Mapped[int] = mapped_column(Integer, default=0)            # searches that used it
+    found: Mapped[int] = mapped_column(Integer, default=0)           # companies those searches put in the Inbox
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_by: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    category: Mapped[KwCategory] = relationship(back_populates="terms")
+    translations: Mapped[list["KwTranslation"]] = relationship(cascade="all, delete-orphan", lazy="selectin",
+                                                               order_by="KwTranslation.lang")
+
+
+class KwTranslation(Base):
+    """A saved translation of a library word (made by the local AI the first time it is needed, or typed by a person)."""
+    __tablename__ = "kw_translations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[int] = mapped_column(ForeignKey("kw_terms.id", ondelete="CASCADE"), index=True)
+    lang: Mapped[str] = mapped_column(String(8))
+    text: Mapped[str] = mapped_column(String(200))
+    source: Mapped[str] = mapped_column(String(10), default="ai")    # ai / person
+    checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class PageRead(Base):
@@ -529,6 +632,15 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS ix_records_found_by ON records (found_by)",
     # v0.9
     "ALTER TABLE groups ADD COLUMN IF NOT EXISTS enrich JSONB NOT NULL DEFAULT '{}'::jsonb",
+    # v1.0
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS langs JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS links JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE groups ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE keywords ADD COLUMN IF NOT EXISTS term_ids JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE keywords ADD COLUMN IF NOT EXISTS lang VARCHAR(8) NOT NULL DEFAULT ''",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_kw_translation ON kw_translations (term_id, lang)",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'::jsonb",
+    "ALTER TABLE records ADD COLUMN IF NOT EXISTS profile JSONB NOT NULL DEFAULT '{}'::jsonb",
 ]
 
 EMPLOYEE_RANGES = "1–10, 11–50, 51–200, 201–500, 500+"
@@ -748,6 +860,24 @@ def _upgrade_v09(s):
     s.add(Setting(key="v09_upgraded", value="1"))
 
 
+def _upgrade_v10(s):
+    """One-time changes for v1.0: Keyword Library (example words + the directories' keywords), new permissions."""
+    if s.get(Setting, "v10_upgraded"):
+        return
+    for r in s.scalars(select(Role)).all():
+        if r.locked:
+            continue
+        perms = split(r.perms)
+        if "manage_dirs" in perms:
+            perms.add("manage_keywords")
+        if r.name == "Developer" or "dev_help" in perms:
+            perms.add("testing")
+        r.perms = join(perms)
+    from .keywords import starter
+    starter(s)
+    s.add(Setting(key="v10_upgraded", value="1"))
+
+
 def _upgrade_v05(s):
     """One-time data changes for v0.5 on existing installs. Nothing is deleted."""
     if s.get(Setting, "v05_upgraded"):
@@ -828,5 +958,7 @@ def init_db():
         _upgrade_v07(s)
         s.flush()
         _upgrade_v09(s)
+        s.flush()
+        _upgrade_v10(s)
         _seed_ai(s)
         s.commit()

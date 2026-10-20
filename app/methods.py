@@ -9,6 +9,9 @@ METHODS = {
             "desc": "General search engine results; list and company pages are read by code and the AI."},
     "directory": {"name": "Directory site search", "step": "find", "tag": "Crawler", "kind": "web", "ready": True,
                   "desc": "Reads B2B directory list pages, their next pages and each company's profile."},
+    "browser": {"name": "Browser search", "step": "find", "tag": "Browser", "kind": "web", "ready": True,
+                "desc": "NetGate's own browser searches Bing / DuckDuckGo like a person and reads the results until "
+                        "enough new companies are found. A CAPTCHA can be solved by you."},
     "ebay": {"name": "eBay search", "step": "find", "tag": "Official API", "kind": "api", "ready": True,
              "desc": "Finds sellers from eBay listings, then reads each seller's details."},
     "etsy": {"name": "Etsy search", "step": "find", "tag": "Official API · later", "kind": "api", "ready": False,
@@ -25,6 +28,7 @@ FIND_METHODS = [k for k, m in METHODS.items() if m["step"] == "find" and m["read
 EBAY_DEFAULTS = {"sites": [], "category_id": "", "per_keyword": 200, "min_feedback": 0, "business_only": True,
                  "max_sellers": 60}
 DIRECTORY_DEFAULTS = {"start_urls": "", "sites": ""}
+BROWSER_DEFAULTS = {"want": 20, "max_pages": 5, "max_minutes": 15, "engines": []}   # [] = Settings → Search Engines
 
 # "Filled from" choices for a field. '' = the usual way: code first, then the AI, from pages read.
 FIELD_SOURCES = [
@@ -64,7 +68,7 @@ def enabled_find_methods(group) -> list[str]:
 
 
 def options(group, key: str) -> dict:
-    defaults = {"ebay": EBAY_DEFAULTS, "directory": DIRECTORY_DEFAULTS}.get(key, {})
+    defaults = {"ebay": EBAY_DEFAULTS, "directory": DIRECTORY_DEFAULTS, "browser": BROWSER_DEFAULTS}.get(key, {})
     return {**defaults, **((group.methods or {}).get(key) or {})}
 
 

@@ -1,0 +1,24 @@
+{# One step of a test run (v1.0). Needs: run, st, r (result), shots, RESULTS #}
+<li class="tstep {{ 'is-' ~ r.ok if r.ok else '' }}" id="st-{{ st.id|replace(':', '-') }}">
+  <div class="tstep-text">
+    <span class="tstep-n">{{ st.n }}</span>
+    <div>
+      <div>{{ st.do }}{% if st.since == run.version %} <span class="badge amber">new</span>{% endif %}</div>
+      {% if st.expect %}<div class="sub"><b>You should see:</b> {{ st.expect }}</div>{% endif %}
+      {% if r.by %}<div class="sub mono-sm">{{ RESULTS.get(r.ok, 'Note') }} · {{ r.by }} · {{ (r.at or '')[:16]|replace('T', ' ') }}</div>{% endif %}
+      {% if shots %}<div class="tshots">{% for sid in shots %}<a href="/testing/shots/{{ sid }}" target="_blank" rel="noopener"><img src="/testing/shots/{{ sid }}" alt="Screenshot {{ loop.index }} for step {{ st.n }}" loading="lazy"></a>{% endfor %}</div>{% endif %}
+    </div>
+  </div>
+  {% if not run.finished_at %}
+  <form class="tstep-form" hx-post="/testing/runs/{{ run.id }}/step" hx-encoding="multipart/form-data" hx-target="closest li" hx-swap="outerHTML">
+    <input type="hidden" name="step" value="{{ st.id }}">
+    <fieldset class="tres"><legend class="sr">Result of step {{ st.n }}</legend>
+      {% for k, label in RESULTS.items() %}<label class="tres-{{ k }}"><input type="radio" name="ok" value="{{ k }}" {% if r.ok == k %}checked{% endif %} onchange="this.form.requestSubmit()"> {{ label }}</label>{% endfor %}
+    </fieldset>
+    <label class="field tnote"><span class="sr">Note for step {{ st.n }}</span><input type="text" name="note" value="{{ r.note or '' }}" placeholder="Note (what went wrong, what you saw)…" maxlength="1000"></label>
+    <label class="btn btn-outline btn-xs tshot-btn">Screenshot<input type="file" name="shot" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="this.form.requestSubmit()"></label>
+    <button type="submit" class="btn btn-outline btn-xs">Save</button>
+    {% if saved %}<span class="sub" role="status">Saved</span>{% endif %}
+  </form>
+  {% elif r.note %}<div class="sub tnote-done">Note: {{ r.note }}</div>{% endif %}
+</li>

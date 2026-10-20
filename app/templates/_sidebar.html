@@ -5,6 +5,7 @@
   {% if can(user, 'see_inbox') %}<a href="/inbox" class="nav-item {% if active_nav == 'inbox' %}on{% endif %}" {% if active_nav == 'inbox' %}aria-current="page"{% endif %}>Inbox {% if inbox_n %}<span class="count-badge">{{ inbox_n }}</span>{% endif %}</a>{% endif %}
   <a href="/contacts" class="nav-item {% if active_nav == 'contacts' %}on{% endif %}" {% if active_nav == 'contacts' %}aria-current="page"{% endif %}>All Contacts <span class="n">{{ contacts_n }}</span></a>
   <a href="/directories" class="nav-item {% if active_nav == 'directories' or (active_nav or '').startswith('d') and active_nav[1:].isdigit() %}on{% endif %}" {% if active_nav == 'directories' %}aria-current="page"{% endif %}>Directories <span class="n">{{ nav_groups|length }}</span></a>
+  {% if can_any(user, ['manage_keywords', 'request', 'keywords']) %}<a href="/keywords" class="nav-item {% if active_nav == 'keywords' %}on{% endif %}" {% if active_nav == 'keywords' %}aria-current="page"{% endif %}>Keywords</a>{% endif %}
   {% if views %}
   <div class="nav-head">Saved Views</div>
   {% for v in views %}
@@ -18,9 +19,10 @@
   <div class="nav-foot">
     {% if can(user, 'see_requests') %}<a href="/requests" class="nav-item {% if active_nav == 'requests' %}on{% endif %}">Requests {% if running_n %}<span class="n">{{ running_n }} running</span>{% endif %}</a>{% endif %}
     {% if can_any(user, ['manage_users', 'manage_roles']) %}<a href="/people" class="nav-item {% if active_nav in ('users', 'roles', 'logins') %}on{% endif %}">People</a>{% endif %}
-    <a href="/settings" class="nav-item {% if active_nav in ('dirs','ai','night','crawler','engines','connections','display','reject','account','tags','themes','backups') %}on{% endif %}">Settings</a>
+    <a href="/settings" class="nav-item {% if active_nav in ('dirs','ai','night','crawler','engines','connections','display','reject','account','tags','themes','backups','prodcats') %}on{% endif %}">Settings</a>
     <a href="/help" class="nav-item {% if active_nav == 'help' %}on{% endif %}">Help</a>
     {% if can_any(user, ['debug', 'logs', 'tester', 'training_export', 'dev_help']) %}<a href="/dev" class="nav-item {% if active_nav == 'dev' %}on{% endif %}">Developer Tools</a>{% endif %}
+    {% if can(user, 'testing') %}<a href="/testing" class="nav-item {% if active_nav == 'testing' %}on{% endif %}">Testing Guide</a>{% endif %}
     <form method="post" action="/logout" class="nav-user"><span>{{ user.username }} · {{ user.role }}</span><button type="submit">Log Out</button></form>
     <span class="nav-ver">NetGate {{ VERSION }}</span>
   </div>

@@ -7,7 +7,8 @@ from sqlalchemy import func, or_, select
 
 from .. import control, methods, pages
 from ..auth import can, sees_methods
-from ..db import Group, InboxItem, Job, JobTrace, Keyword, Record, RejectedKeyword, SessionLocal, User
+from ..db import Group, InboxItem, Job, JobTrace, Keyword, KwTerm, Record, RejectedKeyword, SessionLocal, User
+from ..keywords import lang_name
 from .common import (Forbidden, all_groups, back, can_control, current_user, flash, go, jobs_clause,
                      keyword_blocked, render, require, start_job, templates)
 
@@ -110,7 +111,10 @@ def _edit_ctx(s, user, job):
     return {"job": job, "groups": groups, "history": history, "users": users, "group": group,
             "dir_methods": {g.id: methods.enabled_find_methods(g) for g in groups},
             "chosen": (job.params or {}).get("methods") or [], "deeper": int((job.params or {}).get("deeper") or 0),
-            "editable": control.can_edit(job), "max_deeper": control.MAX_DEEPER}
+            "editable": control.can_edit(job), "max_deeper": control.MAX_DEEPER,
+            "lib_words": [t for t in s.scalars(select(KwTerm.text).where(KwTerm.active).order_by(KwTerm.text)
+                                                 .limit(500)).all()],
+            "lang_name": lang_name}
 
 
 @router.get("/requests/{jid}/edit", response_class=HTMLResponse)
@@ -161,7 +165,8 @@ async def edit_run(request: Request, jid: int):
             deeper = current + 1
         deeper = max(0, min(control.MAX_DEEPER, deeper))
         n = len(control.tries(job)) + 1
-        control.edit_and_run(s, job, user, query, gid, use, deeper)
+        same = query.strip().lower() == (job.query or "").strip().lower()
+        control.edit_and_run(s, job, user, query, gid, use, deeper, terms=None if same else [])
         if not request.session.get("flash"):
             flash(request, f"Try {n} of this request started: “{query}” in {group.name}"
                            + (f", Go Deeper level {deeper}" if deeper else "") + ". Earlier finds stay in the Inbox.")
@@ -347,6 +352,11 @@ async def create_job(request: Request):
     return back(request, "/inbox")
 
 
+def _kw_params(kw) -> dict:
+    """A directory keyword built from the Keyword Library keeps its words and language (v1.0)."""
+    return {"terms": list(kw.term_ids), "lang": kw.lang or ""} if kw.term_ids else {}
+
+
 @router.post("/groups/{gid}/keywords/{kid}/run")
 def run_keyword(request: Request, gid: int, kid: int, method: str = Form("")):
     with SessionLocal() as s:
@@ -355,7 +365,8 @@ def run_keyword(request: Request, gid: int, kid: int, method: str = Form("")):
         kw, group = s.get(Keyword, kid), s.get(Group, gid)
         if kw and kw.group_id == gid and not _blocked_message(request, s, kw.text, gid):
             use = [method] if method in methods.enabled_find_methods(group) else methods.keyword_methods(group, kw)
-            start_job(s, user, "keyword", kw.text, gid, params={"keyword_id": kw.id, "methods": use})
+            start_job(s, user, "keyword", kw.text, gid, params={"keyword_id": kw.id, "methods": use,
+                                                                **_kw_params(kw)})
             if not request.session.get("flash"):
                 flash(request, f"Discovering “{kw.text}” with {', '.join(methods.METHODS[m]['name'] for m in use)}. "
                                "Results go to the Inbox.")
@@ -374,7 +385,7 @@ def run_all_keywords(request: Request, gid: int):
                 skipped += 1
                 continue
             start_job(s, user, "keyword", kw.text, gid,
-                      params={"keyword_id": kw.id, "methods": methods.keyword_methods(group, kw)})
+                      params={"keyword_id": kw.id, "methods": methods.keyword_methods(group, kw), **_kw_params(kw)})
             n += 1
         flash(request, f"Queued {n} keyword search(es)." + (f" {skipped} skipped (on the reject list)." if skipped else ""))
     return back(request, f"/d/{gid}")

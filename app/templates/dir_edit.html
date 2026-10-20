@@ -19,6 +19,10 @@
         <label class="field" style="flex:2 1 320px">Short description<input type="text" name="description" value="{{ group.description }}"></label>
         <label class="field" style="flex:0 1 110px">Menu order<input type="number" name="position" value="{{ group.position }}"></label>
         <label class="field">Words added to every web search<input type="text" name="search_terms" value="{{ group.search_terms }}" placeholder="e.g. manufacturer exporter Pakistan"></label>
+        <fieldset class="langpick"><legend class="caps-sm">Search languages (ticked first in Build Searches)</legend>
+          {% for code, name in LANGS.items() %}<label><input type="checkbox" name="langs" value="{{ code }}" {% if code in (group.langs or []) %}checked{% endif %}> {{ name }}</label>{% endfor %}
+          <span class="hint">English is always offered. Words are translated by your AI once and kept in the Keyword Library.</span>
+        </fieldset>
         <label class="field" style="flex:0 1 200px">Owner
           <select name="owner_id"><option value="">Nobody</option>{% for u in owners %}<option value="{{ u.id }}" {% if group.owner_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select></label>
       </div>
@@ -68,7 +72,15 @@
           <tbody>
           {% for f in group.fields %}
             <tr>
-              <td><input form="ff{{ f.id }}" type="text" name="name" value="{{ f.name }}" aria-label="Field name" style="width:140px"></td>
+              <td><input form="ff{{ f.id }}" type="text" name="name" value="{{ f.name }}" aria-label="Field name" style="width:140px">
+                {% set lk = (group.links or {}).get(f.id|string) %}
+                <form method="post" action="/settings/directories/{{ group.id }}/fields/{{ f.id }}/same-as" class="sameas">
+                  <label class="sub">Same as
+                    <select name="other" onchange="this.form.submit()" aria-label="{{ f.name }} shares its data with">
+                      <option value="">its own data</option>
+                      {% for k, label in other_fields %}<option value="{{ k }}" {% if lk and lk.same_as == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select></label>
+                </form></td>
               <td><select form="ff{{ f.id }}" name="type" aria-label="Field type">{% for k, label in FIELD_TYPES.items() %}<option value="{{ k }}" {% if f.type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
               <td><select form="ff{{ f.id }}" name="source" aria-label="Filled from" style="min-width:200px">{% for k, label in FIELD_SOURCES %}{% if not k.startswith('ebay:') or 'ebay' in (group.methods or {}) or f.source == k %}<option value="{{ k }}" {% if f.source == k %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select></td>
               <td><select form="ff{{ f.id }}" name="stage" aria-label="Step"><option value="discover" {% if f.stage == 'discover' %}selected{% endif %}>Find</option><option value="enrich" {% if f.stage != 'discover' %}selected{% endif %}>Enrich</option></select></td>
@@ -130,7 +142,7 @@
     </form>
 
     <section class="panel stack" id="keywords">
-      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Keywords</h2><span class="hint">Each keyword finds new companies for this directory. Results go to the Inbox.</span></div>
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>Keywords</h2><span class="hint">Each keyword finds new companies for this directory. Results go to the Inbox.</span><a href="/keywords/build?group={{ group.id }}" class="btn btn-outline btn-small">Add From the Keyword Library</a></div>
       {% set finds = (group.methods or {}).keys()|select('in', ['web', 'directory', 'ebay'])|list %}
       {% if group.keywords %}
       <div class="overflow">
@@ -139,7 +151,7 @@
           <tbody>
           {% for k in group.keywords %}
             <tr>
-              <td><span class="chip chip-sm chip-static">{{ k.text }}</span></td>
+              <td><span class="chip chip-sm chip-static">{{ k.text }}</span>{% if k.lang %} <span class="langchip" title="Searched in {{ LANGS.get(k.lang, k.lang) }}">{{ k.lang|upper }}</span>{% endif %}{% if k.term_ids %} <span class="sub" title="Built from the Keyword Library">· library</span>{% endif %}</td>
               <td>
                 <form method="post" action="/settings/directories/{{ group.id }}/keywords/{{ k.id }}" class="inline">
                   <select name="method" onchange="this.form.submit()" aria-label="Search “{{ k.text }}” with">

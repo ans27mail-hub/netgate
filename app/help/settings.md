@@ -25,6 +25,11 @@ summary: AI servers, crawler, display and the reject list
 ## Search Engines
 Which engines web searches use, whether each one works or is blocking (and since when), and how many links each gave. See [Search engines](/help/search-engines).
 
+**Browser Search** (on the Search Engines page): engines it may use, pause between searches, searches per hour, how long to wait for a person on a CAPTCHA, and how long to rest an engine afterwards. **Use Again Now** ends a pause.
+
+## Product Categories
+The list a company's profile and products are sorted into (Manage directories). See *Company page*.
+
 ## Display
 **My Look** — your own colours, fonts and text size (see [Themes](/help/themes)).
 Page width (fixed, % of the screen, or full), grid or list by default, **Cards** (style A / B / C, card width, **Fill the row**, colour from tags) and **at most N cards per row** — for you, or for everyone (with *Display & themes for everyone*). **My theme** chooses a [theme](/help/themes) just for you.

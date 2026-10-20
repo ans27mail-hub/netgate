@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Build Searches · NetGate{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Build Searches</h1>
+  <span class="sub">Pick words from the Keyword Library; NetGate makes every combination — one word from each category.</span>
+  <span class="ml-auto"><a href="/keywords" class="btn btn-outline">Keyword Library</a></span>
+</div>
+{% if job %}<div class="notice">For <b>Edit and Run Again</b> of request #{{ job.id }} “{{ job.query }}”: tick one search below and press <b>Use in Request #{{ job.id }}</b>.</div>{% endif %}
+
+<form method="get" action="/keywords/build" class="panel stack" id="bform">
+  {% if job %}<input type="hidden" name="request_id" value="{{ job.id }}">{% endif %}
+  <div class="row">
+    <label class="field" style="flex:0 1 280px">Directory
+      <select name="group">{% for g in groups %}<option value="{{ g.id }}" {% if sel and g.id == sel.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+    <fieldset class="langpick" style="flex:1 1 360px"><legend class="caps-sm">Languages</legend>
+      <label><input type="checkbox" name="lang" value="" {% if '' in langs %}checked{% endif %}> English</label>
+      {% for code, name in LANGS.items() %}<label><input type="checkbox" name="lang" value="{{ code }}" {% if code in langs %}checked{% endif %}> {{ name }}</label>{% endfor %}
+    </fieldset>
+  </div>
+  <div class="bcats">
+    {% for c in cats if c.terms|selectattr('active')|list %}
+    <fieldset class="bcat"><legend><b>{{ c.name }}</b> <span class="sub">{{ c.description }}</span></legend>
+      <div class="chipchecks">{% for t in c.terms if t.active %}<label class="chipcheck"><input type="checkbox" name="c_{{ c.id }}" value="{{ t.id }}" {% if t.id in picked.get(c.id, []) %}checked{% endif %}><span>{{ t.text }}</span></label>{% endfor %}</div>
+    </fieldset>
+    {% else %}<div class="empty">The Keyword Library is empty. <a href="/keywords">Add categories and keywords</a> first.</div>{% endfor %}
+  </div>
+  <div class="btnrow"><button type="submit" class="btn btn-primary">Show the Searches</button><span class="hint">Leave a category empty to skip it. At most {{ max_combos }} searches at a time.</span></div>
+</form>
+
+{% if combos %}
+<form method="post" action="/keywords/build" class="panel stack">
+  <input type="hidden" name="group_id" value="{{ sel.id }}">
+  {% if job %}<input type="hidden" name="request_id" value="{{ job.id }}">{% endif %}
+  <div class="row" style="align-items:baseline"><h2 style="margin:0">{{ combos|length }} Search{{ 'es' if combos|length != 1 else '' }} for {{ sel.name }}</h2>
+    <label class="check-inline ml-auto"><input type="checkbox" data-all="bsel" checked> Tick all</label></div>
+  <div class="overflow"><table class="t">
+    <thead><tr><th style="width:36px"><span class="sr">Use</span></th><th>Search</th><th>Language</th><th>Searched As</th><th>Notes</th></tr></thead>
+    <tbody>{% for c in combos %}
+      <tr><td><input type="{{ 'radio' if job else 'checkbox' }}" name="combo" value="{{ c.lang }}|{{ c.terms|join(',') }}" data-b="1" {% if not job and 'on the reject list' not in c.warn %}checked{% endif %} aria-label="Use {{ c.text }}"></td>
+        <td><b>{{ c.text }}</b></td><td>{{ lang_name(c.lang) }}</td>
+        <td>{% if c.lang %}{{ c.search }}{% if c.missing %}<span class="sub dblock">{{ c.missing|join(', ') }}: translated by your AI when it runs</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
+        <td>{% for w in c.warn %}<span class="badge {{ 'red' if 'reject' in w else 'amber' }}">{{ w }}</span> {% endfor %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  <div class="btnrow">
+    {% if job %}
+    <button type="submit" name="action" value="use" class="btn btn-primary">Use in Request #{{ job.id }}</button>
+    {% else %}
+    {% if may_run %}<button type="submit" name="action" value="run" class="btn btn-primary">Run Now</button>{% endif %}
+    {% if may_add %}<button type="submit" name="action" value="add" class="btn btn-outline">Add to {{ sel.name }}'s Keywords</button>{% endif %}
+    {% if may_run and may_add %}<button type="submit" name="action" value="both" class="btn btn-outline">Both</button>{% endif %}
+    {% endif %}
+  </div>
+  <span class="hint">Run Now starts one request per search; new companies go to the Inbox. Keywords of a directory also run at night. Searches on the reject list are never run.</span>
+</form>
+<script>
+  var all = document.querySelector('input[data-all=bsel]');
+  if (all) all.addEventListener('change', function () { document.querySelectorAll('input[data-b][type=checkbox]').forEach(function (i) { i.checked = all.checked; }); });
+</script>
+{% elif picked %}
+<div class="empty">No searches: tick at least one keyword.</div>
+{% endif %}
+{% endblock %}

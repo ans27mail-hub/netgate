@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Product Categories · NetGate{% endblock %}
+{% block content %}
+<div class="settings">
+  {% include "_settings_nav.html" %}
+  <div class="scontent">
+    <div class="shead">
+      <h1>Product Categories</h1>
+      <span class="sub">The list a company's profile and products are sorted into. The AI only uses names from this list.</span>
+    </div>
+    <form class="panel stack" method="post" action="/settings/product-categories">
+      <label class="field">One category per line
+        <textarea name="cats" rows="{{ [cats|length + 2, 24]|min }}" style="font-family:inherit">{{ cats|join('\n') }}</textarea>
+      </label>
+      <span class="hint">Renaming a category does not change products saved before. Keep “Other” for things that fit nowhere.</span>
+      <div class="btnrow">
+        <button type="submit" class="btn btn-primary">Save Categories</button>
+        <button type="submit" name="reset" value="1" class="btn btn-outline" onclick="return confirm('Go back to the starting list?')">Back to the Starting List</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

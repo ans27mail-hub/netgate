@@ -185,6 +185,7 @@
     </label>
     <p class="hint" style="margin:0">All their details and history are kept. Contacts in several directories leave the ones you choose here.</p>
     {% endif %}
+    <div id="move-prev"></div>
     <div class="btnrow" style="justify-content:flex-end">
       <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
       <button type="submit" class="btn btn-primary">Move</button>
@@ -214,6 +215,16 @@
       extra.textContent = opt.textContent + ' has ' + miss.length + ' field' + (miss.length === 1 ? '' : 's') +
         ' they don\'t have yet (' + miss.join(', ') + ') — they show as Missing until Enrich fills them.';
     }
+    // v1.0: what is kept but hidden, and what will be missing in the new directory
+    var q = new URLSearchParams({group_id: opt.value});
+    var fromSel = document.querySelector('#movesel [name=from_id]');
+    if (fromSel && fromSel.value) q.set('from_id', fromSel.value);
+    document.querySelectorAll('input[name=ids][form=sel]:checked').forEach(function (c) { q.append('ids', c.value); });
+    var mp = document.getElementById('move-prev');
+    mp.innerHTML = '<p class="sub">Checking the fields…</p>';
+    fetch('/records/move-preview?' + q.toString(), {credentials: 'same-origin'}).then(function (r) { return r.text(); })
+      .then(function (h) { mp.innerHTML = h; });
+    if (extra) extra.hidden = true;
     document.getElementById('movedlg').showModal();
   }
   function alertBar() {

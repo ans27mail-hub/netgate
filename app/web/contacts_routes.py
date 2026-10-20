@@ -164,6 +164,8 @@ def directory_page(request: Request, gid: int, tab: str = ""):
         if not sel:
             return go("/contacts")
         require(user, "view", gid)
+        if sel.is_test:
+            require(user, "testing")
         ctx = _listing(request, s, user, sel)
         mq = select(Membership.group_id, func.count(Membership.record_id)).group_by(Membership.group_id)
         if own_contacts_only(user):
@@ -188,6 +190,55 @@ def directory_page(request: Request, gid: int, tab: str = ""):
 
 # ---------- the contact card ----------
 
+def _show(v) -> str:
+    return ", ".join(str(x) for x in v) if isinstance(v, list) else str(v)
+
+
+def move_preview(s, records: list, target, from_ids: list | None) -> dict:
+    """v1.0: what changes when these contacts move to `target`: details kept but hidden (fields the target
+    doesn't have), and the target's fields they are missing."""
+    hidden: dict = {}
+    missing: dict = {}
+    for rec in records:
+        gids = from_ids or [g for g in C.member_ids(s, rec.id) if g != target.id]
+        src_fields = {f.key: f.name for gid in gids if (g := s.get(Group, gid)) for f in g.fields}
+        tkeys = {f.key for f in target.fields}
+        for k, name in src_fields.items():
+            if k not in tkeys and not C.empty((rec.data or {}).get(k)):
+                hidden[name] = hidden.get(name, 0) + 1
+        for f in target.fields:
+            if C.empty((rec.data or {}).get(f.key)):
+                missing[f.name] = missing.get(f.name, 0) + 1
+    return {"hidden": hidden, "missing": missing, "n": len(records)}
+
+
+@router.get("/records/{rid}/move-preview", response_class=HTMLResponse)
+def move_preview_one(request: Request, rid: int, group_id: int = 0, from_id: int = 0):
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        rec, target = s.get(Record, rid), s.get(Group, group_id)
+        if not rec or not target or not C.can_see_record(s, user, rec):
+            return HTMLResponse("")
+        p = move_preview(s, [rec], target, [from_id] if from_id else None)
+        return templates.TemplateResponse(request, "_movepreview.html", {"p": p, "target": target, "user": user,
+                                                                           "may_enrich": C.may_enrich(user, rec, target.id)})
+
+
+@router.get("/records/move-preview", response_class=HTMLResponse)
+def move_preview_many(request: Request, group_id: int = 0, from_id: str = ""):
+    ids = [int(i) for i in request.query_params.getlist("ids") if str(i).isdigit()][:500]
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        target = s.get(Group, group_id)
+        recs = [r for r in s.scalars(select(Record).where(Record.id.in_(ids or [-1]))).all()
+                if C.can_see_record(s, user, r)]
+        if not target or not recs:
+            return HTMLResponse("")
+        p = move_preview(s, recs, target, [int(from_id)] if from_id.isdigit() else None)
+        return templates.TemplateResponse(request, "_movepreview.html", {"p": p, "target": target, "user": user,
+                                                                           "may_enrich": can(user, "enrich", target.id)})
+
+
 def _card(request, s, user, rec, edit=False, ctx_gid=None, notice=""):
     groups = all_groups(s)
     by_id = {g.id: g for g in groups}
@@ -204,6 +255,11 @@ def _card(request, s, user, rec, edit=False, ctx_gid=None, notice=""):
     rec_tags = T.tags_map(s, [rec.id]).get(rec.id, [])
     can_tag = not limited and any(can(user, "edit", g) for g in mids) if mids else (not limited and can(user, "edit"))
     finder = s.get(User, rec.found_by) if rec.found_by else None
+    shown = {f.key for f in fields}
+    names = {f.key: f.name for g in groups for f in g.fields}
+    other_details = [{"key": k, "name": names.get(k, k.replace("_", " ").capitalize()), "value": _show(v)}
+                     for k, v in (rec.data or {}).items()
+                     if k not in shown and not C.empty(v) and not k.startswith("_")] if not limited else []
     read_rows = []
     if not limited:
         read_rows = list(pages.for_record(s, rec.id, 40))
@@ -212,7 +268,7 @@ def _card(request, s, user, rec, edit=False, ctx_gid=None, notice=""):
                                                           PageRead.record_id.is_(None)).order_by(PageRead.id.desc())
                                    .limit(3)).all()
     return templates.TemplateResponse(request, "_bigcard.html", {
-        "enrich_steps": enrich_step_choices(s, rec), "enrich_choice": enrich_choice(user),
+        "enrich_steps": enrich_step_choices(s, rec), "enrich_choice": enrich_choice(user), "other_details": other_details,
         "read_rows": read_rows, "page_summary": pages.summary, "PURPOSES": pages.PURPOSES,
         "r": rec, "user": user, "fields": fields, "filled": filled, "total": total,
         "members": [by_id[g] for g in mids if g in by_id], "items": items, "by_id": by_id,
@@ -263,6 +319,7 @@ async def edit_record(request: Request, rid: int, from_: int | None = Query(None
                     src.pop(f.key, None)
             elif v != data.get(f.key):
                 data[f.key], src[f.key] = v, f"edited by {user.username}"
+                C.stamp(rec, [f.key])
         name = str(form.get("title") or "").strip()
         if name and name != rec.title:
             from ..db import name_key
@@ -279,7 +336,7 @@ async def edit_record(request: Request, rid: int, from_: int | None = Query(None
 
 @router.post("/records/{rid}/directories")
 def record_directory(request: Request, rid: int, group_id: int = Form(...), action: str = Form("add"),
-                     from_id: int = Form(0)):
+                     from_id: int = Form(0), enrich_now: str = Form("")):
     with SessionLocal() as s:
         user = current_user(s, request)
         rec = s.get(Record, rid)
@@ -300,6 +357,8 @@ def record_directory(request: Request, rid: int, group_id: int = Form(...), acti
         elif C.add_to_directory(s, rec, group_id, user):
             flash(request, f"{rec.title} added to {gname}.")
         s.commit()
+        if enrich_now and action in ("move", "add") and enrich_many(s, user, [rid]):
+            request.session["flash"][0] += " Enrich is looking for the missing fields now."
     return back(request, "/contacts")
 
 
@@ -356,6 +415,9 @@ async def move_selected(request: Request):
                 skipped += 1
         s.commit()
         msg = f"{n} contact{'s' if n != 1 else ''} moved to {target.name}. All details and history are kept."
+        if form.get("enrich_now") and n:
+            e = enrich_many(s, user, ids)
+            msg += f" Enrich started for {e} of them to fill the missing fields."
         if skipped:
             msg += f" {skipped} skipped (already only in {target.name}, or not in the chosen directory)."
         flash(request, msg + (_extra_note(s, list(sources), target) if n else ""), not n)

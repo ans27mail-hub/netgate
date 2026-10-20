@@ -61,7 +61,8 @@
       <label data-m="{{ key }}"><input type="checkbox" name="methods" value="{{ key }}" checked> {{ m.name }}</label>
       {% endfor %}
     </fieldset>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
+    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+      <a href="/keywords/build" class="mr-auto" onclick="this.href='/keywords/build?group='+document.getElementById('ask-dir').value">Build from the Keyword Library →</a>
       <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
       <button type="submit" class="btn btn-primary">Start</button>
     </div>
@@ -80,6 +81,29 @@
 </script>
 {% endif %}
 
+{% if user and can(user, 'see_requests') %}
+<dialog id="capdlg" class="capdlg" aria-label="Solve the CAPTCHA"><button type="button" class="btn btn-outline btn-small capclose" onclick="this.closest('dialog').close()">Later</button><iframe id="capframe" title="Solve the CAPTCHA" src="about:blank"></iframe></dialog>
+<script>
+  // v1.0 Solve CAPTCHA Yourself: when a search you started meets a CAPTCHA, this pop-up opens by itself
+  (function () {
+    var dlg = document.getElementById('capdlg'), shown = {};
+    try { shown = JSON.parse(sessionStorage.getItem('capShown') || '{}'); } catch (e) {}
+    function poll() {
+      if (document.hidden || dlg.open) return;
+      fetch('/captcha/mine', {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.popup && !shown[j.popup]) {
+          shown[j.popup] = 1;
+          try { sessionStorage.setItem('capShown', JSON.stringify(shown)); } catch (e) {}
+          document.getElementById('capframe').src = '/captcha/' + j.popup + '?frame=1';
+          dlg.showModal();
+        }
+      }).catch(function () {});
+    }
+    window.addEventListener('message', function (e) { if (e.data === 'captcha-done') setTimeout(function () { dlg.close(); }, 800); });
+    setInterval(poll, 6000); setTimeout(poll, 1500);
+  })();
+</script>
+{% endif %}
 <dialog id="helpdlg" class="helpdlg" aria-label="Help">
   <div id="helpbody"><p class="sub" style="padding:20px">Loading…</p></div>
 </dialog>
@@ -124,6 +148,13 @@
   }, true);
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeMenus(null);
+  });
+  // v1.0: directory cards and rows open with a click anywhere on them (buttons and links inside keep their job)
+  document.addEventListener('click', function (e) {
+    var box = e.target.closest && e.target.closest('[data-href]');
+    if (!box || e.target.closest('a, button, form, input, select, label, summary, details')) return;
+    if (window.getSelection && String(window.getSelection())) return;   // selecting text, not opening
+    window.location = box.dataset.href;
   });
   // tick-all boxes and the selection bar
   function selCount(form) {

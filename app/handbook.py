@@ -27,6 +27,8 @@ FEATURES = {
     "help-center": "Help Center", "developer-tools": "Developer Tools and this Handbook", "crawler": "Crawler and renderer",
     "search-engines": "Search engines (SearXNG engines, status, log)",
     "pages-read": "List of pages read (skip and reuse)",
+    "keyword-library": "Keyword Library, translations and the Search Builder", "browser-search": "Browser search and Solve CAPTCHA Yourself",
+    "company-page": "Company page, Verify, profile and products", "testing-guide": "Testing Guide (checklists, runs, Test Directory)",
 }
 AUTO = {
     "auto-routes": "Pages and addresses (automatic)", "auto-database": "Database tables (automatic)",

@@ -67,6 +67,7 @@
           {% elif movable %}<input type="hidden" name="from_id" value="{{ movable[0].id }}">{% endif %}
           {% if movable %}<button type="submit" name="action" value="move" class="btn btn-outline btn-small" title="Leave {{ movable|map(attribute='name')|join(' / ') if movable|length == 1 else 'the chosen directory' }} and go to the chosen directory. All details and history are kept.">Move Here</button>{% endif %}
           <button type="submit" name="action" value="add" class="btn btn-outline btn-small">{{ 'Also Add Here' if members else '+ Add to Directory' }}</button>
+          <div class="movepreview" hx-get="/records/{{ r.id }}/move-preview" hx-include="closest form" hx-trigger="load, change from:closest form" hx-swap="innerHTML"></div>
         </form>
         {% endif %}
       </div>
@@ -86,6 +87,7 @@
       {% endif %}
       </span>
       {% endif %}
+      {% if not limited %}<a href="/companies/{{ r.id }}" class="btn btn-outline" title="Everything about this company: where each detail came from, Verify, profile and products">Company Page</a>{% endif %}
       {% if not limited and can(user, 'edit') and not edit %}
       <button type="button" class="btn btn-outline" hx-get="/records/{{ r.id }}/open?edit=1{% if ctx_gid %}&from={{ ctx_gid }}{% endif %}" hx-target="#big-{{ r.id }}" hx-swap="outerHTML">Edit</button>
       {% endif %}
@@ -156,11 +158,24 @@
     <div class="fbox"><span>{{ f.name }}</span>
       <b>{% if f.type == 'url' %}<a href="{{ v }}" target="_blank" rel="noopener">{{ domain(v) }}</a>{% elif f.type == 'email' %}<a href="mailto:{{ v }}">{{ v }}</a>{% else %}{{ fmt(r, f) }}{% endif %}</b>
       {% set src = (r.sources or {}).get(f.key) %}
-      <small>{% if src and src.startswith('http') %}<a href="{{ src }}" target="_blank" rel="noopener">{{ domain(src) }}</a>{% else %}{{ src or '' }}{% endif %}</small>
+      {% set vf = ((r.meta or {}).get(f.key) or {}).get('verify') or {} %}
+      <small>{% if src and src.startswith('http') %}<a href="{{ src }}" target="_blank" rel="noopener">{{ domain(src) }}</a>{% else %}{{ src or '' }}{% endif %}{% if vf.status in ('changed', 'not_found', 'gone') and not limited %} · <a href="/companies/{{ r.id }}#f-{{ f.key }}" class="vflag">{{ 'Changed?' if vf.status == 'changed' else 'Check' }}</a>{% endif %}</small>
     </div>
     {% endif %}
     {% endfor %}
   </div>
+  {% if other_details and show_all %}
+  <details class="otherdet" open>
+    <summary><b>Other Details</b> <span class="sub">— kept from other directories; not a field of {{ 'its directory' if not panel_group else panel_group.name }}</span></summary>
+    <div class="fieldgrid">
+      {% for od in other_details %}
+      <div class="fbox other"><span>{{ od.name }}</span><b>{{ od.value }}</b>
+        {% if panel_group and can(user, 'manage_dirs') %}<form method="post" action="/settings/directories/{{ panel_group.id }}/adopt-field" class="inline"><input type="hidden" name="key" value="{{ od.key }}"><input type="hidden" name="back" value="{{ r.id }}"><button type="submit" class="btn btn-outline btn-xs">Add This Field to {{ panel_group.name }}</button></form>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
   {% if limited and not show_all %}<p class="hint" style="margin:10px 0 0">You see the fields your access allows. Someone else found this company first.</p>{% endif %}
   {% endif %}
   {% if show_all %}

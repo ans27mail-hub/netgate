@@ -15,3 +15,6 @@ Settings → **Night Jobs**.
 Order of work each night: night keywords → contacts marked *enrich tonight* → incomplete contacts → new Inbox companies → refreshes.
 
 The night run is a request like any other: it shows on the Requests page, and people allowed to control everyone's requests can pause, resume or stop it. Rejected keywords are skipped. Keep the iMac and the PC awake overnight.
+
+## Verify at night
+**Verify contacts not checked for … months** (0 = off) makes the night run open again the pages each contact's details came from and check they are still there, for at most **Max contacts verified per night**. Changed details wait on the Company page for a person to accept — see *Company page*.

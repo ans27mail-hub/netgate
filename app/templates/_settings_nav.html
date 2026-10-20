@@ -5,6 +5,7 @@
   <a href="/settings/directories/{{ g.id }}" class="{% if group and g.id == group.id %}on{% endif %}"><span>{{ g.name }}</span>{% if counts is defined and counts %}<small>{{ counts.get(g.id, 0) }}</small>{% endif %}</a>
   {% endfor %}
   <a href="/settings/directories/new" class="{% if active_nav == 'dirs' and not group %}on{% endif %} newlink">+ New Directory</a>
+  <a href="/settings/product-categories" class="{% if active_nav == 'prodcats' %}on{% endif %}">Product Categories</a>
   {% endif %}
   {% if can(user, 'manage_tags') %}<span class="caps">Contacts</span>
   <a href="/settings/tags" class="{% if active_nav == 'tags' %}on{% endif %}">Tags</a>{% endif %}

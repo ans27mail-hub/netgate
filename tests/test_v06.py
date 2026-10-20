@@ -62,7 +62,7 @@ check(r.status_code == 200 and "Materials" in r.text and ">Manufacturers<" not i
 
 # ---------- Directories page ----------
 r = c.get("/directories?view=grid")
-check(r.status_code == 200 and r.text.count('class="dircard"') == len(groups), "Directories page: one card per directory")
+check(r.status_code == 200 and r.text.count('class="dircard clickable"') == len(groups), "Directories page: one card per directory")
 check("New directory" in r.text and "waiting in Inbox" in r.text and "% complete" in r.text, "cards show counts and + New directory")
 r = c.get("/directories?view=list&sort=contacts")
 check(r.status_code == 200 and "<table" in r.text, "Directories list view")

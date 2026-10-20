@@ -139,6 +139,21 @@ def _attention(s, user, groups, stats) -> list[dict]:
     if failed and can(user, "see_requests"):
         out.append({"tone": "red", "text": f"{failed} request{'s' if failed != 1 else ''} failed in the last 24 hours",
                     "label": "See Requests", "href": "/requests?tab=failed"})
+    if can(user, "see_requests"):   # v1.0: Browser search waiting for a person / paused after a CAPTCHA
+        from .browser_routes import waiting_for
+        from .. import browser as BR
+        for w in waiting_for(s, user)[:3]:
+            out.append({"tone": "red", "text": f"1 search needs you: CAPTCHA on {BR.label(w.engine)} (request #{w.job_id})",
+                        "label": "Solve", "href": f"/captcha/{w.id}"})
+        bcfg = BR.settings(s)
+        for e in BR.ENGINES:
+            until = BR.paused_until(bcfg, e)
+            if until:
+                item = {"tone": "amber", "text": f"Browser search: {BR.label(e)} is paused until {until:%d %b %H:%M} UTC "
+                                                 "after a CAPTCHA nobody solved"}
+                if can(user, "crawler"):
+                    item.update(label="Search Engines", href="/settings/search-engines#browser")
+                out.append(item)
     for name, st in engines.problems(s)[:3]:   # v0.8: a search engine that blocks or doesn't answer
         what = "is blocking searches" if st["state"] == "blocking" else "isn't answering"
         item = {"tone": "red" if st["state"] == "blocking" else "amber",

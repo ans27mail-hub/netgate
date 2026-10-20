@@ -41,6 +41,8 @@ BLOCK_WORDS = re.compile(r"captcha|access denied|denied|too many|suspend|forbidd
 
 
 def label(name: str) -> str:
+    if name.startswith("browser:"):
+        return LABELS.get(name[8:], name[8:].title()) + " (browser)"
     return LABELS.get(name, name.replace("_", " ").title())
 
 

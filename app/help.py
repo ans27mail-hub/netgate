@@ -9,6 +9,7 @@ Each file starts with a small header:
     ---
 The help is updated with the code (through GitHub), so it always describes the version you run.
 """
+import math
 import os
 import re
 
@@ -71,11 +72,14 @@ def search(query: str, user, limit: int = 5) -> list[dict]:
     q = set(_words(query))
     if not q:
         return []
+    pages = [(p, set(_words(p["title"])), _words(p["body"])) for p in for_user(user)]
+    # rare words count more than words on almost every page (like “search” or “contact”)
+    n = max(1, len(pages))
+    weight = {w: math.log((n + 1) / (1 + sum(1 for _, t, b in pages if w in t or w in b))) + 0.2 for w in q}
     scored = []
-    for p in for_user(user):
-        title = set(_words(p["title"]))
-        body = _words(p["body"])
-        score = 3 * len(q & title) + sum(1 for w in body if w in q) / max(1.0, len(body) ** 0.5)
+    for p, title, body in pages:
+        score = 3 * sum(weight[w] for w in q & title) \
+            + sum(weight[w] for w in body if w in q) / max(1.0, len(body) ** 0.5)
         if score > 0:
             scored.append((score, p))
     scored.sort(key=lambda x: -x[0])

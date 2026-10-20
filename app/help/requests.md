@@ -41,6 +41,8 @@ When a search finished and found nothing, the Requests page says **Nothing found
 
 Your own requests can be edited with *Control own requests*; other people's with *Control everyone's requests*. Pages read by earlier tries are skipped (see [Pages read](/help/pages-read)).
 
+**Pick From the Keyword Library** on the Edit page builds the new search from library words, in any of the directory's languages. Each try shows its language.
+
 ## Contacts are never touched
 Requests are a separate layer. Deleting or rejecting a request **never** changes the contacts it found: their data, sources and Inbox items stay. Each contact keeps a history note of how it was found. Contacts are only removed in the Inbox or on a contact's card, on purpose.
 

@@ -1,7 +1,7 @@
 ---
 title: Directories and the directory page
 order: 20
-updated: v0.8
+updated: v1.0
 ---
 **What it does:** a directory (table `groups`) is a list like *Manufacturers*. The **Directories** page shows them as cards or a list; each opens `/d/<id>` with its contacts, a tab bar to switch directories, and the **Existing Contacts** tab.
 
@@ -20,3 +20,6 @@ updated: v0.8
 
 ## Tests
 `test_v06.py`, `test_v07.py`, `test_v08.py` (delete only when empty).
+
+## v1.0
+Cards and list rows carry `data-href`; the click handler in `base.html` opens them unless the click was on a link, button, form field, label, summary or selected text. The Test Directory (`groups.is_test`) is left out by `common.all_groups()`.

@@ -16,7 +16,7 @@ from ..contacts import METHOD_LABELS, REJECT_REASONS, completeness_of, empty
 from ..db import FIELD_TYPES, Group, InboxItem, Job, Membership, NightRun, Record, User, get_setting
 from ..methods import ENRICH_STEPS, FIELD_SOURCES, METHODS, SOURCE_LABELS
 
-VERSION = "v0.9"
+VERSION = "v1.0"
 BASE = os.path.dirname(os.path.dirname(__file__))
 SECRET = os.environ.get("APP_SECRET_KEY") or hashlib.sha256(os.environ["DATABASE_URL"].encode()).hexdigest()
 templates = Jinja2Templates(directory=os.path.join(BASE, "templates"))
@@ -164,8 +164,12 @@ def back(request: Request, default: str = "/"):
 
 # ---------- directories & visibility ----------
 
-def all_groups(s):
-    return s.scalars(select(Group).order_by(Group.position, Group.id)).all()
+def all_groups(s, with_test: bool = False):
+    """Every directory, in order. The Testing Guide's hidden Test Directory (v1.0) only with with_test."""
+    q = select(Group).order_by(Group.position, Group.id)
+    if not with_test:
+        q = q.where(Group.is_test.is_(False))
+    return s.scalars(q).all()
 
 
 def view_groups(s, user):
@@ -175,7 +179,8 @@ def view_groups(s, user):
 def visible_records_clause(user, groups):
     """SQL condition: contacts this user may see (accepted ones; only their own when set so)."""
     if sees_all_groups(user):
-        cond = Record.accepted_at.is_not(None)
+        test = select(Membership.record_id).join(Group, Group.id == Membership.group_id).where(Group.is_test)
+        cond = and_(Record.accepted_at.is_not(None), Record.id.not_in(test))   # Test Directory contacts stay apart
     else:
         ids = [g.id for g in groups] or [-1]
         cond = Record.id.in_(select(Membership.record_id).where(Membership.group_id.in_(ids)))
@@ -192,6 +197,8 @@ def own_clause(user):
 def inbox_clause(user, groups):
     if sees_all_groups(user):
         cond = InboxItem.status.is_not(None)
+        if not can(user, "testing"):   # Test Directory items only for testers (v1.0)
+            cond = and_(cond, InboxItem.group_id.not_in(select(Group.id).where(Group.is_test)))
     else:
         ids = [g.id for g in groups] or [-1]
         cond = InboxItem.group_id.in_(ids)
@@ -296,7 +303,10 @@ def render(request: Request, s, user, name: str, **ctx):
     for key, default in (("sel_group", None), ("q", ""), ("active_nav", None), ("group", None), ("help", "")):
         ctx.setdefault(key, default)
     d = display_for(s, user)
-    groups = all_groups(s)
+    groups = list(all_groups(s))
+    here = ctx.get("sel_group") or ctx.get("group")
+    if getattr(here, "is_test", False) and can(user, "testing"):   # the Test Directory, only on its own pages
+        groups.append(here)
     theme_css, theme_font = theme_for(s, user)
     return templates.TemplateResponse(request, name, {
         "theme_css": theme_css, "theme_font": theme_font,

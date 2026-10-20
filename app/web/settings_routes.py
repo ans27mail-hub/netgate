@@ -10,7 +10,8 @@ from .. import ai, control, crawl, ebay, methods
 from .. import themes as TH
 from ..auth import can, can_any
 from ..db import (EMPLOYEE_RANGES, FIELD_TYPES, AIServer, Field, Group, InboxItem, Keyword, Membership, NightRun,
-                  PageCache, RejectedKeyword, SessionLocal, User, get_setting, log, set_setting, slugify)
+                  PageCache, Record, RejectedKeyword, SessionLocal, User, get_setting, log, set_setting, slugify)
+from ..keywords import LANGS as KWLANGS
 from ..jobs import NIGHT_DEFAULTS, Ctx, _ask_entries, _enhance_entries, enrich_config, night_settings
 from .common import (CARD_STYLES, DISPLAY_DEFAULTS, Forbidden, all_groups, back, current_user, flash, go, render, require,
                      uploaded_fonts)
@@ -80,6 +81,12 @@ def _methods_from_form(form, old: dict | None = None) -> dict:
     if "directory" in out:
         out["directory"].update({"start_urls": str(form.get("dir_start_urls") or "").strip(),
                                  "sites": str(form.get("dir_sites") or "").strip()})
+    if "browser" in out:
+        out["browser"].update({"want": _int(form.get("browser_want"), 20, 1, 500),
+                               "max_pages": _int(form.get("browser_max_pages"), 5, 1, 20),
+                               "max_minutes": _int(form.get("browser_max_minutes"), 15, 1, 120),
+                               "engines": [e for e in form.getlist("browser_engines")
+                                           if e in ("bing", "duckduckgo", "google")]})
     if not [k for k in out if methods.METHODS[k]["step"] == "find"]:
         out["web"] = {}
     return out
@@ -160,13 +167,27 @@ async def create_directory(request: Request):
         return go(f"/settings/directories/{g.id}")
 
 
+def _other_fields(s, group) -> list:
+    """(key, label) of fields in other directories that a field here could be “Same as”."""
+    out, seen = [], set()
+    for g in all_groups(s):
+        if g.id == group.id:
+            continue
+        for f in g.fields:
+            if f.key not in seen and f.key not in ("city", "country", "website"):
+                seen.add(f.key)
+                out.append((f.key, f"{f.name} ({g.name})"))
+    return sorted(out, key=lambda x: x[1].lower())
+
+
 def _dir_page(request, s, user, group, **extra):
     conn = methods.connections(s)
     owners = s.scalars(select(User).where(User.active).order_by(User.username)).all()
     return render(request, s, user, "dir_edit.html", active_nav="dirs", help="directory-settings", group=group,
-                  owners=owners, block=delete_blockers(s, group.id), econf=enrich_config(group),
+                  owners=owners, block=delete_blockers(s, group.id), econf=enrich_config(group), LANGS=KWLANGS,
+                  other_fields=_other_fields(s, group),
                   count=_settings_ctx(s)["counts"].get(group.id, 0), ebay_sites=ebay.EBAY_SITES, conn=conn,
-                  opts={k: methods.options(group, k) for k in ("ebay", "directory")}, **_settings_ctx(s), **extra)
+                  opts={k: methods.options(group, k) for k in ("ebay", "directory", "browser")}, **_settings_ctx(s), **extra)
 
 
 @router.get("/settings/directories/{gid}", response_class=HTMLResponse)
@@ -199,6 +220,8 @@ async def directory_save(request: Request, gid: int):
             group.name, group.description = name, str(form.get("description") or "").strip()[:500]
             group.position = _int(form.get("position"), 0, -1000, 1000)
             group.search_terms = str(form.get("search_terms", "")).strip()
+            from ..keywords import LANGS
+            group.langs = [x for x in form.getlist("langs") if x in LANGS]
             group.methods = _methods_from_form(form, group.methods)
             oid = str(form.get("owner_id") or "")
             group.owner_id = int(oid) if oid.isdigit() and s.get(User, int(oid)) else None
@@ -368,6 +391,69 @@ def field_save(request: Request, gid: int, fid: int, name: str = Form(...), type
                 f.position = int(position)
             s.commit()
             flash(request, f"Field “{f.name}” saved.")
+    return go(f"/settings/directories/{gid}#fields")
+
+
+@router.post("/settings/directories/{gid}/adopt-field")
+def field_adopt(request: Request, gid: int, key: str = Form(...), back: str = Form("")):
+    """v1.0 Other Details → “Add this field to this directory”: the same data key, with the other field's
+    name and type, so the value already kept on the contacts shows straight away."""
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_dirs")
+        group = s.get(Group, gid)
+        if not group:
+            return go("/settings/directories")
+        if key in {f.key for f in group.fields}:
+            flash(request, "This directory already has that field.")
+        else:
+            src = s.scalar(select(Field).where(Field.key == key, Field.group_id != gid).limit(1))
+            group.fields.append(Field(name=src.name if src else key.replace("_", " ").capitalize(), key=key[:80],
+                                      type=src.type if src else "text", choices=src.choices if src else "",
+                                      words=src.words if src else "", stage="enrich", list=True,
+                                      position=max([f.position for f in group.fields] or [0]) + 1))
+            s.commit()
+            flash(request, f"Field “{src.name if src else key}” added to {group.name}. Values already found show now.")
+    return go(f"/d/{gid}" if back.isdigit() else f"/settings/directories/{gid}#fields")
+
+
+@router.post("/settings/directories/{gid}/fields/{fid}/same-as")
+def field_same_as(request: Request, gid: int, fid: int, other: str = Form("")):
+    """v1.0 “Same as…”: this field shares its data with a field of another directory (e.g. Materials = Products).
+    The field takes over the other field's data key, so both show and fill the same value; existing values are
+    copied across first and nothing is deleted. Choosing nothing goes back to the field's own key."""
+    with SessionLocal() as s:
+        user = current_user(s, request)
+        require(user, "manage_dirs")
+        f, group = s.get(Field, fid), s.get(Group, gid)
+        if not f or f.group_id != gid:
+            return go(f"/settings/directories/{gid}#fields")
+        links = dict(group.links or {})
+        own_key = links.get(str(fid), {}).get("own") if isinstance(links.get(str(fid)), dict) else None
+        own_key = own_key or f.key
+        target = other.strip() or own_key
+        if target != f.key and target in {x.key for x in group.fields if x.id != fid}:
+            flash(request, "This directory already has a field with that data; link a different one.", True)
+            return go(f"/settings/directories/{gid}#fields")
+        if target != f.key:
+            member_ids = select(Membership.record_id).where(Membership.group_id == gid)
+            for rec in s.scalars(select(Record).where(Record.id.in_(member_ids))).all():
+                d, src = dict(rec.data or {}), dict(rec.sources or {})
+                if d.get(f.key) not in (None, "", []) and d.get(target) in (None, "", []):
+                    d[target], src[target] = d[f.key], src.get(f.key, "")
+                    rec.data, rec.sources = d, src
+            old = f.key
+            f.key = target
+            if target == own_key:
+                links.pop(str(fid), None)
+                flash(request, f"“{f.name}” uses its own data again (values found so far stay).")
+            else:
+                links[str(fid)] = {"own": own_key, "same_as": target}
+                flash(request, f"“{f.name}” now shares its data with the field “{target}” of other directories. "
+                               f"Values already in {group.name} were copied across; nothing was deleted.")
+            group.links = links
+            s.commit()
+            log("info", "web", f"Field {f.name} ({old} → {target}) in {group.name} by {user.username}")
     return go(f"/settings/directories/{gid}#fields")
 
 
@@ -586,6 +672,8 @@ async def night_save(request: Request):
             "pause": _int(form.get("pause"), 3, 0, 120),
             "timezone": str(form.get("timezone") or "Asia/Karachi").strip(),
             "enrich_inbox": form.get("enrich_inbox") == "on",
+            "verify_months": _int(form.get("verify_months"), 0, 0, 60),
+            "verify_max": _int(form.get("verify_max"), 30, 0, 2000),
         }
         set_setting(s, "night", cfg)
         for g in all_groups(s):

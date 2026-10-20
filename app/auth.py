@@ -35,6 +35,7 @@ PERM_GROUPS = [
     ]),
     ("Directories", [
         ("manage_dirs", "Manage directories", "Create directories; edit search methods, fields, keywords and AI instructions"),
+        ("manage_keywords", "Manage the keyword library", "Add, change, merge, translate and delete library keywords and categories (anyone who may search can pick from it)"),
         ("manage_tags", "Manage tags", "Create, colour, order, merge and delete tags (anyone who may edit contacts can put tags on them)"),
     ]),
     ("System", [
@@ -55,6 +56,7 @@ PERM_GROUPS = [
         ("tester", "Page tester", "Try a page with a directory's instructions without saving anything"),
         ("training_export", "Training-data export", "Download accept / reject decisions for fine-tuning"),
         ("dev_help", "Developer help", "Technical guides: how NetGate is built and released"),
+        ("testing", "Testing Guide", "Step-by-step test checklists for every feature, test runs, health check and the Test Directory"),
     ]),
 ]
 PERMS = [p for _, items in PERM_GROUPS for p in items]
@@ -70,7 +72,8 @@ DEFAULT_ROLES = [
     (ADMIN, "Everything. This role can't be changed or locked out.", PERM_KEYS),
     ("Manager", "Runs the work: directories, keywords, instructions, night jobs and everyone's searches.",
      ["view", "see_dashboard", "see_inbox", "see_requests", "export", "edit", "delete", "add_contacts", "request", "keywords", "enrich", "enrich_others",
-      "see_methods", "requests_own", "requests_all", "reject_list", "review", "manage_dirs", "manage_tags", "ai",
+      "see_methods", "requests_own", "requests_all", "reject_list", "review", "manage_dirs", "manage_keywords",
+      "manage_tags", "ai",
       "crawler", "night", "display_all", "tester", "debug"]),
     ("Researcher", "Uses the site: runs keywords, enriches, reviews the Inbox and adds contacts.",
      ["view", "see_dashboard", "see_inbox", "see_requests", "export", "edit", "add_contacts", "request", "keywords",
@@ -80,7 +83,7 @@ DEFAULT_ROLES = [
     ("Developer", "Helps build NetGate: testing and debugging tools, no users and no API keys.",
      ["view", "see_dashboard", "see_inbox", "see_requests", "export", "request", "keywords", "enrich", "see_methods",
       "requests_own", "debug", "logs", "tester",
-      "training_export", "dev_help"]),
+      "training_export", "dev_help", "testing"]),
 ]
 
 # v0.4 permission keys -> v0.5 keys (used once, when upgrading users)

@@ -1,7 +1,7 @@
 ---
 title: Dashboard
 order: 10
-updated: v0.7
+updated: v1.0
 ---
 **What it does:** the start page (`/`, also `/dashboard`): numbers at a glance, Needs Attention (with a button each), Running Jobs, Quick Actions, System status, a Directories table and Recent Activity.
 
@@ -21,3 +21,6 @@ updated: v0.7
 
 ## Limits & ideas
 Counts are computed on every load (fine for thousands of contacts). Ideas: disk-space and queue-stuck warnings.
+
+## v1.0
+Tiles `grid-template-columns: repeat(auto-fit, minmax(170px, 1fr))`; `.dash-attn` and `.dash-jobs` `flex: 1 1 340px`. Needs Attention adds waiting CAPTCHAs (`browser_routes.waiting_for`) and paused Browser-search engines.

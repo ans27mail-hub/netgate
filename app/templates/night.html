@@ -34,6 +34,11 @@
         </div>
         <label class="check-inline"><input type="checkbox" name="enrich_inbox" {% if cfg.enrich_inbox %}checked{% endif %}> Also enrich new Inbox companies (so they arrive in the Enriched tab with details filled)</label>
         <span class="hint">A short pause keeps search engines and websites from blocking you. Contacts marked “enrich tonight” are always done first.</span>
+        <div class="row">
+          <label class="field">Verify contacts not checked for (months)<input type="number" name="verify_months" min="0" max="60" value="{{ cfg.verify_months or 0 }}"></label>
+          <label class="field">Max contacts verified per night<input type="number" name="verify_max" min="0" value="{{ cfg.verify_max or 30 }}"></label>
+        </div>
+        <span class="hint">Verify opens the pages a contact's details came from again and checks they are still there. 0 months = don't verify at night. Changes wait on the Company page for a person to accept.</span>
       </section>
 
       <section class="panel" style="display:flex;flex-direction:column;gap:12px">

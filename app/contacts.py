@@ -12,7 +12,7 @@ from .db import (Decision, Field, Group, InboxItem, Membership, Record, User, na
 
 METHOD_LABELS = {"web": "Web search", "directory": "Directory site", "ebay": "eBay search", "etsy": "Etsy search",
                  "amazon": "Amazon search", "manual": "Added by hand", "csv": "CSV import", "recipe": "Custom recipe",
-                 "website": "Company website"}
+                 "website": "Company website", "browser": "Browser search"}
 
 REJECT_REASONS = ["Private seller", "Trader, not manufacturer", "Wrong country", "Not relevant",
                   "Directory / marketplace page", "Duplicate", "Closed / not active"]
@@ -58,6 +58,20 @@ def fields_for(s, record, group=None) -> list[Field]:
 def completeness_of(record, fields) -> tuple[int, int]:
     data = record.data or {}
     return sum(1 for f in fields if not empty(data.get(f.key))), len(fields)
+
+
+def stamp(record, keys, checked: bool = False):
+    """v1.0: remember when these values were found (and, with checked, that they were just confirmed)."""
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    meta = dict(record.meta or {})
+    for k in keys:
+        m = dict(meta.get(k) or {})
+        if not checked:
+            m["at"] = now
+            m.pop("verify", None)
+        m["checked"] = now if checked else m.get("checked")
+        meta[k] = m
+    record.meta = meta
 
 
 def add_history(record, text: str):
@@ -147,7 +161,8 @@ def upsert(s, *, name: str, values: dict, sources: dict, social: dict | None = N
         rec = Record(job_id=job_id, topic=topic[:300], title=name[:300], summary=(summary or "")[:1000], facts="",
                      data=dict(values), sources=dict(sources), social=dict(social or {}), links=dict(links or {}),
                      ext=dict(ext or {}), history=[], notes="", source_url=source_url or "", name_key=nk,
-                     domain=dom, added_by=added_by, found_by=found_by or added_by)
+                     domain=dom, added_by=added_by, found_by=found_by or added_by, meta={}, profile={})
+        stamp(rec, [k for k, v in values.items() if not empty(v)])
         if history:
             add_history(rec, history)
         s.add(rec)
@@ -156,9 +171,13 @@ def upsert(s, *, name: str, values: dict, sources: dict, social: dict | None = N
     data, src, soc = dict(rec.data or {}), dict(rec.sources or {}), dict(rec.social or {})
     lnk, ex = dict(rec.links or {}), dict(rec.ext or {})
     changed = False
+    new_keys = []
     for k, v in values.items():
         if not empty(v) and (empty(data.get(k)) or (overwrite and data.get(k) != v)):
             data[k], src[k], changed = v, sources.get(k, source_url), True
+            new_keys.append(k)
+    if new_keys:
+        stamp(rec, new_keys)
     for target, new in ((soc, social), (lnk, links), (ex, ext)):
         for k, v in (new or {}).items():
             if v and not target.get(k):

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Testing Guide · NetGate{% endblock %}
+{% block content %}
+<div class="shead">
+  <h1>Testing Guide</h1>
+  <span class="sub">Step-by-step checklists to test NetGate {{ VERSION }} in the browser. Mark each step Passed or Failed and add a note; runs are saved per version.</span>
+</div>
+
+<div class="testhub">
+  <section class="panel stack">
+    <h2>Start a Test Run</h2>
+    <form method="post" action="/testing/runs" class="stack">
+      <label class="check-inline"><input type="radio" name="scope" value="new" {% if new_steps %}checked{% else %}disabled{% endif %}> Only what is new in {{ VERSION }} ({{ new_steps }} step{{ '' if new_steps == 1 else 's' }})</label>
+      <label class="check-inline"><input type="radio" name="scope" value="all" {% if not new_steps %}checked{% endif %}> Everything ({{ all_steps }} steps in {{ lists|length }} checklists)</label>
+      <div class="btnrow"><button type="submit" class="btn btn-primary">Start Test Run</button></div>
+    </form>
+    <span class="hint">Tip: test in the Test Directory so real directories stay clean.</span>
+  </section>
+
+  <section class="panel stack">
+    <h2>Quick Health Check</h2>
+    <p class="sub" style="margin:0">Checks the database, queue, browser, search, AI servers, stuck requests and recent errors. It only reads — nothing is changed.</p>
+    <div class="btnrow"><a href="/testing/health" class="btn btn-outline">Run Quick Health Check</a></div>
+  </section>
+
+  <section class="panel stack" id="testdir">
+    <h2>Test Directory</h2>
+    {% if tg %}
+    <p class="sub" style="margin:0"><b>{{ tg.name }}</b> is hidden from everyone without the Testing Guide permission. It has {{ tcount }} contact{{ '' if tcount == 1 else 's' }}{% if tinbox %} and {{ tinbox }} waiting in the Inbox{% endif %}.</p>
+    <div class="btnrow">
+      <a href="/d/{{ tg.id }}" class="btn btn-outline">Open Test Directory</a>
+      {% if can(user, 'manage_dirs') %}<a href="/settings/directories/{{ tg.id }}" class="btn btn-outline">Its Settings</a>{% endif %}
+      <form method="post" action="/testing/test-directory/empty" class="inline" onsubmit="return confirm('Delete every test contact, Inbox item and request of the Test Directory? Contacts that are also in a real directory are kept.')"><button type="submit" class="btn btn-danger">Empty Test Directory</button></form>
+    </div>
+    {% else %}
+    <p class="sub" style="margin:0">A hidden directory to try searches, moves and edits without touching real data.</p>
+    <form method="post" action="/testing/test-directory/create"><button type="submit" class="btn btn-outline">Make the Test Directory</button></form>
+    {% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Test Runs</h2>
+  {% if runs %}
+  <div class="overflow">
+  <table class="t">
+    <thead><tr><th>Run</th><th>Version</th><th>What</th><th>By</th><th>Started</th><th class="c">Passed</th><th class="c">Failed</th><th class="c">Not done</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for r, n in runs %}
+    <tr class="rowlink" data-href="/testing/runs/{{ r.id }}">
+      <td><a href="/testing/runs/{{ r.id }}">#{{ r.id }}</a></td>
+      <td>{{ r.version }}{% if r.version != VERSION %} <span class="sub">(older)</span>{% endif %}</td>
+      <td>{{ 'New in ' ~ r.version if r.scope == 'new' else 'Everything' }}</td>
+      <td>{{ names.get(r.user_id, '—') }}</td>
+      <td class="mono-sm">{{ r.started_at.strftime('%d %b %Y %H:%M') }}</td>
+      <td class="c"><span class="badge green">{{ n['pass'] }}</span></td>
+      <td class="c">{% if n['fail'] %}<span class="badge red">{{ n['fail'] }}</span>{% else %}0{% endif %}</td>
+      <td class="c">{{ n['todo'] }}</td>
+      <td>{{ 'Finished' if r.finished_at else 'Open' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="sub">No test runs yet.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Checklists ({{ lists|length }})</h2>
+  <ul class="testlists">
+    {% for c in lists %}<li><b>{{ c.title }}</b> <span class="sub">· {{ c.steps|length }} step{{ '' if c.steps|length == 1 else 's' }}{% set nn = c.steps|selectattr('since', 'equalto', VERSION)|list|length %}{% if nn %} · <span class="badge amber">{{ nn }} new</span>{% endif %}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}
